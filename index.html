@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GAOGAO 供給量・納品スケジュール</title>
+<style>
+  :root{
+    --green:#2e7d4f; --green-d:#1f5a38; --bg:#f6f7f4; --card:#fff;
+    --ink:#1d2520; --sub:#6b756e; --line:#e6e9e4; --accent:#e8f3ec;
+    --warn:#b9822b; --warnbg:#fbf3e2; --soon:#3a7bd5; --soonbg:#e9f1fc;
+    --off:#9aa39d; --offbg:#f0f1ef;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+       background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1100px;margin:0 auto;padding:0 16px 60px}
+  header{background:linear-gradient(135deg,var(--green),var(--green-d));color:#fff;padding:28px 0 22px;margin-bottom:18px}
+  header .wrap{padding-bottom:0}
+  h1{margin:0;font-size:22px;letter-spacing:.5px}
+  .lead{margin:8px 0 0;font-size:13px;opacity:.92}
+  .meta{margin-top:12px;font-size:12px;opacity:.85;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .reload{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;padding:4px 12px;font-size:12px;cursor:pointer}
+  .tabs{display:flex;gap:8px;margin:18px 0 14px;flex-wrap:wrap}
+  .tab{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
+  .tab.active{background:var(--green);color:#fff;border-color:var(--green)}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .search{flex:1;min-width:200px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:#fff}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:#fff;padding:9px 14px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
+  .seg button.active{background:var(--accent);color:var(--green-d)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:18px}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{padding:10px 10px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{background:#fafbfa;color:var(--sub);font-weight:600;position:sticky;top:0;z-index:2}
+  td.name,th.name{text-align:left;position:sticky;left:0;background:#fff;z-index:1}
+  th.name{z-index:3}
+  .jp{font-weight:700}
+  .sub{color:var(--sub);font-size:11px}
+  .th{color:#8a9a8f;font-size:11px}
+  .val{font-variant-numeric:tabular-nums;font-weight:600}
+  .o{color:#bcae72;font-weight:700}
+  .empty{color:#d3d7d1}
+  .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+  .b-ok{background:var(--accent);color:var(--green-d)}
+  .b-soon{background:var(--soonbg);color:var(--soon)}
+  .b-warn{background:var(--warnbg);color:var(--warn)}
+  .b-off{background:var(--offbg);color:var(--off)}
+  .nextq{display:block;margin-top:3px;font-size:10px;color:var(--sub)}
+  .scroll{overflow-x:auto}
+  .mon.now{background:#fbfdf9;box-shadow:inset 0 0 0 9999px rgba(46,125,79,.035)}
+  th.mon.now{color:var(--green);font-weight:800}
+  .price{font-variant-numeric:tabular-nums;font-weight:700}
+  .price .yen{font-size:11px;color:var(--sub);font-weight:600}
+  .farmhead{font-size:12px;line-height:1.4}
+  .note{font-size:12px;color:var(--sub);line-height:1.7;background:var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:18px;white-space:pre-line}
+  .legend{font-size:11px;color:var(--sub);margin:6px 2px 0;line-height:1.8}
+  .hide{display:none}
+  .state{padding:40px 16px;text-align:center;color:var(--sub);font-size:14px;line-height:1.8}
+  footer{text-align:center;color:var(--sub);font-size:11px;margin-top:30px}
+  @media(max-width:600px){ h1{font-size:18px} th,td{padding:8px 8px} }
+</style>
+</head>
+<body>
+<!-- ====================================================================== -->
+<!--  設定：基本ここだけ。スプレッドシートを差し替えるときはIDを変える     -->
+<!--  ・スプレッドシートは「リンクを知っている全員＝閲覧者」で共有        -->
+<!--  ・タブ名はスプレッドシートのタブ名と一致させる                      -->
+<!-- ====================================================================== -->
+<script>
+  const CONFIG = {
+    SHEET_ID: "1hyNpkwXwF5JQE3pLY3DFhGGEX5228tQMbnBsyar7Ylg",
+    SUPPLY_SHEET: "推定供給（月間）",   // 供給スケジュールのタブ名
+    PRICE_SHEET:  "圃場別価格表",        // 価格表のタブ名
+    WEEKS_PER_MONTH: 3.5                 // 週間＝月間÷この値（自動計算）
+  };
+</script>
+<!-- ====================================================================== -->
+
+<header><div class="wrap">
+  <h1>🌿 GAOGAO 供給量・納品スケジュール</h1>
+  <div class="lead">2026年 推定年間供給スケジュール ／ 圃場別 卸価格表</div>
+  <div class="meta">
+    <span>最終取得: <b id="fetched">—</b>（本日基準で出荷ステータスを自動判定）</span>
+    <button class="reload" id="reload">↻ 最新に更新</button>
+  </div>
+</div></header>
+
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab active" data-view="schedule">📅 供給スケジュール</div>
+    <div class="tab" data-view="price">💴 圃場別 価格表</div>
+  </div>
+
+  <div id="view-schedule">
+    <div class="toolbar">
+      <input class="search" id="q1" placeholder="品目を検索（日本名・呼称・タイ語）">
+      <div class="seg">
+        <button id="m-month" class="active">月間 (kg/月)</button>
+        <button id="m-week">週間 (kg/週)</button>
+      </div>
+    </div>
+    <div class="card"><div class="scroll"><table id="sched"></table></div>
+      <div class="state hide" id="sched-state"></div></div>
+    <div class="legend">◯ ＝ 歩止まり（収穫の立ち上がり・端境期。数量は僅少または不安定）　／　空欄 ＝ 供給なし　／　数値の単位は kg。<br>
+    出荷ステータス: <span class="badge b-ok">出荷可能</span> 開始済 ／ <span class="badge b-soon">来週出荷できます！</span> 7日以内 ／ <span class="badge b-soon">再来週から</span> 14日以内 ／ <span class="badge b-warn">◯月◯日頃から</span> それ以降</div>
+  </div>
+
+  <div id="view-price" class="hide">
+    <div class="note" id="farmnote">同じ品目でも圃場により価格が異なります。空欄（–）はその圃場では現在取扱いがないか、価格未定です。価格は税抜・卸値/kg。</div>
+    <div class="toolbar"><input class="search" id="q2" placeholder="品目を検索"></div>
+    <div class="card"><div class="scroll"><table id="price"></table></div></div>
+    <div class="legend">緑のセル ＝ その圃場で取扱いのある品目。「協議中／仮」など今後変動する場合があります。</div>
+  </div>
+</div>
+
+<footer>GAOGAO × SRBC × クオリア 共有ページ ／ データはGoogleスプレッドシートから自動取得しています。</footer>
+
+<script>
+const MONTHS=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+const today=new Date(); today.setHours(0,0,0,0);
+const nowMonth=today.getMonth();
+let SUPPLY=[], PRICE=[], FARMS=[], NOTE='';
+let mode='monthly';
+
+// ---- minimal CSV parser (handles quoted commas / newlines) ----
+function parseCSV(text){
+  const rows=[]; let row=[], cell='', q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){cell+='"';i++;} else q=false; }
+      else cell+=c;
+    }else{
+      if(c==='"') q=true;
+      else if(c===','){ row.push(cell); cell=''; }
+      else if(c==='\n'){ row.push(cell); rows.push(row); row=[]; cell=''; }
+      else if(c==='\r'){}
+      else cell+=c;
+    }
+  }
+  if(cell!==''||row.length){ row.push(cell); rows.push(row); }
+  return rows;
+}
+function gvizURL(sheet){
+  return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&t=${Date.now()}`;
+}
+async function fetchSheet(sheet){
+  const res=await fetch(gvizURL(sheet),{cache:'no-store'});
+  if(!res.ok) throw new Error('「'+sheet+'」の取得に失敗 ('+res.status+')');
+  return parseCSV(await res.text());
+}
+const cellv=(r,i)=> (r && r[i]!=null) ? String(r[i]).trim() : '';
+function num(v){ if(v==='') return null; const n=parseFloat(String(v).replace(/[,，\s]/g,'')); return isNaN(n)?null:n; }
+function parseDate(s){
+  const m=String(s).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if(!m) return null;
+  const d=new Date(+m[1],+m[2]-1,+m[3]); d.setHours(0,0,0,0); return d;
+}
+
+// ---- build SUPPLY from 推定供給（月間）レイアウト ----
+function buildSupply(rows){
+  const h=rows.findIndex(r=>cellv(r,0)==='呼称');
+  if(h<0) throw new Error('供給シートに「呼称」見出しが見つかりません');
+  const out=[];
+  for(let i=h+1;i<rows.length;i++){
+    const r=rows[i]; if(!cellv(r,0)) break;
+    const monthly=[]; for(let m=0;m<12;m++){ const v=cellv(r,3+m); monthly.push(v===''?null:((v==='◯'||v==='○')?'◯':num(v))); }
+    out.push({call:cellv(r,0), jp:cellv(r,1), th:cellv(r,2), monthly, start:cellv(r,15), next:cellv(r,17)});
+  }
+  return out;
+}
+
+// ---- build PRICE from 圃場別価格表（2×2 ブロック）レイアウト ----
+function buildPrice(rows){
+  const headers=[];
+  rows.forEach((r,ri)=> r.forEach((c,ci)=>{ if(typeof c==='string' && c.includes('圃場') && c.includes('：')) headers.push({ri,ci,name:c.trim()}); }));
+  const bandRows=[...new Set(headers.map(h=>h.ri))].sort((a,b)=>a-b);
+  const farms=[]; const master=new Map(); const order=[];
+  function disp(name){ const p=name.split('：'); const left=p[0].trim(); let right=(p[1]||'').replace(/圃場$/,'').trim();
+    const num=(left.match(/第(\d+)/)||[])[1]; return {num:num?+num:99,title:left,sub:right}; }
+  bandRows.forEach((br,bi)=>{
+    const end = bi+1<bandRows.length ? bandRows[bi+1] : rows.length;
+    headers.filter(h=>h.ri===br).forEach(h=>{
+      const info=disp(h.name); const key='第'+info.num+'圃場';
+      if(!farms.find(f=>f.title===info.title)) farms.push(info);
+      for(let i=br+2;i<end;i++){
+        const r=rows[i]; const call=cellv(r,h.ci+1);
+        if(!call||call==='呼称') continue;
+        if(!master.has(call)){ master.set(call,{call,jp:cellv(r,h.ci+0),en:cellv(r,h.ci+2),prices:{}}); order.push(call); }
+        const p=num(cellv(r,h.ci+4)); if(p!=null) master.get(call).prices[info.title]=p;
+      }
+    });
+  });
+  farms.sort((a,b)=>a.num-b.num);
+  FARMS=farms;
+  return order.map(c=>{ const it=master.get(c); return {call:it.call,jp:it.jp,en:it.en,prices:FARMS.map(f=>it.prices[f.title] ?? null)}; });
+}
+
+function status(s0){
+  if(!s0) return {cls:'b-off',txt:'未定'};
+  const s=parseDate(s0); if(!s) return {cls:'b-off',txt:s0};
+  const diff=Math.round((s-today)/86400000);
+  if(diff<=0) return {cls:'b-ok',txt:'出荷可能'};
+  if(diff<=7) return {cls:'b-soon',txt:'来週出荷できます！'};
+  if(diff<=14) return {cls:'b-soon',txt:'再来週から'};
+  return {cls:'b-warn',txt:(s.getMonth()+1)+'月'+s.getDate()+'日頃から'};
+}
+function cell(v){
+  if(v===null||v===undefined||v==='') return '<span class="empty">–</span>';
+  if(v==='◯') return '<span class="o">◯</span>';
+  return '<span class="val">'+v+'</span>';
+}
+
+function renderSched(){
+  const q=document.getElementById('q1').value.trim().toLowerCase();
+  let h='<thead><tr><th class="name">品目</th>';
+  MONTHS.forEach((m,i)=>{ h+='<th class="mon'+(i===nowMonth?' now':'')+'">'+m+'</th>'; });
+  h+='<th>納品開始</th><th>ステータス</th></tr></thead><tbody>';
+  SUPPLY.forEach(it=>{
+    const hay=(it.jp+it.call+it.th).toLowerCase();
+    if(q && !hay.includes(q)) return;
+    const arr= mode==='weekly'
+      ? it.monthly.map(v=> (typeof v==='number')? Math.round(v/CONFIG.WEEKS_PER_MONTH*10)/10 : v)
+      : it.monthly;
+    const st=status(it.start);
+    const nextq = it.next ? '<span class="nextq">次回可能量: '+it.next+'</span>' : '';
+    h+='<tr><td class="name"><div class="jp">'+it.jp+'</div><div class="sub">'+it.call+'</div><div class="th">'+(it.th||'')+'</div></td>';
+    arr.forEach((v,i)=>{ h+='<td class="mon'+(i===nowMonth?' now':'')+'">'+cell(v)+'</td>'; });
+    h+='<td class="sub">'+(it.start||'–')+'</td><td><span class="badge '+st.cls+'">'+st.txt+'</span>'+nextq+'</td></tr>';
+  });
+  h+='</tbody>';
+  document.getElementById('sched').innerHTML=h;
+}
+function renderPrice(){
+  const q=document.getElementById('q2').value.trim().toLowerCase();
+  let h='<thead><tr><th class="name">品目</th>';
+  FARMS.forEach(f=>{ h+='<th class="farmhead"><b>'+f.title+'</b>'+(f.sub?'<br><span class="sub">'+f.sub+'</span>':'')+'</th>'; });
+  h+='</tr></thead><tbody>';
+  PRICE.forEach(it=>{
+    const hay=(it.jp+it.call+(it.en||'')).toLowerCase();
+    if(q && !hay.includes(q)) return;
+    h+='<tr><td class="name"><div class="jp">'+it.jp+'</div><div class="sub">'+it.call+'</div></td>';
+    it.prices.forEach(p=>{
+      if(p===null||p===undefined){ h+='<td class="empty">–</td>'; }
+      else { h+='<td style="background:var(--accent)"><span class="price">'+Number(p).toLocaleString()+'<span class="yen"> 円</span></span></td>'; }
+    });
+    h+='</tr>';
+  });
+  h+='</tbody>';
+  document.getElementById('price').innerHTML=h;
+}
+
+async function load(){
+  const st=document.getElementById('sched-state');
+  if(CONFIG.SHEET_ID.includes('ここに')){
+    st.classList.remove('hide'); st.innerHTML='⚙️ まだ設定が完了していません。index.html 上部の <b>SHEET_ID</b> にスプレッドシートIDを貼ってください。';
+    document.getElementById('sched').innerHTML=''; return;
+  }
+  st.classList.remove('hide'); st.textContent='読み込み中…'; document.getElementById('sched').innerHTML='';
+  try{
+    const [sup,pri]=await Promise.all([fetchSheet(CONFIG.SUPPLY_SHEET),fetchSheet(CONFIG.PRICE_SHEET)]);
+    SUPPLY=buildSupply(sup); PRICE=buildPrice(pri);
+    st.classList.add('hide');
+    document.getElementById('fetched').textContent=new Date().toLocaleString('ja-JP');
+    renderSched(); renderPrice();
+  }catch(e){
+    st.classList.remove('hide');
+    st.innerHTML='⚠️ データを取得できませんでした。<br>スプレッドシートが「リンクを知っている全員＝閲覧者」で共有されているか、SHEET_ID とタブ名をご確認ください。<br><span class="sub">'+e.message+'</span>';
+  }
+}
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  const v=t.dataset.view;
+  document.getElementById('view-schedule').classList.toggle('hide',v!=='schedule');
+  document.getElementById('view-price').classList.toggle('hide',v!=='price');
+});
+document.getElementById('m-month').onclick=function(){mode='monthly';this.classList.add('active');document.getElementById('m-week').classList.remove('active');renderSched();};
+document.getElementById('m-week').onclick=function(){mode='weekly';this.classList.add('active');document.getElementById('m-month').classList.remove('active');renderSched();};
+document.getElementById('q1').oninput=renderSched;
+document.getElementById('q2').oninput=renderPrice;
+document.getElementById('reload').onclick=load;
+
+load();
+</script>
+</body>
+</html>
