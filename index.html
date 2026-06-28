@@ -25,7 +25,11 @@
   .tab{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
   .tab.active{background:var(--green);color:#fff;border-color:var(--green)}
   .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
-  .search{flex:1;min-width:200px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:#fff}
+  .searchbox{position:relative;flex:1;min-width:200px}
+  .search{width:100%;padding:10px 38px 10px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:#fff}
+  .clr{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:#e6e9e4;color:#5f6862;
+       width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:15px;line-height:1;display:none;align-items:center;justify-content:center;padding:0}
+  .clr.show{display:flex}
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
   .seg button{border:0;background:#fff;padding:9px 14px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
   .seg button.active{background:var(--accent);color:var(--green-d)}
@@ -47,7 +51,7 @@
   .b-warn{background:var(--warnbg);color:var(--warn)}
   .b-off{background:var(--offbg);color:var(--off)}
   .nextq{display:block;margin-top:3px;font-size:10px;color:var(--sub)}
-  .scroll{overflow-x:auto}
+  .scroll{overflow:auto;max-height:72vh}
   .mon.now{background:#fbfdf9;box-shadow:inset 0 0 0 9999px rgba(46,125,79,.035)}
   th.mon.now{color:var(--green);font-weight:800}
   .price{font-variant-numeric:tabular-nums;font-weight:700}
@@ -132,7 +136,7 @@
 
   <div id="view-schedule">
     <div class="toolbar">
-      <input class="search" id="q1" placeholder="品目を検索（日本名・呼称・タイ語）">
+      <div class="searchbox"><input class="search" id="q1" placeholder="品目を検索（日本名・呼称・タイ語）"><button class="clr" id="clr1" aria-label="検索をクリア">×</button></div>
       <div class="seg">
         <button id="m-month" class="active">月間 (kg/月)</button>
         <button id="m-week">週間 (kg/週)</button>
@@ -147,7 +151,7 @@
 
   <div id="view-price" class="hide">
     <div class="note" id="farmnote">同じ品目でも圃場により価格が異なります。空欄（–）はその圃場では現在取扱いがないか、価格未定です。価格は税抜・卸値/kg。</div>
-    <div class="toolbar"><input class="search" id="q2" placeholder="品目を検索"></div>
+    <div class="toolbar"><div class="searchbox"><input class="search" id="q2" placeholder="品目を検索"><button class="clr" id="clr2" aria-label="検索をクリア">×</button></div></div>
     <div class="card"><div class="scroll"><table id="price"></table></div></div>
     <div class="legend">緑のセル ＝ その圃場で取扱いのある品目。「協議中／仮」など今後変動する場合があります。</div>
   </div>
@@ -262,18 +266,19 @@ function renderSched(){
   const q=$('q1').value.trim().toLowerCase();
   let h='<thead><tr><th class="name">品目</th>';
   MONTHS.forEach((m,i)=>{ h+='<th class="mon'+(i===nowMonth?' now':'')+'">'+m+'</th>'; });
-  h+='<th>納品開始</th><th>ステータス</th><th class="ord">発注(kg)</th></tr></thead><tbody>';
+  h+='<th>納品開始</th><th>ステータス</th><th>可能収穫量</th><th class="ord">発注(kg)</th></tr></thead><tbody>';
   SUPPLY.forEach(it=>{
     const hay=(it.jp+it.call+it.th).toLowerCase();
     if(q && !hay.includes(q)) return;
     const arr= mode==='weekly' ? it.monthly.map(v=> (typeof v==='number')? Math.round(v/CONFIG.WEEKS_PER_MONTH*10)/10 : v) : it.monthly;
     const st=status(it.start);
-    const nextq = it.next ? '<span class="nextq">次回可能量: '+esc(it.next)+'</span>' : '';
+    const harvest = it.next ? '<span class="val">'+esc(it.next)+'</span>' : '<span class="empty">–</span>';
     const cur = cart[it.call] ? cart[it.call].qty : '';
     h+='<tr><td class="name"><div class="jp">'+esc(it.jp)+'</div><div class="sub">'+esc(it.call)+'</div><div class="th">'+esc(it.th||'')+'</div></td>';
     arr.forEach((v,i)=>{ h+='<td class="mon'+(i===nowMonth?' now':'')+'">'+cell(v)+'</td>'; });
-    h+='<td class="sub">'+(esc(it.start)||'–')+'</td><td><span class="badge '+st.cls+'">'+st.txt+'</span>'+nextq+'</td>';
-    h+='<td class="ord"><input class="qty'+(cur?' has':'')+'" type="number" min="0" step="0.1" inputmode="decimal" value="'+cur+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'" placeholder="0"></td></tr>';
+    h+='<td class="sub">'+(esc(it.start)||'–')+'</td><td><span class="badge '+st.cls+'">'+st.txt+'</span></td>';
+    h+='<td>'+harvest+'</td>';
+    h+='<td class="ord"><input class="qty'+(cur?' has':'')+'" type="number" min="0" step="1" inputmode="numeric" value="'+cur+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'" placeholder="0"></td></tr>';
   });
   h+='</tbody>';
   $('sched').innerHTML=h;
@@ -313,7 +318,7 @@ function renderCart(){
   let h='';
   items.forEach(it=>{
     h+='<div class="citem"><div class="nm"><b>'+esc(it.jp)+'</b><div class="sub">'+esc(it.call)+'</div></div>'
-      +'<input class="qy" type="number" min="0" step="0.1" value="'+it.qty+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'"> <span class="unit">kg</span>'
+      +'<input class="qy" type="number" min="0" step="1" inputmode="numeric" value="'+it.qty+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'"> <span class="unit">kg</span>'
       +'<button class="rm" data-call="'+esc(it.call)+'">削除</button></div>';
   });
   const opts=CONFIG.COMPANIES.map(c=>'<option>'+esc(c)+'</option>').join('')+'<option>その他</option>';
@@ -430,8 +435,15 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
 });
 $('m-month').onclick=function(){mode='monthly';this.classList.add('active');$('m-week').classList.remove('active');renderSched();};
 $('m-week').onclick=function(){mode='weekly';this.classList.add('active');$('m-month').classList.remove('active');renderSched();};
-$('q1').oninput=renderSched;
-$('q2').oninput=renderPrice;
+function bindSearch(inputId, clrId, render){
+  const inp=$(inputId), clr=$(clrId);
+  const toggle=()=>clr.classList.toggle('show', inp.value.length>0);
+  inp.addEventListener('input',()=>{ toggle(); render(); });
+  clr.addEventListener('click',()=>{ inp.value=''; toggle(); render(); inp.focus(); });
+  toggle();
+}
+bindSearch('q1','clr1',renderSched);
+bindSearch('q2','clr2',renderPrice);
 $('reload').onclick=load;
 $('fab').onclick=openCart;
 $('close').onclick=closeCart;
