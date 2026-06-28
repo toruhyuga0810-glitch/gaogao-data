@@ -66,6 +66,10 @@
   th.ord,td.ord{background:#f3faf5}
   .qty{width:74px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
   .qty.has{border-color:var(--green);background:#f1faf3}
+  .addbtn{border:1px solid var(--green);background:#fff;color:var(--green-d);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:transform .08s}
+  .addbtn:hover{background:var(--accent)}
+  .addbtn:active{transform:scale(.94)}
+  .addbtn.added{background:var(--green);color:#fff;border-color:var(--green)}
   .cart-fab{position:fixed;right:18px;bottom:18px;z-index:50;background:var(--green);color:#fff;border:0;border-radius:999px;
             padding:14px 20px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(31,90,56,.35);display:flex;align-items:center;gap:8px}
   .cart-fab .cnt{background:#fff;color:var(--green-d);border-radius:999px;min-width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;padding:0 6px}
@@ -145,7 +149,7 @@
     <div class="card"><div class="scroll"><table id="sched"></table></div>
       <div class="state hide" id="sched-state"></div></div>
     <div class="legend">◯ ＝ 歩止まり（収穫の立ち上がり・端境期。数量は僅少または不安定）　／　空欄 ＝ 供給なし　／　数値の単位は kg。<br>
-    発注は右端の「発注(kg)」に数量を入れると右下のカートに入ります。<br>
+    発注は「発注(kg)」に数量(1kg単位)を入れて「＋ カートに追加」を押すと右下のカートに入ります。<br>
     出荷ステータス: <span class="badge b-ok">出荷可能</span> 開始済 ／ <span class="badge b-soon">来週出荷できます！</span> 7日以内 ／ <span class="badge b-soon">再来週から</span> 14日以内 ／ <span class="badge b-warn">◯月◯日頃から</span> それ以降</div>
   </div>
 
@@ -266,7 +270,7 @@ function renderSched(){
   const q=$('q1').value.trim().toLowerCase();
   let h='<thead><tr><th class="name">品目</th>';
   MONTHS.forEach((m,i)=>{ h+='<th class="mon'+(i===nowMonth?' now':'')+'">'+m+'</th>'; });
-  h+='<th>納品開始</th><th>ステータス</th><th>可能収穫量</th><th class="ord">発注(kg)</th></tr></thead><tbody>';
+  h+='<th>納品開始</th><th>ステータス</th><th>可能収穫量</th><th class="ord">発注(kg)</th><th class="ord"></th></tr></thead><tbody>';
   SUPPLY.forEach(it=>{
     const hay=(it.jp+it.call+it.th).toLowerCase();
     if(q && !hay.includes(q)) return;
@@ -278,16 +282,15 @@ function renderSched(){
     arr.forEach((v,i)=>{ h+='<td class="mon'+(i===nowMonth?' now':'')+'">'+cell(v)+'</td>'; });
     h+='<td class="sub">'+(esc(it.start)||'–')+'</td><td><span class="badge '+st.cls+'">'+st.txt+'</span></td>';
     h+='<td>'+harvest+'</td>';
-    h+='<td class="ord"><input class="qty'+(cur?' has':'')+'" type="number" min="0" step="1" inputmode="numeric" value="'+cur+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'" placeholder="0"></td></tr>';
+    h+='<td class="ord"><input class="qty'+(cur?' has':'')+'" type="number" min="0" step="1" inputmode="numeric" value="'+cur+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'" placeholder="0"></td>';
+    h+='<td class="ord"><button class="addbtn'+(cur?' added':'')+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'">'+(cur?'✓ 追加済み':'＋ カートに追加')+'</button></td></tr>';
   });
   h+='</tbody>';
   $('sched').innerHTML=h;
-  $('sched').querySelectorAll('.qty').forEach(inp=>{
-    inp.addEventListener('input',e=>{
-      const t=e.target; setQty(t.dataset.call, t.dataset.jp, t.value);
-      t.classList.toggle('has', !!(parseFloat(t.value)>0));
-    });
-  });
+  $('sched').querySelectorAll('.addbtn').forEach(b=> b.addEventListener('click',()=>addFromRow(b)) );
+  $('sched').querySelectorAll('.qty').forEach(inp=> inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){ e.preventDefault(); inp.closest('tr').querySelector('.addbtn').click(); }
+  }));
 }
 function renderPrice(){
   const q=$('q2').value.trim().toLowerCase();
@@ -359,7 +362,27 @@ function syncTableInputs(){
   $('sched').querySelectorAll('.qty').forEach(inp=>{
     const c=inp.dataset.call; const q=cart[c]?cart[c].qty:'';
     inp.value=q; inp.classList.toggle('has',!!q);
+    const btn=inp.closest('tr').querySelector('.addbtn');
+    if(btn){ btn.classList.toggle('added',!!q); btn.textContent= q?'✓ 追加済み':'＋ カートに追加'; }
   });
+}
+// 「カートに追加」ボタン押下時の処理（押した手応え＝トースト＋ボタン変化）
+function addFromRow(btn){
+  const row=btn.closest('tr');
+  const inp=row.querySelector('.qty');
+  const call=btn.dataset.call, jp=btn.dataset.jp;
+  let q=Math.round(parseFloat(inp.value)||0);
+  if(q<=0){
+    if(cart[call]){ delete cart[call]; saveCart(); updateFab(); inp.value=''; inp.classList.remove('has');
+      btn.classList.remove('added'); btn.textContent='＋ カートに追加'; toast(jp+' をカートから削除しました'); }
+    else { toast('数量（kg）を入力してください'); inp.focus(); }
+    return;
+  }
+  inp.value=q; inp.classList.add('has');
+  setQty(call, jp, q);
+  btn.classList.add('added'); btn.textContent='✓ 追加しました！';
+  toast('🛒 '+jp+' '+q+'kg をカートに追加');
+  setTimeout(()=>{ if(cart[call]) btn.textContent='✓ 追加済み'; }, 1200);
 }
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
 
