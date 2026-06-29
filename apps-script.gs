@@ -119,3 +119,22 @@ function setPrice_(sh, data) {
 function doGet() {
   return ContentService.createTextOutput('GAOGAO order endpoint is running.');
 }
+
+/**
+ * 初回セットアップ：Apps Scriptエディタで一度だけ実行してください。
+ * 「注文」タブを作成し、見出し・書式・列幅を整えます。
+ * （上部の関数選択で setup を選び ▶ 実行 → 権限を承認）
+ */
+function setup() {
+  const sh = sheet_(); // 無ければHEADERS付きで作成
+  const hdr = sh.getRange(1, 1, 1, HEADERS.length);
+  hdr.setValues([HEADERS]).setFontWeight('bold').setBackground('#2e7d4f').setFontColor('#ffffff').setHorizontalAlignment('center');
+  sh.setFrozenRows(1);
+  const widths = [150,150,90,90,110,120,120,90,100,100,170,150];
+  HEADERS.forEach(function(h, i){ sh.setColumnWidth(i+1, widths[i] || 110); });
+  // ステータス列に入力規則（プルダウン）
+  const cStatus = colIndex_(sh, 'ステータス');
+  const rule = SpreadsheetApp.newDataValidation().requireValueInList(['受付','承認済み','納品済み','キャンセル'], true).build();
+  sh.getRange(2, cStatus, 1000, 1).setDataValidation(rule);
+  SpreadsheetApp.getActiveSpreadsheet().toast('「注文」タブを準備しました。', 'GAOGAO setup 完了', 6);
+}
