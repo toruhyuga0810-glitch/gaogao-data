@@ -72,6 +72,12 @@
     td.p-start,td.p-stat{position:static;width:auto;min-width:0;border-left:0;box-shadow:none}
     th.p-start,th.p-stat{right:auto;width:auto;min-width:0;border-left:0;box-shadow:none;z-index:2}
   }
+  /* スマホ：右の操作列の固定も解除し、月の数字が見えるようにする（品目だけ左固定） */
+  @media(max-width:560px){
+    td.p-ord,td.p-btn{position:static;width:auto;min-width:0}
+    th.p-ord,th.p-btn{right:auto;width:auto;min-width:0;z-index:2}
+    td.name,th.name{max-width:128px}
+  }
   .price{font-variant-numeric:tabular-nums;font-weight:700}
   .price .yen{font-size:11px;color:var(--sub);font-weight:600}
   .farmhead{font-size:12px;line-height:1.4}
@@ -309,6 +315,17 @@ function renderSched(){
     if(e.key==='Enter'){ e.preventDefault(); inp.closest('tr').querySelector('.addbtn').click(); }
   }));
 }
+// 当月の列を品目列のすぐ右に来るよう横スクロール（左に戻せば過去月も見られる）
+function scrollToCurrentMonth(){
+  const scroll=document.querySelector('#view-schedule .scroll');
+  if(!scroll) return;
+  const monthTh=scroll.querySelector('thead th.mon.now');
+  const nameTh=scroll.querySelector('thead th.name');
+  if(!monthTh||!nameTh) return;
+  const nameW=nameTh.getBoundingClientRect().width;
+  const curLeft=monthTh.getBoundingClientRect().left - scroll.getBoundingClientRect().left;
+  scroll.scrollLeft += (curLeft - nameW);
+}
 function renderPrice(){
   const q=$('q2').value.trim().toLowerCase();
   let h='<thead><tr><th class="name">品目</th>';
@@ -460,6 +477,9 @@ async function load(){
     st.classList.add('hide');
     $('fetched').textContent=new Date().toLocaleString('ja-JP');
     renderSched(); renderPrice(); updateFab();
+    requestAnimationFrame(()=>requestAnimationFrame(scrollToCurrentMonth));
+    setTimeout(scrollToCurrentMonth, 300);
+    if(document.fonts && document.fonts.ready) document.fonts.ready.then(scrollToCurrentMonth);
   }catch(e){
     st.classList.remove('hide');
     st.innerHTML='⚠️ データを取得できませんでした。共有設定（リンクを知っている全員＝閲覧者）と SHEET_ID・タブ名をご確認ください。<br><span class="sub">'+esc(e.message)+'</span>';
