@@ -72,11 +72,19 @@
     td.p-start,td.p-stat{position:static;width:auto;min-width:0;border-left:0;box-shadow:none}
     th.p-start,th.p-stat{right:auto;width:auto;min-width:0;border-left:0;box-shadow:none;z-index:2}
   }
-  /* スマホ：右の操作列の固定も解除し、月の数字が見えるようにする（品目だけ左固定） */
+  /* スマホ：発注+カートは右固定のまま、幅を詰めて月が見える余地を確保。ボタンは2行に折り返す */
   @media(max-width:560px){
-    td.p-ord,td.p-btn{position:static;width:auto;min-width:0}
-    th.p-ord,th.p-btn{right:auto;width:auto;min-width:0;z-index:2}
-    td.name,th.name{max-width:128px}
+    td.name,th.name{max-width:108px}
+    .p{padding-left:5px;padding-right:5px}
+    .p-ord{width:66px;min-width:66px;right:70px}
+    .p-btn{width:70px;min-width:70px;right:0}
+    .qty{width:46px;appearance:textfield;-moz-appearance:textfield}
+    .qty::-webkit-inner-spin-button,.qty::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+    .addbtn{white-space:normal;padding:5px 4px;font-size:10px;line-height:1.2}
+    .addbtn .bl2{display:block}
+    .availq .cap{font-size:8.5px}
+    .availq b{font-size:10px}
+    th,td{padding:8px 5px}
   }
   .price{font-variant-numeric:tabular-nums;font-weight:700}
   .price .yen{font-size:11px;color:var(--sub);font-weight:600}
@@ -289,6 +297,11 @@ function status(s0){
 }
 function cell(v){ if(v===null||v===undefined||v==='') return '<span class="empty">–</span>'; if(v==='◯') return '<span class="o">◯</span>'; return '<span class="val">'+v+'</span>'; }
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// ボタンのラベル（スマホでは2行に折り返す＝.bl2をblock化）
+function addBtnHTML(added){
+  return added ? '<span class="bl1">✓ 追加</span><span class="bl2">済み</span>'
+               : '<span class="bl1">＋ カート</span><span class="bl2">に追加</span>';
+}
 
 function renderSched(){
   const q=$('q1').value.trim().toLowerCase();
@@ -306,7 +319,7 @@ function renderSched(){
     arr.forEach((v,i)=>{ h+='<td class="mon'+(i===nowMonth?' now':'')+'">'+cell(v)+'</td>'; });
     h+='<td class="sub p p-start">'+(esc(it.start)||'–')+'</td><td class="p p-stat"><span class="badge '+st.cls+'">'+st.txt+'</span></td>';
     h+='<td class="ord p p-ord"><input class="qty'+(cur?' has':'')+'" type="number" min="0" step="1" inputmode="numeric" value="'+cur+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'" placeholder="0">'+harvest+'</td>';
-    h+='<td class="ord p p-btn"><button class="addbtn'+(cur?' added':'')+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'">'+(cur?'✓ 追加済み':'＋ カートに追加')+'</button></td></tr>';
+    h+='<td class="ord p p-btn"><button class="addbtn'+(cur?' added':'')+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'">'+addBtnHTML(!!cur)+'</button></td></tr>';
   });
   h+='</tbody>';
   $('sched').innerHTML=h;
@@ -397,7 +410,7 @@ function syncTableInputs(){
     const c=inp.dataset.call; const q=cart[c]?cart[c].qty:'';
     inp.value=q; inp.classList.toggle('has',!!q);
     const btn=inp.closest('tr').querySelector('.addbtn');
-    if(btn){ btn.classList.toggle('added',!!q); btn.textContent= q?'✓ 追加済み':'＋ カートに追加'; }
+    if(btn){ btn.classList.toggle('added',!!q); btn.innerHTML=addBtnHTML(!!q); }
   });
 }
 // 「カートに追加」ボタン押下時の処理（押した手応え＝トースト＋ボタン変化）
@@ -408,15 +421,14 @@ function addFromRow(btn){
   let q=Math.round(parseFloat(inp.value)||0);
   if(q<=0){
     if(cart[call]){ delete cart[call]; saveCart(); updateFab(); inp.value=''; inp.classList.remove('has');
-      btn.classList.remove('added'); btn.textContent='＋ カートに追加'; toast(jp+' をカートから削除しました'); }
+      btn.classList.remove('added'); btn.innerHTML=addBtnHTML(false); toast(jp+' をカートから削除しました'); }
     else { toast('数量（kg）を入力してください'); inp.focus(); }
     return;
   }
   inp.value=q; inp.classList.add('has');
   setQty(call, jp, q);
-  btn.classList.add('added'); btn.textContent='✓ 追加しました！';
+  btn.classList.add('added'); btn.innerHTML=addBtnHTML(true);
   toast('🛒 '+jp+' '+q+'kg をカートに追加');
-  setTimeout(()=>{ if(cart[call]) btn.textContent='✓ 追加済み'; }, 1200);
 }
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
 
@@ -478,8 +490,9 @@ async function load(){
     $('fetched').textContent=new Date().toLocaleString('ja-JP');
     renderSched(); renderPrice(); updateFab();
     requestAnimationFrame(()=>requestAnimationFrame(scrollToCurrentMonth));
-    setTimeout(scrollToCurrentMonth, 300);
+    [120,350,700].forEach(t=>setTimeout(scrollToCurrentMonth,t));
     if(document.fonts && document.fonts.ready) document.fonts.ready.then(scrollToCurrentMonth);
+    window.addEventListener('load',()=>setTimeout(scrollToCurrentMonth,60),{once:true});
   }catch(e){
     st.classList.remove('hide');
     st.innerHTML='⚠️ データを取得できませんでした。共有設定（リンクを知っている全員＝閲覧者）と SHEET_ID・タブ名をご確認ください。<br><span class="sub">'+esc(e.message)+'</span>';
