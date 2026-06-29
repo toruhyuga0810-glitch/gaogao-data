@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GAOGAO 注文確認</title>
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .order{border:1px solid var(--line);border-radius:14px;background:#fff;margin-bottom:14px;overflow:hidden}
+  .oh{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;padding:13px 16px;background:#fafbfa;border-bottom:1px solid var(--line)}
+  .oh .id{font-weight:700}
+  .oh .meta{font-size:12px;color:var(--sub)}
+  .ob{padding:8px 16px 14px}
+  .oactions{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 14px}
+  .note-ok{font-size:12px;color:var(--green-d);background:var(--accent);border-radius:8px;padding:8px 12px;margin:0 16px 14px}
+  td .unit{color:var(--sub);font-size:11px;margin-left:3px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>🌿 GAOGAO 発注ポータル</h1>
+  <div class="lead">注文確認（送信できているか確認・受付中なら修正できます）</div>
+  <nav class="tabs">
+    <a href="index.html">📅 供給・発注</a>
+    <a href="order-confirm.html" class="active">🧾 注文確認</a>
+    <a href="admin.html">✅ 承認(管理)</a>
+    <a href="jisseki.html">📊 納品実績</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <div class="card">
+    <div class="row">
+      <div><div class="muted">会社を選択</div><select id="f-company"><option value="">— 選択 —</option></select></div>
+      <div style="flex:1"></div>
+      <button class="btn ghost sm" id="reload">↻ 更新</button>
+    </div>
+    <div class="muted" style="margin-top:10px">ご自身の会社を選ぶと、これまでの注文と状態（受付／承認済み／納品済み）が表示されます。</div>
+  </div>
+  <div id="state" class="card state">会社を選んでください。</div>
+  <div id="list"></div>
+</div>
+
+<footer>GAOGAO 注文確認 ／ 「注文」タブと連携</footer>
+
+<script src="assets/orders.js"></script>
+<script>
+let ORDERS=[];
+const STATUS_MSG={'受付':'✅ 注文を受け付けています。GAOGAOの承認をお待ちください（受付中は数量変更・キャンセルが可能です）。',
+  '承認済み':'✅ GAOGAOが承認しました。納品準備中です。','納品済み':'🚚 納品が完了しています。','キャンセル':'— この注文はキャンセルされています。'};
+
+function render(){
+  const fc=document.getElementById('f-company').value;
+  const list=fc? ORDERS.filter(o=>o.company===fc):[];
+  const el=document.getElementById('list');
+  if(!fc){ document.getElementById('state').classList.remove('hide'); document.getElementById('state').textContent='会社を選んでください。'; el.innerHTML=''; return; }
+  if(list.length===0){ document.getElementById('state').classList.remove('hide'); document.getElementById('state').innerHTML='この会社の注文はまだありません。<br><span class="muted">「供給・発注」タブからカートで注文できます。</span>'; el.innerHTML=''; return; }
+  document.getElementById('state').classList.add('hide');
+  let h='';
+  list.forEach(o=>{
+    const editable=(o.status==='受付');
+    const rows=o.items.map(it=>`<tr><td><b>${esc(it.jp)}</b> <span class="muted">${esc(it.call)}</span></td>
+      <td class="num">${editable
+        ? `<input class="qy" type="number" min="0" step="1" value="${it.qty}" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><span class="unit">kg</span>`
+        : it.qty+' <span class="unit">kg</span>'}</td></tr>`).join('');
+    h+=`<div class="order" data-id="${esc(o.id)}">
+      <div class="oh"><span class="id">${esc(o.id)}</span> <span class="badge s-${esc(o.status)}">${esc(o.status)}</span>
+        <span class="meta">受信 ${esc(fmtDate(o.received))} ／ 希望納品 ${esc(o.deliveryDate||'未定')} ／ 担当 ${esc(o.person)}</span></div>
+      <div class="note-ok">${STATUS_MSG[o.status]||''}</div>
+      <div class="ob"><table><thead><tr><th>品目</th><th class="num">数量</th></tr></thead><tbody>${rows}</tbody></table>
+        ${o.note?`<div class="muted" style="margin-top:8px">備考: ${esc(o.note)}</div>`:''}</div>
+      ${editable?`<div class="oactions">
+        <button class="btn" data-act="save">数量の変更を保存</button>
+        <button class="btn warn" data-act="cancel">この注文をキャンセル</button></div>`:''}
+    </div>`;
+  });
+  el.innerHTML=h;
+  el.querySelectorAll('.oactions .btn').forEach(b=>b.onclick=()=>act(b));
+}
+
+async function act(btn){
+  const order=btn.closest('.order'); const id=order.dataset.id; const o=ORDERS.find(x=>x.id===id);
+  btn.disabled=true;
+  if(btn.dataset.act==='cancel'){
+    if(!confirm('注文 '+id+' をキャンセルします。よろしいですか？')){ btn.disabled=false; return; }
+    const r=await postAction({action:'setStatus',id,status:'キャンセル'});
+    if(r.ok===false&&r.error==='NO_WEBAPP'){ o.status='キャンセル'; toast('⚠️ Apps Script未接続：画面上のみ反映'); }
+    else if(r.ok){ o.status='キャンセル'; toast('キャンセルしました'); } else { toast('失敗: '+(r.error||'')); btn.disabled=false; return; }
+    render(); return;
+  }
+  // save qty changes
+  const inputs=[...order.querySelectorAll('.qy')]; let changed=0;
+  for(const inp of inputs){
+    const q=Math.max(0,Math.round(parseFloat(inp.value)||0));
+    const it=o.items.find(x=>x.call===inp.dataset.call);
+    if(it && q!==it.qty){
+      const r=await postAction({action:'updateItem',id,call:inp.dataset.call,qty:q});
+      if(r.ok===false&&r.error==='NO_WEBAPP'){ it.qty=q; changed++; } else if(r.ok){ it.qty=q; changed++; }
+    }
+  }
+  // remove zero-qty items locally
+  o.items=o.items.filter(it=>it.qty>0);
+  if(!CONFIG.ORDER_WEBAPP_URL) toast(changed?'⚠️ Apps Script未接続：画面上のみ反映':'変更はありません');
+  else toast(changed?'数量を更新しました':'変更はありません');
+  render();
+}
+
+async function init(){
+  document.getElementById('state').textContent='読み込み中…';
+  try{
+    const items=await loadOrderItems(); ORDERS=groupOrders(items);
+    const sel=document.getElementById('f-company');
+    const companies=[...new Set([...CONFIG.COMPANIES, ...ORDERS.map(o=>o.company).filter(Boolean)])];
+    sel.length=1; companies.forEach(c=>{const op=document.createElement('option');op.textContent=c;sel.appendChild(op);});
+    render();
+  }catch(e){ document.getElementById('state').innerHTML='⚠️ 取得失敗：'+esc(e.message); }
+}
+document.getElementById('f-company').addEventListener('change',render);
+document.getElementById('reload').onclick=init;
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GAOGAO 納品実績</title>
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .charts{display:grid;gap:16px;grid-template-columns:1fr 1fr}
+  .chartbox{position:relative;height:300px}
+  @media(max-width:760px){ .charts{grid-template-columns:1fr} }
+  .filters select{min-width:130px}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>🌿 GAOGAO 発注ポータル</h1>
+  <div class="lead">納品実績・集計（何が・どれだけ・いくら注文されたか）</div>
+  <nav class="tabs">
+    <a href="index.html">📅 供給・発注</a>
+    <a href="order-confirm.html">🧾 注文確認</a>
+    <a href="admin.html">✅ 承認(管理)</a>
+    <a href="jisseki.html" class="active">📊 納品実績</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <div class="card">
+    <div class="row filters">
+      <div><div class="muted">会社</div><select id="f-company"><option value="">すべて</option></select></div>
+      <div><div class="muted">ステータス</div><select id="f-status">
+        <option value="">すべて</option><option>受付</option><option>承認済み</option><option>納品済み</option><option>キャンセル</option></select></div>
+      <div><div class="muted">対象</div><select id="f-count">
+        <option value="all">全ステータス合算</option><option value="ordered">キャンセル以外</option></select></div>
+      <div style="flex:1"></div>
+      <button class="btn ghost sm" id="reload">↻ 更新</button>
+      <button class="btn sm" id="csv">CSV書き出し</button>
+    </div>
+  </div>
+
+  <div id="state" class="card state">読み込み中…</div>
+
+  <div id="report" class="hide">
+    <div class="grid metrics" style="margin-bottom:16px">
+      <div class="metric"><div class="k">注文件数</div><div class="v" id="m-orders">–</div></div>
+      <div class="metric"><div class="k">総数量</div><div class="v" id="m-qty">–</div></div>
+      <div class="metric"><div class="k">推定金額(税抜)</div><div class="v" id="m-value">–</div></div>
+      <div class="metric"><div class="k">品目数</div><div class="v" id="m-items">–</div></div>
+    </div>
+
+    <div class="charts">
+      <div class="card"><h2 style="margin-top:0">品目別 数量(kg)</h2><div class="chartbox"><canvas id="ch-item"></canvas></div></div>
+      <div class="card"><h2 style="margin-top:0">会社別 数量(kg)</h2><div class="chartbox"><canvas id="ch-company"></canvas></div></div>
+    </div>
+    <div class="card"><h2 style="margin-top:0">月別 推移（数量kg）</h2><div class="chartbox"><canvas id="ch-month"></canvas></div></div>
+
+    <div class="card">
+      <h2 style="margin-top:0">品目別 集計</h2>
+      <div class="scroll"><table id="t-item"></table></div>
+      <div class="muted" style="margin-top:8px">推定金額＝数量 × 単価。単価は注文の確定単価、無ければ価格表（取扱いのある最安圃場）を参照。「–」は単価未設定。</div>
+    </div>
+    <div class="card">
+      <h2 style="margin-top:0">会社別 集計</h2>
+      <div class="scroll"><table id="t-company"></table></div>
+    </div>
+  </div>
+</div>
+
+<footer>GAOGAO × SRBC × クオリア ／ データはGoogleスプレッドシート「注文」タブから集計</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="assets/orders.js"></script>
+<script>
+let ITEMS=[], PRICEMAP={}, charts={};
+const yen=n=> (n==null)?'–':'¥'+Math.round(n).toLocaleString();
+const kg=n=> (Math.round((n||0)*10)/10).toLocaleString()+' kg';
+
+async function loadPriceMap(){
+  try{
+    const rows=await fetchSheet(CONFIG.PRICE_SHEET); const map={};
+    rows.forEach((r,ri)=>r.forEach((c,ci)=>{ if(typeof c==='string'&&c.includes('圃場')&&c.includes('：')){
+      // farm block: 呼称 at ci+2 (left) , price ci+5 — scan following rows
+      for(let i=ri+2;i<rows.length;i++){ const rr=rows[i]; const call=(rr[ci+1]||'').trim(); const p=num(rr[ci+4]);
+        if(call && p!=null){ if(map[call]==null||p<map[call]) map[call]=p; } if(rr.some(x=>typeof x==='string'&&x.includes('圃場')&&x.includes('：'))&&i>ri+2) break; }
+    }}));
+    PRICEMAP=map;
+  }catch(e){ PRICEMAP={}; }
+}
+function unitPrice(it){ return (it.price!=null)? it.price : (PRICEMAP[it.call]!=null? PRICEMAP[it.call] : null); }
+
+function filtered(){
+  const c=document.getElementById('f-company').value, s=document.getElementById('f-status').value, mode=document.getElementById('f-count').value;
+  return ITEMS.filter(it=>{
+    if(c && it.company!==c) return false;
+    if(s && it.status!==s) return false;
+    if(mode==='ordered' && it.status==='キャンセル') return false;
+    return true;
+  });
+}
+function render(){
+  const items=filtered();
+  if(items.length===0){ document.getElementById('report').classList.add('hide');
+    document.getElementById('state').classList.remove('hide');
+    document.getElementById('state').innerHTML='対象の注文がありません。<br><span class="muted">注文が入るとここに集計されます（Apps Script接続後）。</span>'; return; }
+  document.getElementById('state').classList.add('hide');
+  document.getElementById('report').classList.remove('hide');
+
+  const byItem={}, byCompany={}, byMonth={}, orderIds=new Set();
+  let totalQty=0, totalVal=0;
+  items.forEach(it=>{
+    orderIds.add(it.id); totalQty+=it.qty;
+    const up=unitPrice(it); const val=(up!=null)? up*it.qty : null; if(val!=null) totalVal+=val;
+    const bi=byItem[it.call]||(byItem[it.call]={jp:it.jp,call:it.call,qty:0,cnt:0,val:0,hasPrice:false});
+    bi.qty+=it.qty; bi.cnt++; if(val!=null){ bi.val+=val; bi.hasPrice=true; }
+    const bc=byCompany[it.company||'(未記入)']||(byCompany[it.company||'(未記入)']={qty:0,val:0,ids:new Set()});
+    bc.qty+=it.qty; if(val!=null) bc.val+=val; bc.ids.add(it.id);
+    const m=ym(it.received||it.deliveryDate); if(m){ const bm=byMonth[m]||(byMonth[m]={qty:0,val:0}); bm.qty+=it.qty; if(val!=null) bm.val+=val; }
+  });
+  document.getElementById('m-orders').textContent=orderIds.size;
+  document.getElementById('m-qty').textContent=kg(totalQty);
+  document.getElementById('m-value').textContent=yen(totalVal);
+  document.getElementById('m-items').textContent=Object.keys(byItem).length;
+
+  const itemRows=Object.values(byItem).sort((a,b)=>b.qty-a.qty);
+  const compRows=Object.entries(byCompany).map(([k,v])=>({company:k,qty:v.qty,val:v.val,orders:v.ids.size})).sort((a,b)=>b.qty-a.qty);
+  const months=Object.keys(byMonth).sort();
+
+  // tables
+  let h='<thead><tr><th>品目</th><th class="num">総数量</th><th class="num">注文回数</th><th class="num">推定金額(税抜)</th></tr></thead><tbody>';
+  itemRows.forEach(r=>{ h+=`<tr><td><b>${esc(r.jp)}</b> <span class="muted">${esc(r.call)}</span></td><td class="num">${kg(r.qty)}</td><td class="num">${r.cnt}</td><td class="num">${r.hasPrice?yen(r.val):'–'}</td></tr>`; });
+  document.getElementById('t-item').innerHTML=h+'</tbody>';
+  let hc='<thead><tr><th>会社</th><th class="num">注文件数</th><th class="num">総数量</th><th class="num">推定金額(税抜)</th></tr></thead><tbody>';
+  compRows.forEach(r=>{ hc+=`<tr><td><b>${esc(r.company)}</b></td><td class="num">${r.orders}</td><td class="num">${kg(r.qty)}</td><td class="num">${r.val?yen(r.val):'–'}</td></tr>`; });
+  document.getElementById('t-company').innerHTML=hc+'</tbody>';
+
+  // charts
+  drawBar('ch-item', itemRows.slice(0,12).map(r=>r.jp), itemRows.slice(0,12).map(r=>Math.round(r.qty*10)/10));
+  drawDoughnut('ch-company', compRows.map(r=>r.company), compRows.map(r=>Math.round(r.qty*10)/10));
+  drawLine('ch-month', months, months.map(m=>Math.round(byMonth[m].qty*10)/10));
+}
+const GREENS=['#2e7d4f','#5dcaa5','#9fe1cb','#3a7bd5','#b9822b','#7f77dd','#639922','#d4537e','#1d9e75','#e8a33d','#5b6ad0','#8a9a8f'];
+function destroy(id){ if(charts[id]) charts[id].destroy(); }
+function drawBar(id,labels,data){ destroy(id); charts[id]=new Chart(document.getElementById(id),{type:'bar',
+  data:{labels,datasets:[{data,backgroundColor:'#2e7d4f',borderRadius:6}]},
+  options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}},maintainAspectRatio:false}});}
+function drawDoughnut(id,labels,data){ destroy(id); charts[id]=new Chart(document.getElementById(id),{type:'doughnut',
+  data:{labels,datasets:[{data,backgroundColor:GREENS}]},options:{plugins:{legend:{position:'right'}},maintainAspectRatio:false}});}
+function drawLine(id,labels,data){ destroy(id); charts[id]=new Chart(document.getElementById(id),{type:'line',
+  data:{labels,datasets:[{data,borderColor:'#2e7d4f',backgroundColor:'rgba(46,125,79,.12)',fill:true,tension:.3}]},
+  options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}},maintainAspectRatio:false}});}
+
+function exportCSV(){
+  const items=filtered();
+  const head=['注文番号','受信日時','会社','担当者','希望納品日','呼称','日本名','数量kg','単価','金額','ステータス'];
+  const lines=[head.join(',')];
+  items.forEach(it=>{ const up=unitPrice(it); const val=up!=null?Math.round(up*it.qty):'';
+    lines.push([it.id,it.received,it.company,it.person,it.deliveryDate,it.call,it.jp,it.qty,up??'',val,it.status].map(x=>`"${String(x==null?'':x).replace(/"/g,'""')}"`).join(',')); });
+  const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='gaogao_実績_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+}
+
+async function init(){
+  document.getElementById('state').textContent='読み込み中…';
+  try{
+    await loadPriceMap();
+    ITEMS=await loadOrderItems();
+    const companies=[...new Set(ITEMS.map(i=>i.company).filter(Boolean))];
+    const sel=document.getElementById('f-company'); companies.forEach(c=>{ const o=document.createElement('option'); o.textContent=c; sel.appendChild(o); });
+    if(ITEMS.length===0){ document.getElementById('state').innerHTML='まだ注文データがありません。<br><span class="muted">カートから注文が入ると、ここに自動集計されます（Apps Script接続後に有効）。</span>'; return; }
+    render();
+  }catch(e){
+    document.getElementById('state').innerHTML='⚠️ 注文データを取得できませんでした。<br><span class="muted">「注文」タブがまだ無いか、共有設定をご確認ください。'+esc(e.message)+'</span>';
+  }
+}
+['f-company','f-status','f-count'].forEach(id=>document.getElementById(id).addEventListener('change',render));
+document.getElementById('reload').onclick=init;
+document.getElementById('csv').onclick=exportCSV;
+init();
+</script>
+</body>
+</html>
