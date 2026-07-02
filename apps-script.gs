@@ -209,6 +209,8 @@ function syncBoard() {
   let last = after;
   msgs.forEach(function(m){
     last = m.id;
+    if (m.pinned) return;                                    // ピン留め（お知らせ）は掲示板に載せない
+    if (m.webhook_id || (m.author && m.author.bot)) return;  // Bot/Webhookの投稿は載せない
     if (!m.content) return;
     let cat = 'その他';
     cats.forEach(function(c){ if (m.content.indexOf(c) >= 0) cat = c; });
