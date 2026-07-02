@@ -224,6 +224,50 @@ function boardSync_(data) {
   return { ok:true, added:added };
 }
 
+/* ===== 掲示板：スプシ直接入力のサポート ===== */
+/**
+ * 一度だけ実行：掲示板タブに入力支援を設定
+ * ・分類＝リスト選択（生育状況/生育遅延/天候/病害虫/その他）
+ * ・投稿者＝リスト選択（自由入力も可。下のリストは編集OK）
+ * ・見出しの体裁・列幅・本文の折り返し
+ */
+function setupBoardInput() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(BOARD_SHEET);
+  if (!sh) { sh = ss.insertSheet(BOARD_SHEET); sh.appendRow(['日時','分類','本文','投稿者','msgId']); }
+  sh.getRange(1,1,1,5).setValues([['日時','分類','本文','投稿者','msgId']])
+    .setFontWeight('bold').setBackground('#2e7d4f').setFontColor('#ffffff').setHorizontalAlignment('center');
+  sh.setFrozenRows(1);
+  sh.setColumnWidth(1,130); sh.setColumnWidth(2,100); sh.setColumnWidth(3,420); sh.setColumnWidth(4,120); sh.setColumnWidth(5,160);
+  // 分類：プルダウン
+  const catRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['生育状況','生育遅延','天候','病害虫','その他'], true).setAllowInvalid(false).build();
+  sh.getRange(2,2,999,1).setDataValidation(catRule);
+  // 投稿者：プルダウン（リスト外の名前も入力可）
+  const whoRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['日向 徹','Niu','Matsumoto','近藤崇穣'], true).setAllowInvalid(true).build();
+  sh.getRange(2,4,999,1).setDataValidation(whoRule);
+  // 本文は折り返し表示
+  sh.getRange(2,3,999,1).setWrap(true);
+  ss.toast('掲示板の入力支援（分類/投稿者リスト・日時自動）を設定しました。', 'GAOGAO', 6);
+}
+
+/** 掲示板タブで本文を入力すると、日時が空なら現在日時を自動記入（自動トリガー・設定不要） */
+function onEdit(e) {
+  try {
+    const sh = e.range.getSheet();
+    if (sh.getName() !== BOARD_SHEET) return;
+    const first = e.range.getRow(), last = first + e.range.getNumRows() - 1;
+    for (let r = Math.max(2, first); r <= last; r++) {
+      const hasBody = String(sh.getRange(r, 3).getValue() || '') !== '';
+      const dateCell = sh.getRange(r, 1);
+      if (hasBody && !dateCell.getValue()) {
+        dateCell.setValue(Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm'));
+      }
+    }
+  } catch (err) {}
+}
+
 /** 旧方式（Apps Scriptから直接Discord取り込み）の10分毎トリガーが残っていたら削除。エディタで1回実行 */
 function cleanupOldBoardTriggers() {
   ScriptApp.getProjectTriggers().forEach(function(t){
