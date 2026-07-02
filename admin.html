@@ -108,7 +108,7 @@ function render(){
         <span class="meta">受信 ${esc(fmtDate(o.received))} ／ 希望納品 ${esc(o.deliveryDate||'未定')}</span>
       </div>
       <div class="ob"><div class="scroll"><table>
-        <thead><tr><th>品目</th><th class="num">数量</th><th class="num">単価(税抜)</th><th class="num">小計</th></tr></thead>
+        <thead><tr><th>品目</th><th class="num">数量</th><th class="num">単価(税抜・任意)</th><th class="num">小計</th></tr></thead>
         <tbody>${rows}</tbody>
         <tfoot><tr><th colspan="3" class="num">合計(税抜)${hasAll?'':'（一部単価未設定）'}</th><th class="num">${yen(sub)}</th></tr></tfoot>
       </table></div>
@@ -118,7 +118,7 @@ function render(){
         <button class="btn ghost" data-act="納品済み">納品済みにする</button>
         <button class="btn warn" data-act="キャンセル">キャンセル</button>
       </div>
-      ${editable?'<div class="muted" style="padding:0 16px 12px">※ 欠品時は数量を変更してから承認してください。承認すると納品可能数が顧客へメール送信されます。</div>':''}</div>`;
+      ${editable?'<div class="muted" style="padding:0 16px 12px">※ 欠品時は数量を変更してから承認してください。承認すると納品可能数が顧客へメール送信されます。単価は空欄でもOK（仕入れ先確定後に入力可）。</div>':''}</div>`;
   });
   el.innerHTML=h;
   el.querySelectorAll('.oactions .btn').forEach(b=>b.onclick=()=>act(b));

@@ -5,7 +5,7 @@ const CONFIG = {
   PRICE_SHEET: "圃場別価格表",
   // Apps Scriptの /exec URL。空のうちは書き込み（承認・修正）はデモ表示のみ
   ORDER_WEBAPP_URL: "https://script.google.com/macros/s/AKfycbygruSomnxo__KoY3BxEbwOrZEcrPVggI1tqOOA6btrJRqfo8mfvUbpT2RX8DZ8_j3e/exec",
-  COMPANIES: ["SRBC", "クオリア"]
+  COMPANIES: ["QOF様", "SRBC様", "GAOGAO（テスト）"]
 };
 
 function parseCSV(text){
