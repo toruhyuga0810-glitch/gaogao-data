@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>使い方ガイド | GAOGAO 発注ポータル</title>
+<link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .toc{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .toc a{display:block;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;text-decoration:none;color:var(--green-d);font-size:13px;font-weight:600}
+  .toc a:hover{background:var(--accent)}
+  section{margin-bottom:34px}
+  section h2{font-size:19px;border-left:5px solid var(--green);padding-left:12px;margin:34px 0 14px}
+  section h3{font-size:15px;margin:20px 0 8px}
+  .step{display:flex;gap:12px;margin:12px 0;align-items:flex-start}
+  .step .no{flex:none;width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+  .step .tx{font-size:14px;line-height:1.8}
+  .step .tx b{color:var(--green-d)}
+  .uix{display:inline-block;vertical-align:middle;margin:0 3px}
+  .btn-sample{display:inline-block;border:1px solid var(--green);background:var(--green);color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700}
+  .btn-sample.ghost{background:#fff;color:var(--green-d)}
+  .note-box{background:var(--accent);border-radius:12px;padding:14px 16px;font-size:13px;line-height:1.8;color:var(--green-d);margin:12px 0}
+  .warn-box{background:#fbf3e2;border-radius:12px;padding:14px 16px;font-size:13px;line-height:1.8;color:#8a5210;margin:12px 0}
+  table.man{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border-radius:10px;overflow:hidden}
+  table.man th,table.man td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  table.man th{background:#fafbfa;color:var(--sub);white-space:nowrap}
+  .flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;font-weight:600;margin:10px 0}
+  .flow .fbox{background:#fff;border:1px solid var(--line);border-radius:9px;padding:8px 13px}
+  .flow .farr{color:var(--sub)}
+  .badge.b-ok{background:var(--okbg);color:var(--ok)}
+  .badge.b-soon{background:var(--soonbg);color:var(--soon)}
+  .badge.b-warn{background:var(--warnbg);color:var(--warn)}
+  .cat{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700}
+  .cat.生育状況{background:#eaf3de;color:#3b6d11}
+  .cat.生育遅延{background:#fbf3e2;color:#8a5210}
+  .cat.天候{background:#e6f1fb;color:#185fa5}
+  .cat.病害虫{background:#faece7;color:#993c1d}
+  .cat.その他{background:#f0f1ef;color:#5f5e5a}
+  .qa dt{font-weight:700;font-size:14px;margin-top:16px;color:var(--green-d)}
+  .qa dd{margin:6px 0 0;font-size:13.5px;line-height:1.8;color:var(--ink)}
+  .top-link{position:fixed;right:18px;bottom:18px;background:var(--green);color:#fff;border-radius:999px;padding:10px 16px;font-size:13px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(31,90,56,.3)}
+  @media print{ header,nav,.top-link,.toc{display:none} body{background:#fff} }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <h1>🌿 GAOGAO 発注ポータル</h1>
+  <div class="lead">使い方ガイド — 発注から納品まで、このページを見ればぜんぶ分かります</div>
+  <nav class="tabs">
+    <a href="index.html">ホーム</a>
+    <a href="hatchu.html">供給・発注</a>
+    <a href="order-confirm.html">注文確認</a>
+    <a href="jisseki.html">納品実績</a>
+    <a href="keiziban.html">掲示板</a>
+    <a href="admin.html">承認(管理)</a>
+  </nav>
+</div></header>
+
+<div class="wrap" id="top">
+
+  <div class="card">
+    <div class="muted" style="margin-bottom:10px">目次（クリックで移動）</div>
+    <div class="toc">
+      <a href="#about">1. このサイトでできること</a>
+      <a href="#order">2. 発注のしかた</a>
+      <a href="#after">3. 発注後の流れ</a>
+      <a href="#confirm">4. 注文の確認・変更・キャンセル</a>
+      <a href="#board">5. 掲示板の見かた・書きかた</a>
+      <a href="#jisseki">6. 納品実績の見かた</a>
+      <a href="#admin">7. GAOGAO向け：承認のしかた</a>
+      <a href="#faq">8. よくある質問</a>
+    </div>
+  </div>
+
+  <section id="about">
+    <h2>1. このサイトでできること</h2>
+    <p style="font-size:14px;line-height:1.9">GAOGAO発注ポータルは、タイ野菜の<b>供給スケジュールの確認・発注・注文管理・生育情報の共有</b>をひとつにまとめたサイトです。データはGoogleスプレッドシートと連動しており、常に最新の情報が表示されます。</p>
+    <table class="man">
+      <tr><th>ページ</th><th>できること</th><th>対象</th></tr>
+      <tr><td><b>ホーム</b></td><td>入口ページ。本日発注可能な品目・最新のお知らせを表示</td><td>全員</td></tr>
+      <tr><td><b>供給・発注</b></td><td>年間供給スケジュール・圃場別価格の確認、カートで発注</td><td>QOF様・SRBC様</td></tr>
+      <tr><td><b>注文確認</b></td><td>送信した注文の状態確認。受付中は数量変更・キャンセル</td><td>QOF様・SRBC様</td></tr>
+      <tr><td><b>納品実績</b></td><td>品目別・会社別・月別の集計、グラフ、CSV出力</td><td>全員</td></tr>
+      <tr><td><b>掲示板</b></td><td>生育状況・生育遅延・天候・病害虫のお知らせ閲覧</td><td>全員</td></tr>
+      <tr><td><b>承認(管理)</b></td><td>受注の承認・数量調整・単価入力（パスワード保護）</td><td>GAOGAOのみ</td></tr>
+    </table>
+  </section>
+
+  <section id="order">
+    <h2>2. 発注のしかた</h2>
+
+    <h3>2-1. 供給表の見かた</h3>
+    <p style="font-size:14px;line-height:1.8">「供給・発注」ページの表は、品目ごとの<b>月別供給量（kg）</b>を表しています。</p>
+    <table class="man">
+      <tr><th>表示</th><th>意味</th></tr>
+      <tr><td><b>数字</b>（例：30）</td><td>その月の推定供給量（kg）。「週間」に切り替えると週あたりの量になります</td></tr>
+      <tr><td><b>◯</b></td><td>歩止まり（収穫の立ち上がり・端境期）。数量は僅少または不安定</td></tr>
+      <tr><td><b>–（空欄）</b></td><td>供給なし</td></tr>
+      <tr><td><span class="badge b-ok uix">出荷可能</span></td><td>いま発注できます（発注欄とカートボタンが表示されます）</td></tr>
+      <tr><td><span class="badge b-soon uix">来週出荷できます！</span> <span class="badge b-warn uix">◯月◯日頃から</span></td><td>まだ発注できません。納品開始日になると自動で「出荷可能」に変わります</td></tr>
+    </table>
+    <div class="note-box">表の右上の<b>表示順メニュー</b>で「発注可能を上に／発注可能のみ／シート順／品目名順」を切り替えられます。左端の品目と右端の発注欄は固定表示なので、月を横スクロールしても迷いません。</div>
+
+    <h3>2-2. カートに入れて注文する</h3>
+    <div class="step"><div class="no">1</div><div class="tx"><b>「供給・発注」ページ</b>を開き、注文したい品目の<b>発注(kg)</b>欄に数量を入力します（1kg単位）</div></div>
+    <div class="step"><div class="no">2</div><div class="tx"><span class="btn-sample ghost uix">＋ カートに追加</span>を押します。右下のカートに追加されます</div></div>
+    <div class="step"><div class="no">3</div><div class="tx">品目をすべて入れ終えたら、右下の<span class="btn-sample uix">カート</span>ボタンを押してカートを開きます</div></div>
+    <div class="step"><div class="no">4</div><div class="tx"><b>会社</b>（QOF様／SRBC様）と<b>ご担当者</b>を選び、<b>希望納品日</b>を入れます（備考は任意）</div></div>
+    <div class="step"><div class="no">5</div><div class="tx"><span class="btn-sample uix">この内容で注文する</span>を押すと、<b>注文が送信されます</b>（この時点でGAOGAOに通知が届きます）</div></div>
+    <div class="step"><div class="no">6</div><div class="tx">続けて<b>発注確認メールの下書き</b>が自動で開きます。宛先（To/CC）と本文は入力済みなので、<b>そのまま送信</b>してください（従来のメール発注の控えになります）</div></div>
+    <div class="warn-box">メール下書きを送らなくても注文自体は完了していますが、<b>従来どおりの記録を残すため送信を推奨</b>します。</div>
+  </section>
+
+  <section id="after">
+    <h2>3. 発注後の流れ</h2>
+    <div class="flow">
+      <span class="fbox">注文送信</span><span class="farr">→</span>
+      <span class="fbox"><span class="badge s-受付">受付</span></span><span class="farr">→</span>
+      <span class="fbox">GAOGAOが内容確認</span><span class="farr">→</span>
+      <span class="fbox"><span class="badge s-承認済み">承認済み</span>＋納品可能数メール</span><span class="farr">→</span>
+      <span class="fbox"><span class="badge s-納品済み">納品済み</span></span>
+    </div>
+    <div class="step"><div class="no">1</div><div class="tx">注文するとステータスは<span class="badge s-受付 uix">受付</span>になります。この間は数量変更・キャンセルができます</div></div>
+    <div class="step"><div class="no">2</div><div class="tx">GAOGAOが在庫・収穫状況を確認して承認すると、<b>「納品可能数のご連絡」メール</b>が自動で届きます。欠品などがある場合は、調整後の数量が記載されます</div></div>
+    <div class="step"><div class="no">3</div><div class="tx">ご不明点は<b>そのメールに返信</b>してください（GAOGAOの事業用メールに届きます）</div></div>
+  </section>
+
+  <section id="confirm">
+    <h2>4. 注文の確認・変更・キャンセル</h2>
+    <div class="step"><div class="no">1</div><div class="tx"><b>「注文確認」ページ</b>を開き、<b>会社を選択</b>します</div></div>
+    <div class="step"><div class="no">2</div><div class="tx">これまでの注文と状態（受付／承認済み／納品済み）が一覧表示されます</div></div>
+    <div class="step"><div class="no">3</div><div class="tx"><span class="badge s-受付 uix">受付</span>の注文は、<b>数量の変更</b>（変更して「数量の変更を保存」）や<b>キャンセル</b>ができます</div></div>
+    <div class="warn-box"><span class="badge s-承認済み uix">承認済み</span>以降の変更は画面からはできません。お手数ですが<b>メールでご連絡ください</b>。</div>
+  </section>
+
+  <section id="board">
+    <h2>5. 掲示板の見かた・書きかた</h2>
+    <h3>見かた（全員）</h3>
+    <p style="font-size:14px;line-height:1.8">「掲示板」ページには、圃場からの<b>生育状況・天候・遅延・病害虫</b>のお知らせが新しい順に表示されます。分類で絞り込みもできます。ホーム画面にも最新3件が表示されます。</p>
+    <p>
+      <span class="cat 生育状況 uix">生育状況</span>
+      <span class="cat 生育遅延 uix">生育遅延</span>
+      <span class="cat 天候 uix">天候</span>
+      <span class="cat 病害虫 uix">病害虫</span>
+      <span class="cat その他 uix">その他</span>
+    </p>
+    <h3>書きかた（GAOGAO・圃場メンバー）</h3>
+    <div class="step"><div class="no">1</div><div class="tx">Discordの<b>「＜掲示板＞天候・生育エラー・遅延」チャンネル</b>に投稿します（約10分でWebに自動反映）</div></div>
+    <div class="step"><div class="no">2</div><div class="tx">投稿の<b>冒頭に分類ワード</b>を付けると色分けされます。例：<b>「天候：台風接近のため今週の収穫は前倒しします」</b></div></div>
+    <div class="note-box">分類ワードは「生育状況：」「生育遅延：」「天候：」「病害虫：」の4つ。どれも付けない投稿は「その他」（グレー）になります。1投稿1トピックでお願いします。このチャンネルへの返信・雑談は非推奨です。</div>
+  </section>
+
+  <section id="jisseki">
+    <h2>6. 納品実績の見かた</h2>
+    <div class="step"><div class="no">1</div><div class="tx"><b>「納品実績」ページ</b>で、注文の集計が見られます（注文件数・総数量・推定金額・品目数）</div></div>
+    <div class="step"><div class="no">2</div><div class="tx"><b>会社・ステータス</b>で絞り込みできます。グラフは品目別・会社別・月別推移の3種類</div></div>
+    <div class="step"><div class="no">3</div><div class="tx"><span class="btn-sample uix">CSV書き出し</span>で明細をダウンロードできます（Excel等で開けます）</div></div>
+    <div class="note-box">推定金額は、承認時に入力された単価（未入力の場合は価格表の参考値）で計算されます。</div>
+  </section>
+
+  <section id="admin">
+    <h2>7. GAOGAO向け：承認のしかた</h2>
+    <div class="step"><div class="no">1</div><div class="tx">注文が入ると<b>メール（事業用）とDiscord「発注・受注-通知」</b>に自動通知が届きます</div></div>
+    <div class="step"><div class="no">2</div><div class="tx"><b>「承認(管理)」ページ</b>を開き、パスワードを入力します（一度入力すると同じ端末では次回から自動で開きます）</div></div>
+    <div class="step"><div class="no">3</div><div class="tx">「受付（要対応）」の注文内容を確認します。<b>全量納品できる場合はそのまま</b>、<b>欠品がある場合は数量を修正</b>します（0にするとその品目は削除）</div></div>
+    <div class="step"><div class="no">4</div><div class="tx">単価は<b>任意</b>です（仕入れ先確定後の入力でOK。入力すると承認メールと実績金額に反映）</div></div>
+    <div class="step"><div class="no">5</div><div class="tx"><span class="btn-sample uix">この内容で承認（顧客へメール）</span>を押すと、<b>納品可能数のご連絡メールがお客様へ自動送信</b>されます</div></div>
+    <div class="step"><div class="no">6</div><div class="tx">納品が完了したら<span class="btn-sample ghost uix">納品済みにする</span>を押します（実績に反映）</div></div>
+    <div class="warn-box">パスワードは社内のみで共有してください。画面の「ロック」ボタンでいつでも再ロックできます。</div>
+  </section>
+
+  <section id="faq">
+    <h2>8. よくある質問</h2>
+    <dl class="qa">
+      <dt>Q. 表示が古い気がする</dt>
+      <dd>A. 各ページの「↻ 更新」ボタンを押すか、ページを再読み込みしてください。スプレッドシート更新後、反映まで数分かかることがあります。</dd>
+      <dt>Q. 発注したいのにボタンが出ない品目がある</dt>
+      <dd>A. その品目はまだ納品開始前です（「来週出荷できます！」等のステータスが表示されます）。納品開始日になると自動で発注できるようになります。</dd>
+      <dt>Q. 注文後に数量を変えたい／キャンセルしたい</dt>
+      <dd>A. ステータスが「受付」の間は「注文確認」ページから変更・キャンセルできます。「承認済み」以降はメールでご連絡ください。</dd>
+      <dt>Q. メールが届かない</dt>
+      <dd>A. 迷惑メールフォルダをご確認ください。見つけたら「迷惑メールではない」を押していただくと、次回から受信トレイに届きます。</dd>
+      <dt>Q. 金額はいつ確定しますか？</dt>
+      <dd>A. 発注時は数量のみのリクエストです。単価・金額はGAOGAOの承認時（または後日）に確定し、ご連絡します。圃場（仕入れ先）により単価が異なるためです。</dd>
+      <dt>Q. スマホでも使えますか？</dt>
+      <dd>A. 使えます。発注表は品目と発注欄が固定表示され、月ごとの数字は横スクロールで確認できます。</dd>
+    </dl>
+  </section>
+
+  <div class="card" style="text-align:center">
+    <div style="font-size:14px;line-height:1.9">その他ご不明な点は、GAOGAO（日向）までメールでお問い合わせください。<br>
+    <b>toruhyuga@thaisupermarket99.com</b></div>
+  </div>
+
+</div>
+<a class="top-link" href="#top">↑ 目次へ</a>
+<footer>GAOGAO 発注ポータル 使い方ガイド ／ 最終更新 2026年7月</footer>
+</body>
+</html>
