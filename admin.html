@@ -49,6 +49,7 @@
       <button class="btn" id="gate-go">開く</button>
     </div>
     <div class="gate-err" id="gate-err"></div>
+    <div class="muted" style="font-size:12px;margin-top:8px">一度入力すると、この端末では次回から自動で開きます（解除は画面内の「🔒ロック」）。</div>
     <div class="exit">GAOGAO以外の方はこちらへ →
       <a href="index.html">供給・発注</a> ／ <a href="order-confirm.html">注文確認</a> ／ <a href="jisseki.html">納品実績</a>
     </div>
@@ -162,7 +163,7 @@ async function act(btn){
   const r=await postAction({action:'setStatus',id,status,token:tk});
   if(r.ok===false && r.error==='NO_WEBAPP'){ o.status=status; toast('⚠️ Apps Script未接続：画面上のみ反映（保存されません）'); }
   else if(r.ok){ o.status=status; toast('「'+status+'」に更新しました'); }
-  else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); sessionStorage.removeItem('gaogao_admin_token'); location.reload(); return; }
+  else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); localStorage.removeItem('gaogao_admin_token'); location.reload(); return; }
   else { toast('更新に失敗: '+(r.error||'')); btn.disabled=false; return; }
   render();
 }
@@ -189,16 +190,16 @@ async function tryAuth(pw){ return await postAction({action:'auth',token:pw}); }
 function showContent(){ $('lockcard').classList.add('hide'); $('admin-content').classList.remove('hide'); }
 function showLock(){ $('admin-content').classList.add('hide'); $('lockcard').classList.remove('hide'); $('gate-pw').value=''; $('gate-pw').focus(); }
 function unlock(pw){ ADMIN_TOKEN_VAL=pw; showContent(); init(); }
-function lockAgain(){ sessionStorage.removeItem(TOKEN_KEY); ADMIN_TOKEN_VAL=''; showLock(); }
+function lockAgain(){ localStorage.removeItem(TOKEN_KEY); ADMIN_TOKEN_VAL=''; showLock(); }
 async function gateInit(){
   if(!CONFIG.ORDER_WEBAPP_URL){ showContent(); init(); return; } // 未接続時はデモ表示
-  const saved=sessionStorage.getItem(TOKEN_KEY);
+  const saved=localStorage.getItem(TOKEN_KEY);
   if(saved){ const r=await tryAuth(saved); if(r && r.ok===true){ unlock(saved); return; } }
   const go=$('gate-go'), pw=$('gate-pw'), err=$('gate-err');
   async function submit(){
     go.disabled=true; err.textContent='確認中…';
     const r=await tryAuth(pw.value);
-    if(r && r.ok===true){ sessionStorage.setItem(TOKEN_KEY,pw.value); err.textContent=''; unlock(pw.value); }
+    if(r && r.ok===true){ localStorage.setItem(TOKEN_KEY,pw.value); err.textContent=''; unlock(pw.value); }
     else if(r && r.error && String(r.error).indexOf('unknown action')>=0){
       err.innerHTML='⚠️ サーバー(Apps Script)が未更新です。<br>コードを更新して「新バージョンで再デプロイ」してください。'; go.disabled=false; }
     else { err.textContent='パスワードが違います'; go.disabled=false; }
