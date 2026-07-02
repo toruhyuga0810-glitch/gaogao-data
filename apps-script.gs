@@ -16,7 +16,7 @@
  * 列：注文番号 / 受信日時 / 会社 / 担当者 / 希望納品日 / 呼称 / 日本名 / 数量(kg) / 単価(税抜) / ステータス / 備考 / 更新日時
  */
 
-const NOTIFY_EMAIL = 'toruhyuga0810@gmail.com';   // 注文通知メールの宛先（GAOGAO）
+const NOTIFY_EMAIL = 'toruhyuga@thaisupermarket99.com';   // 注文通知メールの宛先（GAOGAO事業用）
 const ADMIN_TOKEN  = 'gaogao2026';                // ★承認ページのパスワード（好きな文字列に変更してください）
 const ORDER_SHEET   = '注文';
 const HEADERS = ['注文番号','受信日時','会社','担当者','希望納品日','呼称','日本名','数量(kg)','単価(税抜)','ステータス','備考','更新日時'];
