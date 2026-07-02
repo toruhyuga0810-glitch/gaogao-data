@@ -17,6 +17,7 @@
  */
 
 const NOTIFY_EMAIL = 'toruhyuga0810@gmail.com';   // 注文通知メールの宛先
+const ADMIN_TOKEN  = 'gaogao2026';                // ★承認ページのパスワード（好きな文字列に変更してください）
 const ORDER_SHEET   = '注文';
 const HEADERS = ['注文番号','受信日時','会社','担当者','希望納品日','呼称','日本名','数量(kg)','単価(税抜)','ステータス','備考','更新日時'];
 
@@ -39,6 +40,12 @@ function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     const action = data.action || 'order';
+    // パスワード確認用（承認ページのログイン）
+    if (action === 'auth') return json_({ ok: data.token === ADMIN_TOKEN });
+    // 承認系の操作（単価設定・承認済み/納品済みへの変更）は管理者トークン必須
+    const needToken = (action === 'setPrice') ||
+                      (action === 'setStatus' && (data.status === '承認済み' || data.status === '納品済み'));
+    if (needToken && data.token !== ADMIN_TOKEN) return json_({ ok:false, error:'unauthorized' });
     const sh = sheet_();
     if (action === 'order')      return json_(recordOrder_(sh, data));
     if (action === 'setStatus')  return json_(setStatus_(sh, data));
