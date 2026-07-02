@@ -15,25 +15,16 @@
   .oactions{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 14px}
   .price-in{width:90px;text-align:right}
   td .unit{color:var(--sub);font-size:11px;margin-left:3px}
-  .gate{position:fixed;inset:0;background:rgba(18,32,24,.6);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
-  .gatebox{background:#fff;border-radius:16px;padding:28px 24px;max-width:340px;width:100%;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3)}
-  .gatebox h2{margin:6px 0 4px}
-  .gatebox input{width:100%;margin:14px 0 10px}
-  .gatebox .btn{width:100%}
-  .gate-err{color:var(--cancel);font-size:13px;margin-top:10px;min-height:18px}
+  .lockcard{text-align:center;padding:34px 22px;max-width:420px;margin:6px auto}
+  .lockcard h2{margin:8px 0 4px}
+  .lockrow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+  .lockcard input{width:230px;text-align:center;letter-spacing:1px}
+  .gate-err{color:var(--cancel);font-size:13px;margin-top:12px;min-height:18px}
+  .lockcard .exit{margin-top:18px;font-size:12px;color:var(--sub)}
+  .lockcard .exit a{color:var(--green-d)}
 </style>
 </head>
 <body>
-<div class="gate" id="gate">
-  <div class="gatebox">
-    <div style="font-size:34px">🌱</div>
-    <h2>承認画面（GAOGAO専用）</h2>
-    <div class="muted">パスワードを入力してください</div>
-    <input id="gate-pw" type="text" placeholder="パスワード" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-    <button class="btn" id="gate-go">開く</button>
-    <div class="gate-err" id="gate-err"></div>
-  </div>
-</div>
 <header class="h-admin"><div class="wrap">
   <h1>🌿 GAOGAO 発注ポータル</h1>
   <div class="lead">承認・受付管理（GAOGAO用）</div>
@@ -46,19 +37,37 @@
 </div></header>
 
 <div class="wrap">
-  <div class="card">
-    <div class="row">
-      <div><div class="muted">ステータス</div><select id="f-status">
-        <option value="受付">受付（要対応）</option><option value="">すべて</option>
-        <option>承認済み</option><option>納品済み</option><option>キャンセル</option></select></div>
-      <div><div class="muted">会社</div><select id="f-company"><option value="">すべて</option></select></div>
-      <div style="flex:1"></div>
-      <button class="btn ghost sm" id="reload">↻ 更新</button>
+  <!-- コンテンツ・ロック（パスワードで中身を解錠。ヘッダーのタブで他ページへ移動できます） -->
+  <div id="lockcard" class="card lockcard">
+    <div style="font-size:36px">🔒</div>
+    <h2>承認・受付管理（GAOGAO専用）</h2>
+    <div class="muted">このページの内容を見るにはパスワードが必要です。</div>
+    <div class="lockrow">
+      <input id="gate-pw" type="text" placeholder="パスワード" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <button class="btn" id="gate-go">開く</button>
     </div>
-    <div id="conn" class="muted" style="margin-top:10px"></div>
+    <div class="gate-err" id="gate-err"></div>
+    <div class="exit">GAOGAO以外の方はこちらへ →
+      <a href="index.html">供給・発注</a> ／ <a href="order-confirm.html">注文確認</a> ／ <a href="jisseki.html">納品実績</a>
+    </div>
   </div>
-  <div id="state" class="card state">読み込み中…</div>
-  <div id="list"></div>
+
+  <div id="admin-content" class="hide">
+    <div class="card">
+      <div class="row">
+        <div><div class="muted">ステータス</div><select id="f-status">
+          <option value="受付">受付（要対応）</option><option value="">すべて</option>
+          <option>承認済み</option><option>納品済み</option><option>キャンセル</option></select></div>
+        <div><div class="muted">会社</div><select id="f-company"><option value="">すべて</option></select></div>
+        <div style="flex:1"></div>
+        <button class="btn ghost sm" id="lock-again">🔒 ロック</button>
+        <button class="btn ghost sm" id="reload">↻ 更新</button>
+      </div>
+      <div id="conn" class="muted" style="margin-top:10px"></div>
+    </div>
+    <div id="state" class="card state">読み込み中…</div>
+    <div id="list"></div>
+  </div>
 </div>
 
 <footer>GAOGAO 承認画面 ／ 「注文」タブと連携</footer>
@@ -147,16 +156,19 @@ async function init(){
 ['f-status','f-company'].forEach(id=>document.getElementById(id).addEventListener('change',render));
 document.getElementById('reload').onclick=init;
 
-// ===== パスワードゲート（GAOGAO専用） =====
+// ===== コンテンツ・ロック（GAOGAO専用） =====
 const TOKEN_KEY='gaogao_admin_token';
+const $=id=>document.getElementById(id);
 async function tryAuth(pw){ return await postAction({action:'auth',token:pw}); }
-function unlock(pw){ ADMIN_TOKEN_VAL=pw; document.getElementById('gate').classList.add('hide'); init(); }
+function showContent(){ $('lockcard').classList.add('hide'); $('admin-content').classList.remove('hide'); }
+function showLock(){ $('admin-content').classList.add('hide'); $('lockcard').classList.remove('hide'); $('gate-pw').value=''; $('gate-pw').focus(); }
+function unlock(pw){ ADMIN_TOKEN_VAL=pw; showContent(); init(); }
+function lockAgain(){ sessionStorage.removeItem(TOKEN_KEY); ADMIN_TOKEN_VAL=''; showLock(); }
 async function gateInit(){
-  const gate=document.getElementById('gate');
-  if(!CONFIG.ORDER_WEBAPP_URL){ gate.classList.add('hide'); init(); return; } // 未接続時はデモ表示
+  if(!CONFIG.ORDER_WEBAPP_URL){ showContent(); init(); return; } // 未接続時はデモ表示
   const saved=sessionStorage.getItem(TOKEN_KEY);
   if(saved){ const r=await tryAuth(saved); if(r && r.ok===true){ unlock(saved); return; } }
-  const go=document.getElementById('gate-go'), pw=document.getElementById('gate-pw'), err=document.getElementById('gate-err');
+  const go=$('gate-go'), pw=$('gate-pw'), err=$('gate-err');
   async function submit(){
     go.disabled=true; err.textContent='確認中…';
     const r=await tryAuth(pw.value);
@@ -169,6 +181,7 @@ async function gateInit(){
   pw.addEventListener('keydown',e=>{ if(e.key==='Enter') submit(); });
   pw.focus();
 }
+document.getElementById('lock-again').onclick=lockAgain;
 gateInit();
 </script>
 </body>
