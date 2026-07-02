@@ -48,6 +48,18 @@ function colIndex_(sh, name) { return HEADERS.indexOf(name) + 1; } // 1-based
 function json_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
+// 日付を「7月17日(金)」形式に（Date/文字列どちらでも受ける）
+function fmtJpDate_(v) {
+  let d = null;
+  if (v instanceof Date) d = v;
+  else if (v) {
+    const m = String(v).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (m) d = new Date(+m[1], +m[2]-1, +m[3]);
+  }
+  if (!d || isNaN(d.getTime())) return '';
+  const w = '日月火水木金土'.charAt(d.getDay());
+  return (d.getMonth()+1) + '月' + d.getDate() + '日(' + w + ')';
+}
 
 function doPost(e) {
   try {
@@ -116,10 +128,13 @@ function setStatus_(sh, data) {
   if (data.status === '承認済み') {
     const to = (COMPANY_EMAILS[company] || []).join(',');
     if (to) {
+      const dj = fmtJpDate_(deliveryDate);   // 「7月17日(金)」形式
+      // 件名は顧客の発注メール（【発注】会社名　◯月◯日(◯)着）に Re: を付けてスレッドがまとまりやすく
+      const subject = 'Re: 【発注】' + company + (dj ? '　' + dj + '着' : '');
       const body = (person||'')+'様\n\nいつもお世話になっております。GAOGAOです。\n'+
-        'ご注文（'+data.id+'）について、下記の内容で出荷可能です。\n希望納品日：'+(deliveryDate||'未定')+'\n\n'+
+        'ご注文（'+data.id+'）について、下記の内容で出荷可能です。\n希望納品日：'+(dj||'未定')+'\n\n'+
         lines.join('\n')+'\n\nご確認のほど、よろしくお願いいたします。\n（ご不明点はこのメールにご返信ください）';
-      MailApp.sendEmail(to, '【GAOGAO】ご注文 '+data.id+' 納品可能数のご連絡', body);
+      MailApp.sendEmail(to, subject, body);
     }
   }
   return { ok:true, updated:n };
