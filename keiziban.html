@@ -31,12 +31,12 @@
   <h1>🌿 GAOGAO 発注ポータル</h1>
   <div class="lead">掲示板 — 生育状況・生育遅延・天候・病害虫のお知らせ</div>
   <nav class="tabs">
-    <a href="index.html">🏠 ホーム</a>
-    <a href="hatchu.html">📅 供給・発注</a>
-    <a href="order-confirm.html">🧾 注文確認</a>
-    <a href="jisseki.html">📊 納品実績</a>
-    <a href="keiziban.html" class="active">📋 掲示板</a>
-    <a href="admin.html">✅ 承認(管理)</a>
+    <a href="index.html">ホーム</a>
+    <a href="hatchu.html">供給・発注</a>
+    <a href="order-confirm.html">注文確認</a>
+    <a href="jisseki.html">納品実績</a>
+    <a href="keiziban.html" class="active">掲示板</a>
+    <a href="admin.html">承認(管理)</a>
   </nav>
 </div></header>
 
@@ -89,7 +89,7 @@ function render(){
   if(list.length===0){
     feed.innerHTML=''; state.classList.remove('hide');
     state.innerHTML=POSTS.length===0
-      ? '📋 まだ投稿がありません。<br><span class="muted">Discordの「生育情報」チャンネルに投稿すると、ここに自動で表示されます（連携後に有効）。</span>'
+      ? 'まだ投稿がありません。<br><span class="muted">Discordの「生育情報」チャンネルに投稿すると、ここに自動で表示されます（連携後に有効）。</span>'
       : '該当する分類の投稿はありません。';
     return;
   }
@@ -108,7 +108,7 @@ async function init(){
   document.getElementById('state').textContent='読み込み中…';
   try{ POSTS=await loadBoard(); render(); }
   catch(e){
-    document.getElementById('state').innerHTML='📋 掲示板はまだ準備中です。<br><span class="muted">Discord連携（Botで「生育情報」チャンネルを取り込み）を設定すると表示されます。'+esc(e.message)+'</span>';
+    document.getElementById('state').innerHTML='掲示板はまだ準備中です。<br><span class="muted">Discord連携（Botで「生育情報」チャンネルを取り込み）を設定すると表示されます。'+esc(e.message)+'</span>';
   }
 }
 document.getElementById('f-cat').addEventListener('change',render);
