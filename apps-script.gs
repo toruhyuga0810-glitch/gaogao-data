@@ -16,10 +16,22 @@
  * 列：注文番号 / 受信日時 / 会社 / 担当者 / 希望納品日 / 呼称 / 日本名 / 数量(kg) / 単価(税抜) / ステータス / 備考 / 更新日時
  */
 
-const NOTIFY_EMAIL = 'toruhyuga0810@gmail.com';   // 注文通知メールの宛先
+const NOTIFY_EMAIL = 'toruhyuga0810@gmail.com';   // 注文通知メールの宛先（GAOGAO）
 const ADMIN_TOKEN  = 'gaogao2026';                // ★承認ページのパスワード（好きな文字列に変更してください）
 const ORDER_SHEET   = '注文';
 const HEADERS = ['注文番号','受信日時','会社','担当者','希望納品日','呼称','日本名','数量(kg)','単価(税抜)','ステータス','備考','更新日時'];
+
+// ▼ Discord通知（受注をDiscordへ。漏れ防止）。チャンネル設定→連携→Webhook のURLを貼る。空なら通知なし
+const DISCORD_WEBHOOK_URL = '';
+// ▼ 承認後「納品可能数」メールの宛先（会社名 → 送信先メール配列）
+const COMPANY_EMAILS = {
+  'SRBC':    ['m_matsumoto@spiceroad.co.jp','y_onoue@spiceroad.co.jp'],
+  'クオリア': ['b_sitalaphinunt@qof.co.jp','s_watanabe@qof.co.jp']
+};
+// ▼ 掲示板（Discord「生育情報」チャンネル取り込み）。BotトークンとチャンネルIDを設定。空なら取り込まない
+const BOARD_SHEET       = '掲示板';
+const DISCORD_BOT_TOKEN = '';
+const BOARD_CHANNEL_ID  = '';
 
 function sheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -67,27 +79,46 @@ function recordOrder_(sh, data) {
                   it.call||'', it.jp||'', it.qty||'', '', '受付', data.note||'', now]);
   });
   const lines = items.map(function(it){ return '・'+it.jp+'（'+it.call+'）: '+it.qty+' kg'; }).join('\n');
-  MailApp.sendEmail(NOTIFY_EMAIL, '【GAOGAO注文】'+(data.company||'')+' '+id,
-    '新しい注文が届きました。\n\n注文番号: '+id+'\n会社: '+(data.company||'')+'\n担当: '+(data.person||'')+
-    '\n希望納品日: '+(data.deliveryDate||'未定')+'\n\n'+lines+'\n\n備考: '+(data.note||'(なし)'));
+  const summary = '注文番号: '+id+'\n会社: '+(data.company||'')+'\n担当: '+(data.person||'')+
+                  '\n希望納品日: '+(data.deliveryDate||'未定')+'\n\n'+lines+'\n\n備考: '+(data.note||'(なし)');
+  // GAOGAOへメール通知
+  MailApp.sendEmail(NOTIFY_EMAIL, '【GAOGAO注文】'+(data.company||'')+' '+id, '新しい注文が届きました。\n\n'+summary);
+  // Discordへ通知（漏れ防止）
+  if (DISCORD_WEBHOOK_URL) {
+    try {
+      UrlFetchApp.fetch(DISCORD_WEBHOOK_URL, { method:'post', contentType:'application/json', muteHttpExceptions:true,
+        payload: JSON.stringify({ content: '🛒 **新しい発注** ('+id+')\n'+summary }) });
+    } catch (e) {}
+  }
   return { ok:true, id:id };
 }
 
 // 注文全体のステータス変更（受付/承認済み/納品済み/キャンセル）
 function setStatus_(sh, data) {
   const values = sh.getDataRange().getValues();
-  const cId = colIndex_(sh,'注文番号')-1, cStatus = colIndex_(sh,'ステータス')-1, cUpd = colIndex_(sh,'更新日時')-1;
-  let n = 0;
+  const cId=colIndex_(sh,'注文番号')-1, cStatus=colIndex_(sh,'ステータス')-1, cUpd=colIndex_(sh,'更新日時')-1;
+  const cCo=colIndex_(sh,'会社')-1, cPe=colIndex_(sh,'担当者')-1, cDl=colIndex_(sh,'希望納品日')-1,
+        cCall=colIndex_(sh,'呼称')-1, cJp=colIndex_(sh,'日本名')-1, cQty=colIndex_(sh,'数量(kg)')-1, cPr=colIndex_(sh,'単価(税抜)')-1;
+  let n=0, company='', person='', deliveryDate='', lines=[];
   for (let r = 1; r < values.length; r++) {
     if (String(values[r][cId]) === String(data.id)) {
       sh.getRange(r+1, cStatus+1).setValue(data.status);
       sh.getRange(r+1, cUpd+1).setValue(new Date());
+      company=values[r][cCo]; person=values[r][cPe]; deliveryDate=values[r][cDl];
+      const pr=values[r][cPr];
+      lines.push('・'+values[r][cJp]+'（'+values[r][cCall]+'）　'+values[r][cQty]+' kg'+((pr!==''&&pr!=null)?'　単価 '+pr+'円（税抜）':''));
       n++;
     }
   }
-  if (data.notifyEmail && data.to) {
-    MailApp.sendEmail(data.to, '【GAOGAO】ご注文 '+data.id+' が「'+data.status+'」になりました',
-      'ご注文 '+data.id+' のステータスが「'+data.status+'」に更新されました。');
+  // 承認時：納品可能数を顧客へ自動送信
+  if (data.status === '承認済み') {
+    const to = (COMPANY_EMAILS[company] || []).join(',');
+    if (to) {
+      const body = (person||'')+'様\n\nいつもお世話になっております。GAOGAOです。\n'+
+        'ご注文（'+data.id+'）について、下記の内容で出荷可能です。\n希望納品日：'+(deliveryDate||'未定')+'\n\n'+
+        lines.join('\n')+'\n\nご確認のほど、よろしくお願いいたします。\n（ご不明点はこのメールにご返信ください）';
+      MailApp.sendEmail(to, '【GAOGAO】ご注文 '+data.id+' 納品可能数のご連絡', body);
+    }
   }
   return { ok:true, updated:n };
 }
@@ -144,4 +175,46 @@ function setup() {
   const rule = SpreadsheetApp.newDataValidation().requireValueInList(['受付','承認済み','納品済み','キャンセル'], true).build();
   sh.getRange(2, cStatus, 1000, 1).setDataValidation(rule);
   SpreadsheetApp.getActiveSpreadsheet().toast('「注文」タブを準備しました。', 'GAOGAO setup 完了', 6);
+}
+
+/* ========== 掲示板（Discord「生育情報」チャンネル取り込み） ========== */
+/**
+ * 初回のみ実行：「掲示板」タブ作成＋10分毎の自動取り込みを設定。
+ * 事前に DISCORD_BOT_TOKEN と BOARD_CHANNEL_ID を設定してください。
+ */
+function setupBoard() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(BOARD_SHEET);
+  if (!sh) { sh = ss.insertSheet(BOARD_SHEET); sh.appendRow(['日時','分類','本文','投稿者','msgId']); sh.setFrozenRows(1); }
+  ScriptApp.getProjectTriggers().forEach(function(t){ if (t.getHandlerFunction()==='syncBoard') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('syncBoard').timeBased().everyMinutes(10).create();
+  ss.toast('「掲示板」タブと10分毎の取り込みを設定しました。', 'GAOGAO board', 6);
+}
+
+/** Discordチャンネルの新着メッセージを「掲示板」タブへ取り込む（10分毎に自動実行） */
+function syncBoard() {
+  if (!DISCORD_BOT_TOKEN || !BOARD_CHANNEL_ID) return;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(BOARD_SHEET);
+  if (!sh) { sh = ss.insertSheet(BOARD_SHEET); sh.appendRow(['日時','分類','本文','投稿者','msgId']); sh.setFrozenRows(1); }
+  const props = PropertiesService.getScriptProperties();
+  const after = props.getProperty('board_last_id');
+  let url = 'https://discord.com/api/v10/channels/' + BOARD_CHANNEL_ID + '/messages?limit=50';
+  if (after) url += '&after=' + after;
+  const res = UrlFetchApp.fetch(url, { headers:{ Authorization:'Bot ' + DISCORD_BOT_TOKEN }, muteHttpExceptions:true });
+  if (res.getResponseCode() !== 200) return;
+  const msgs = JSON.parse(res.getContentText());
+  msgs.sort(function(a,b){ return a.id > b.id ? 1 : -1; }); // 古い→新しい
+  const cats = ['生育状況','生育遅延','天候','病害虫'];
+  let last = after;
+  msgs.forEach(function(m){
+    last = m.id;
+    if (!m.content) return;
+    let cat = 'その他';
+    cats.forEach(function(c){ if (m.content.indexOf(c) >= 0) cat = c; });
+    const when = Utilities.formatDate(new Date(m.timestamp), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+    const who = m.author ? (m.author.global_name || m.author.username || '') : '';
+    sh.appendRow([when, cat, m.content, who, m.id]);
+  });
+  if (last) props.setProperty('board_last_id', last);
 }

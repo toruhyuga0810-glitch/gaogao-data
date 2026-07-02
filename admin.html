@@ -14,6 +14,7 @@
   .ob{padding:8px 16px 14px}
   .oactions{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 14px}
   .price-in{width:90px;text-align:right}
+  .qty-in{width:64px;text-align:right}
   td .unit{color:var(--sub);font-size:11px;margin-left:3px}
   .lockcard{text-align:center;padding:34px 22px;max-width:420px;margin:6px auto}
   .lockcard h2{margin:8px 0 4px}
@@ -31,6 +32,7 @@
   <nav class="tabs">
     <a href="index.html">📅 供給・発注</a>
     <a href="order-confirm.html">🧾 注文確認</a>
+    <a href="keiziban.html">📋 掲示板</a>
     <a href="admin.html" class="active">✅ 承認(管理)</a>
     <a href="jisseki.html">📊 納品実績</a>
   </nav>
@@ -87,10 +89,14 @@ function render(){
   let h='';
   list.forEach(o=>{
     let sub=0, hasAll=true;
+    const editable=(o.status==='受付');
     const rows=o.items.map(it=>{
       const p=it.price; if(p!=null) sub+=p*it.qty; else hasAll=false;
+      const qtyCell = editable
+        ? `<input class="qty-in" type="number" min="0" step="1" value="${it.qty}" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><span class="unit">kg</span>`
+        : `${it.qty}<span class="unit">kg</span>`;
       return `<tr><td><b>${esc(it.jp)}</b> <span class="muted">${esc(it.call)}</span></td>
-        <td class="num">${it.qty}<span class="unit">kg</span></td>
+        <td class="num">${qtyCell}</td>
         <td class="num"><input class="price-in" type="number" min="0" step="10" value="${it.price??''}" data-id="${esc(o.id)}" data-call="${esc(it.call)}" placeholder="単価"></td>
         <td class="num">${p!=null?yen(p*it.qty):'–'}</td></tr>`;
     }).join('');
@@ -107,13 +113,22 @@ function render(){
       </table></div>
       ${o.note?`<div class="muted" style="margin-top:8px">備考: ${esc(o.note)}</div>`:''}</div>
       <div class="oactions">
-        <button class="btn" data-act="承認済み">単価を保存して承認</button>
+        <button class="btn" data-act="承認済み">この内容で承認（顧客へメール）</button>
         <button class="btn ghost" data-act="納品済み">納品済みにする</button>
         <button class="btn warn" data-act="キャンセル">キャンセル</button>
-      </div></div>`;
+      </div>
+      ${editable?'<div class="muted" style="padding:0 16px 12px">※ 欠品時は数量を変更してから承認してください。承認すると納品可能数が顧客へメール送信されます。</div>':''}</div>`;
   });
   el.innerHTML=h;
   el.querySelectorAll('.oactions .btn').forEach(b=>b.onclick=()=>act(b));
+  // 数量・単価の変更で小計/合計をその場で再計算（欠品調整の確認用）
+  el.querySelectorAll('.qty-in,.price-in').forEach(inp=>inp.addEventListener('change',e=>{
+    const t=e.target; const o=ORDERS.find(x=>x.id===t.dataset.id); if(!o) return;
+    const it=o.items.find(x=>x.call===t.dataset.call); if(!it) return;
+    if(t.classList.contains('qty-in')) it.qty=Math.max(0,Math.round(parseFloat(t.value)||0));
+    else it.price=(t.value===''?null:parseFloat(t.value));
+    render();
+  }));
 }
 
 let ADMIN_TOKEN_VAL='';
@@ -122,6 +137,17 @@ async function act(btn){
   const o=ORDERS.find(x=>x.id===id);
   btn.disabled=true;
   const tk=ADMIN_TOKEN_VAL;
+  // 数量の変更を保存（欠品調整。0で明細削除）
+  const qtyInputs=[...order.querySelectorAll('.qty-in')];
+  for(const inp of qtyInputs){
+    const q=Math.max(0,Math.round(parseFloat(inp.value)||0));
+    const it=o.items.find(x=>x.call===inp.dataset.call);
+    if(it && q!==it.qty){
+      const r=await postAction({action:'updateItem',id,call:inp.dataset.call,qty:q});
+      if(r.ok===false && r.error==='NO_WEBAPP'){ it.qty=q; } else if(r.ok){ it.qty=q; }
+    }
+  }
+  o.items=o.items.filter(it=>it.qty>0);
   // 単価を保存（入力されているもの）
   const priceInputs=[...order.querySelectorAll('.price-in')];
   for(const inp of priceInputs){

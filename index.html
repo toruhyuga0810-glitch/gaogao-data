@@ -164,7 +164,12 @@
     WEEKS_PER_MONTH: 3.5,
     ORDER_WEBAPP_URL: "https://script.google.com/macros/s/AKfycbygruSomnxo__KoY3BxEbwOrZEcrPVggI1tqOOA6btrJRqfo8mfvUbpT2RX8DZ8_j3e/exec", // ← Apps Scriptの /exec URL
     ORDER_EMAIL: "toruhyuga0810@gmail.com",     // mailtoフォールバック先
-    COMPANIES: ["SRBC", "クオリア"]             // 注文者の選択肢
+    COMPANIES: ["SRBC", "クオリア"],            // 注文者の選択肢
+    // ▼ 発注確認メール（顧客が自分のメールで送信。To/CC・本文を自動生成＝手間ゼロ）
+    ORDER_MAIL_TO: ["toruhyuga@thaisupermarket99.com","m_matsumoto@spiceroad.co.jp","y_onoue@spiceroad.co.jp"],
+    ORDER_MAIL_CC: ["b_sitalaphinunt@qof.co.jp","s_watanabe@qof.co.jp"],
+    ORDER_MAIL_GREETING: "日向様",              // 宛名（受信者）
+    PACK_G: 500                                 // 1パックのグラム数（500g→ kg×2個）
   };
 </script>
 <!-- ====================================================================== -->
@@ -179,6 +184,7 @@
   <nav class="navlinks">
     <a href="index.html" class="active">📅 供給・発注</a>
     <a href="order-confirm.html">🧾 注文確認</a>
+    <a href="keiziban.html">📋 掲示板</a>
     <a href="admin.html">✅ 承認(管理)</a>
     <a href="jisseki.html">📊 納品実績</a>
   </nav>
@@ -459,6 +465,26 @@ function addFromRow(btn){
 }
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
 
+function fmtJpDate(s){ if(!s) return ''; const d=new Date(s+'T00:00:00'); if(isNaN(d)) return s; const w='日月火水木金土'[d.getDay()]; return `${d.getMonth()+1}月${d.getDate()}日(${w})`; }
+function buildOrderMailUrl(company, person, date, items, note){
+  const perKg = Math.round(1000 / (CONFIG.PACK_G||500)); // 500g→2個/kg
+  const d = fmtJpDate(date);
+  const lines = items.map(i=>`・${i.jp}（${i.call}）　${i.qty}kg（${CONFIG.PACK_G||500}gパック${Math.round(i.qty*perKg)}個）`).join('\n');
+  const body =
+`${CONFIG.ORDER_MAIL_GREETING}
+
+${company}の${person}です。いつもお世話になっております。
+${d?d+'着の':''}野菜を発注いたします。
+
+${lines}
+${note?'\n備考：'+note+'\n':''}
+尚、出荷可否のご返信をお願いいたします。
+以上、よろしくお願いいたします。`;
+  const subject = `【発注】${company}${d?'　'+d+'着':''}`;
+  const to = (CONFIG.ORDER_MAIL_TO||[]).join(',');
+  const cc = (CONFIG.ORDER_MAIL_CC||[]).join(',');
+  return `mailto:${to}?cc=${encodeURIComponent(cc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
 async function submitOrder(){
   const items=cartList();
   if(items.length===0){ toast('カートが空です'); return; }
@@ -488,19 +514,23 @@ async function submitOrder(){
     const res=await fetch(CONFIG.ORDER_WEBAPP_URL,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload) });
     const data=await res.json().catch(()=>({ok:true}));
     if(data.ok===false) throw new Error(data.error||'送信エラー');
-    showDone(data.id||null,false);
+    const mailUrl=buildOrderMailUrl(company,person,date,items,note);
+    showDone(data.id||null,false,mailUrl);
+    setTimeout(()=>{ try{ window.location.href=mailUrl; }catch(e){} }, 600);
   }catch(err){
     btn.disabled=false; btn.textContent='この内容で注文する（'+items.length+'品目）';
     toast('送信に失敗しました：'+err.message);
   }
 }
-function showDone(id, mail){
+function showDone(id, mail, mailUrl){
   cart={}; saveCart(); updateFab(); syncTableInputs();
   $('dbody').innerHTML='<div class="done"><div class="ck">✓</div>'
     +'<h2 style="margin:0 0 8px">注文を'+(mail?'メールで送信します':'受け付けました')+'</h2>'
-    +'<p class="sub" style="font-size:13px">'+(mail?'メールアプリが開きます。そのまま送信してください。':'GAOGAOに通知が届きました。金額・納期は後日ご連絡します。')+'</p>'
+    +'<p class="sub" style="font-size:13px">'+(mail?'メールアプリが開きます。そのまま送信してください。':'GAOGAOに通知が届きました。')+'</p>'
     +(id?'<p class="sub">注文番号: <b>'+esc(id)+'</b></p>':'')
-    +'<button class="submit" style="margin-top:18px" id="done-close">閉じる</button></div>';
+    +(mailUrl?'<p class="sub" style="font-size:12px;margin-top:12px">📧 発注確認メール（To/CC・本文入力済み）が開きます。そのまま送信してください。</p>'
+      +'<a class="submit" style="display:block;margin-top:8px;text-decoration:none" href="'+esc(mailUrl)+'">📧 発注メールを開く</a>':'')
+    +'<button class="submit" style="margin-top:10px;background:#fff;color:var(--green-d);border:1px solid var(--line)" id="done-close">閉じる</button></div>';
   $('done-close').addEventListener('click',()=>{ closeCart(); });
 }
 

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GAOGAO 掲示板（生育・天候情報）</title>
+<link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .feed{display:grid;gap:12px}
+  .post{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;border-left:5px solid var(--line)}
+  .post .top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+  .post .body{font-size:14px;line-height:1.7;white-space:pre-wrap}
+  .post .who{color:var(--sub);font-size:12px;margin-top:8px}
+  .post.c-生育状況{border-left-color:#639922}
+  .post.c-生育遅延{border-left-color:#b9822b}
+  .post.c-天候{border-left-color:#378add}
+  .post.c-病害虫{border-left-color:#d85a30}
+  .post.c-その他{border-left-color:#9aa39d}
+  .cat{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700}
+  .cat.生育状況{background:#eaf3de;color:#3b6d11}
+  .cat.生育遅延{background:#fbf3e2;color:#8a5210}
+  .cat.天候{background:#e6f1fb;color:#185fa5}
+  .cat.病害虫{background:#faece7;color:#993c1d}
+  .cat.その他{background:#f0f1ef;color:#5f5e5a}
+  .when{color:var(--sub);font-size:12px}
+</style>
+</head>
+<body>
+<header class="h-jisseki"><div class="wrap">
+  <h1>🌿 GAOGAO 発注ポータル</h1>
+  <div class="lead">掲示板 — 生育状況・生育遅延・天候・病害虫のお知らせ</div>
+  <nav class="tabs">
+    <a href="index.html">📅 供給・発注</a>
+    <a href="order-confirm.html">🧾 注文確認</a>
+    <a href="keiziban.html" class="active">📋 掲示板</a>
+    <a href="admin.html">✅ 承認(管理)</a>
+    <a href="jisseki.html">📊 納品実績</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <div class="card">
+    <div class="row">
+      <div><div class="muted">分類でしぼり込み</div>
+        <select id="f-cat"><option value="">すべて</option>
+          <option>生育状況</option><option>生育遅延</option><option>天候</option><option>病害虫</option><option>その他</option></select></div>
+      <div style="flex:1"></div>
+      <button class="btn ghost sm" id="reload">↻ 更新</button>
+    </div>
+    <div class="muted" style="margin-top:8px">Discordの専用チャンネルに投稿された内容がここに反映されます（連携後）。新しい順に表示。</div>
+  </div>
+
+  <div id="state" class="card state">読み込み中…</div>
+  <div id="feed" class="feed"></div>
+</div>
+
+<footer>GAOGAO 掲示板 ／ Discord「生育情報」チャンネルと連携（予定）</footer>
+
+<script src="assets/orders.js"></script>
+<script>
+const BOARD_SHEET="掲示板";
+let POSTS=[];
+const CATS=['生育状況','生育遅延','天候','病害虫','その他'];
+
+async function loadBoard(){
+  const rows=await fetchSheet(BOARD_SHEET);
+  const hi=rows.findIndex(r=>r.some(c=>{const t=String(c).trim();return t==='本文'||t==='内容'||t==='メッセージ';}));
+  if(hi<0) return [];
+  const head=rows[hi].map(s=>String(s).trim());
+  const col=names=>{ for(const n of names){ const i=head.indexOf(n); if(i>=0) return i; } return -1; };
+  const ci={ when:col(['日時','投稿日時','日付','timestamp']), cat:col(['分類','カテゴリ','種別']), body:col(['本文','内容','メッセージ']), who:col(['投稿者','名前','author','ユーザー']) };
+  const out=[];
+  for(let i=hi+1;i<rows.length;i++){
+    const r=rows[i]; const body=ci.body>=0?String(r[ci.body]||'').trim():'';
+    if(!body) continue;
+    let cat=ci.cat>=0?String(r[ci.cat]||'').trim():''; if(!CATS.includes(cat)) cat=cat||'その他';
+    out.push({ when:ci.when>=0?String(r[ci.when]||'').trim():'', cat, body, who:ci.who>=0?String(r[ci.who]||'').trim():'' });
+  }
+  // 新しい順（日時が取れれば降順）
+  out.sort((a,b)=> (a.when<b.when?1:-1));
+  return out;
+}
+function render(){
+  const f=document.getElementById('f-cat').value;
+  const list=POSTS.filter(p=>!f||p.cat===f);
+  const feed=document.getElementById('feed'), state=document.getElementById('state');
+  if(list.length===0){
+    feed.innerHTML=''; state.classList.remove('hide');
+    state.innerHTML=POSTS.length===0
+      ? '📋 まだ投稿がありません。<br><span class="muted">Discordの「生育情報」チャンネルに投稿すると、ここに自動で表示されます（連携後に有効）。</span>'
+      : '該当する分類の投稿はありません。';
+    return;
+  }
+  state.classList.add('hide');
+  feed.innerHTML=list.map(p=>{
+    const cat=CATS.includes(p.cat)?p.cat:'その他';
+    return `<div class="post c-${cat}">
+      <div class="top"><span class="cat ${cat}">${esc(cat)}</span><span class="when">${esc(fmtDate(p.when)||p.when)}</span></div>
+      <div class="body">${esc(p.body)}</div>
+      ${p.who?`<div class="who">— ${esc(p.who)}</div>`:''}
+    </div>`;
+  }).join('');
+}
+async function init(){
+  document.getElementById('state').classList.remove('hide');
+  document.getElementById('state').textContent='読み込み中…';
+  try{ POSTS=await loadBoard(); render(); }
+  catch(e){
+    document.getElementById('state').innerHTML='📋 掲示板はまだ準備中です。<br><span class="muted">Discord連携（Botで「生育情報」チャンネルを取り込み）を設定すると表示されます。'+esc(e.message)+'</span>';
+  }
+}
+document.getElementById('f-cat').addEventListener('change',render);
+document.getElementById('reload').onclick=init;
+init();
+</script>
+</body>
+</html>
