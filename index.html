@@ -42,6 +42,7 @@
   .clr{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:#e6e9e4;color:#5f6862;
        width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:15px;line-height:1;display:none;align-items:center;justify-content:center;padding:0}
   .clr.show{display:flex}
+  .sortsel{padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-size:13px;background:#fff;color:var(--ink);font-weight:600;cursor:pointer}
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
   .seg button{border:0;background:#fff;padding:9px 14px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
   .seg button.active{background:var(--accent);color:var(--green-d)}
@@ -214,6 +215,12 @@
   <div id="view-schedule">
     <div class="toolbar">
       <div class="searchbox"><input class="search" id="q1" placeholder="品目を検索（日本名・呼称・タイ語）"><button class="clr" id="clr1" aria-label="検索をクリア">×</button></div>
+      <select id="sortmode" class="sortsel">
+        <option value="shippable-first">🥬 発注可能を上に</option>
+        <option value="shippable-only">✅ 発注可能のみ</option>
+        <option value="default">📄 シート順</option>
+        <option value="name">🔤 品目名順</option>
+      </select>
       <div class="seg">
         <button id="m-month" class="active">月間 (kg/月)</button>
         <button id="m-week">週間 (kg/週)</button>
@@ -349,11 +356,15 @@ function renderSched(){
   let h='<thead><tr><th class="name">品目</th>';
   MONTHS.forEach((m,i)=>{ h+='<th class="mon'+(i===nowMonth?' now':'')+'">'+m+'</th>'; });
   h+='<th class="p p-start">納品開始</th><th class="ord p p-ord">発注(kg)</th><th class="ord p p-btn"></th></tr></thead><tbody>';
-  SUPPLY.forEach(it=>{
-    const hay=(it.jp+it.call+it.th).toLowerCase();
-    if(q && !hay.includes(q)) return;
+  // 表示順・フィルター（検索で絞り込み→ステータス付与→並び替え）
+  const sm=($('sortmode')||{}).value||'shippable-first';
+  let list=SUPPLY.filter(it=>{ const hay=(it.jp+it.call+it.th).toLowerCase(); return !q||hay.includes(q); })
+                 .map(it=>({it, st:status(it.start)}));
+  if(sm==='shippable-only')      list=list.filter(x=>x.st.cls==='b-ok');
+  else if(sm==='shippable-first') list.sort((a,b)=>((b.st.cls==='b-ok')?1:0)-((a.st.cls==='b-ok')?1:0));
+  else if(sm==='name')            list.sort((a,b)=>a.it.jp.localeCompare(b.it.jp,'ja'));
+  list.forEach(({it,st})=>{
     const arr= mode==='weekly' ? it.monthly.map(v=> (typeof v==='number')? Math.round(v/CONFIG.WEEKS_PER_MONTH*10)/10 : v) : it.monthly;
-    const st=status(it.start);
     const shippable = (st.cls==='b-ok');   // 出荷可能のときだけ発注可能
     const harvest = it.next ? '<div class="availq"><span class="cap">可能収穫量</span><b>'+esc(it.next)+'</b></div>' : '';
     const cur = cart[it.call] ? cart[it.call].qty : '';
@@ -369,6 +380,7 @@ function renderSched(){
     }
     h+='</tr>';
   });
+  if(list.length===0){ h+='<tr><td colspan="16" style="text-align:center;color:var(--sub);padding:26px">該当する品目がありません</td></tr>'; }
   h+='</tbody>';
   $('sched').innerHTML=h;
   $('sched').querySelectorAll('.addbtn').forEach(b=> b.addEventListener('click',()=>addFromRow(b)) );
@@ -616,6 +628,13 @@ function bindSearch(inputId, clrId, render){
   toggle();
 }
 bindSearch('q1','clr1',renderSched);
+// 表示順（発注可能を上に/のみ/シート順/品目名順）— 選択は端末に記憶
+(function(){
+  const sel=$('sortmode');
+  const saved=localStorage.getItem('gaogao_sortmode');
+  if(saved && [...sel.options].some(o=>o.value===saved)) sel.value=saved;
+  sel.addEventListener('change',()=>{ localStorage.setItem('gaogao_sortmode',sel.value); renderSched(); });
+})();
 bindSearch('q2','clr2',renderPrice);
 $('reload').onclick=load;
 $('fab').onclick=openCart;
