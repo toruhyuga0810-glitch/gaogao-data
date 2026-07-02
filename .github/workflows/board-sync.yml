@@ -1,0 +1,22 @@
+name: board-sync
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # 10分ごと（GitHub都合で数分ずれることあり）
+  workflow_dispatch:          # 手動実行もできる
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Discord messages and push to Apps Script
+        env:
+          BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          SHARED_TOKEN: ${{ secrets.BOARD_SHARED_TOKEN }}
+          CHANNEL_ID: "1484129314122502315"
+          APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbygruSomnxo__KoY3BxEbwOrZEcrPVggI1tqOOA6btrJRqfo8mfvUbpT2RX8DZ8_j3e/exec"
+        run: |
+          curl -s -H "Authorization: Bot $BOT_TOKEN" -H "User-Agent: DiscordBot (https://gaogao, 1.0)" \
+            "https://discord.com/api/v10/channels/$CHANNEL_ID/messages?limit=50" -o messages.json
+          echo "Discord response (head):"; head -c 200 messages.json; echo
+          jq -c --arg token "$SHARED_TOKEN" 'if type=="array" then {action:"boardSync",token:$token,messages:[.[]|{id,content,timestamp,author:(.author.global_name // .author.username // ""),pinned:(.pinned // false),bot:(.author.bot // false),webhook:(has("webhook_id"))}]} else {action:"boardSync",token:$token,messages:[]} end' messages.json > payload.json
+          echo "messages: $(jq '.messages|length' payload.json)"
+          curl -sL -X POST "$APPS_SCRIPT_URL" -H "Content-Type: text/plain;charset=utf-8" --data @payload.json -o /dev/null -w "POST %{http_code}\n"
