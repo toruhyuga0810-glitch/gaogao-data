@@ -29,7 +29,7 @@
     <div style="font-size:34px">🌱</div>
     <h2>承認画面（GAOGAO専用）</h2>
     <div class="muted">パスワードを入力してください</div>
-    <input id="gate-pw" type="password" placeholder="パスワード" autocomplete="current-password">
+    <input id="gate-pw" type="text" placeholder="パスワード" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
     <button class="btn" id="gate-go">開く</button>
     <div class="gate-err" id="gate-err"></div>
   </div>
@@ -149,17 +149,20 @@ document.getElementById('reload').onclick=init;
 
 // ===== パスワードゲート（GAOGAO専用） =====
 const TOKEN_KEY='gaogao_admin_token';
-async function tryAuth(pw){ const r=await postAction({action:'auth',token:pw}); return !!(r && r.ok===true); }
+async function tryAuth(pw){ return await postAction({action:'auth',token:pw}); }
 function unlock(pw){ ADMIN_TOKEN_VAL=pw; document.getElementById('gate').classList.add('hide'); init(); }
 async function gateInit(){
   const gate=document.getElementById('gate');
   if(!CONFIG.ORDER_WEBAPP_URL){ gate.classList.add('hide'); init(); return; } // 未接続時はデモ表示
   const saved=sessionStorage.getItem(TOKEN_KEY);
-  if(saved && await tryAuth(saved)){ unlock(saved); return; }
+  if(saved){ const r=await tryAuth(saved); if(r && r.ok===true){ unlock(saved); return; } }
   const go=document.getElementById('gate-go'), pw=document.getElementById('gate-pw'), err=document.getElementById('gate-err');
   async function submit(){
     go.disabled=true; err.textContent='確認中…';
-    if(await tryAuth(pw.value)){ sessionStorage.setItem(TOKEN_KEY,pw.value); err.textContent=''; unlock(pw.value); }
+    const r=await tryAuth(pw.value);
+    if(r && r.ok===true){ sessionStorage.setItem(TOKEN_KEY,pw.value); err.textContent=''; unlock(pw.value); }
+    else if(r && r.error && String(r.error).indexOf('unknown action')>=0){
+      err.innerHTML='⚠️ サーバー(Apps Script)が未更新です。<br>コードを更新して「新バージョンで再デプロイ」してください。'; go.disabled=false; }
     else { err.textContent='パスワードが違います'; go.disabled=false; }
   }
   go.onclick=submit;
