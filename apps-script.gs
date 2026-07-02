@@ -59,6 +59,7 @@ function doPost(e) {
                       (action === 'setStatus' && (data.status === '承認済み' || data.status === '納品済み'));
     if (needToken && data.token !== ADMIN_TOKEN) return json_({ ok:false, error:'unauthorized' });
     const sh = sheet_();
+    if (action === 'boardSync')  return json_(boardSync_(data));   // Cloudflare Workerから掲示板投稿を受け取る
     if (action === 'order')      return json_(recordOrder_(sh, data));
     if (action === 'setStatus')  return json_(setStatus_(sh, data));
     if (action === 'updateItem') return json_(updateItem_(sh, data));
@@ -177,46 +178,40 @@ function setup() {
   SpreadsheetApp.getActiveSpreadsheet().toast('「注文」タブを準備しました。', 'GAOGAO setup 完了', 6);
 }
 
-/* ========== 掲示板（Discord「生育情報」チャンネル取り込み） ========== */
-/**
- * 初回のみ実行：「掲示板」タブ作成＋10分毎の自動取り込みを設定。
- * 事前に DISCORD_BOT_TOKEN と BOARD_CHANNEL_ID を設定してください。
+/* ========== 掲示板：Cloudflare Workerから受け取ってシートに書く ==========
+ * DiscordはGoogleのIPを弾くため、Apps Scriptから直接読めない。
+ * Cloudflare Workerが数分ごとにDiscordを読み、この /exec に action:'boardSync' でPOSTしてくる。
  */
-function setupBoard() {
+function boardSync_(data) {
+  if (data.token !== ADMIN_TOKEN) return { ok:false, error:'unauthorized' };
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(BOARD_SHEET);
   if (!sh) { sh = ss.insertSheet(BOARD_SHEET); sh.appendRow(['日時','分類','本文','投稿者','msgId']); sh.setFrozenRows(1); }
-  ScriptApp.getProjectTriggers().forEach(function(t){ if (t.getHandlerFunction()==='syncBoard') ScriptApp.deleteTrigger(t); });
-  ScriptApp.newTrigger('syncBoard').timeBased().everyMinutes(10).create();
-  ss.toast('「掲示板」タブと10分毎の取り込みを設定しました。', 'GAOGAO board', 6);
+  const lastRow = sh.getLastRow();
+  const seen = {};
+  if (lastRow >= 2) {
+    sh.getRange(2, 5, lastRow-1, 1).getValues().forEach(function(r){ seen[String(r[0])] = true; });
+  }
+  const cats = ['生育状況','生育遅延','天候','病害虫'];
+  const msgs = (data.messages || []).slice().sort(function(a,b){ return a.id > b.id ? 1 : -1; });
+  let added = 0;
+  msgs.forEach(function(m){
+    if (m.pinned || m.bot || m.webhook) return;   // お知らせ/Bot/Webhookは載せない
+    if (!m.content) return;
+    if (seen[String(m.id)]) return;               // 重複は載せない
+    let cat = 'その他';
+    cats.forEach(function(c){ if (String(m.content).indexOf(c) >= 0) cat = c; });
+    const when = m.timestamp ? Utilities.formatDate(new Date(m.timestamp), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm') : '';
+    sh.appendRow([when, cat, m.content, m.author || '', m.id]);
+    seen[String(m.id)] = true; added++;
+  });
+  return { ok:true, added:added };
 }
 
-/** Discordチャンネルの新着メッセージを「掲示板」タブへ取り込む（10分毎に自動実行） */
-function syncBoard() {
-  if (!DISCORD_BOT_TOKEN || !BOARD_CHANNEL_ID) return;
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sh = ss.getSheetByName(BOARD_SHEET);
-  if (!sh) { sh = ss.insertSheet(BOARD_SHEET); sh.appendRow(['日時','分類','本文','投稿者','msgId']); sh.setFrozenRows(1); }
-  const props = PropertiesService.getScriptProperties();
-  const after = props.getProperty('board_last_id');
-  let url = 'https://discord.com/api/v10/channels/' + BOARD_CHANNEL_ID + '/messages?limit=50';
-  if (after) url += '&after=' + after;
-  const res = UrlFetchApp.fetch(url, { headers:{ Authorization:'Bot ' + DISCORD_BOT_TOKEN }, muteHttpExceptions:true });
-  if (res.getResponseCode() !== 200) return;
-  const msgs = JSON.parse(res.getContentText());
-  msgs.sort(function(a,b){ return a.id > b.id ? 1 : -1; }); // 古い→新しい
-  const cats = ['生育状況','生育遅延','天候','病害虫'];
-  let last = after;
-  msgs.forEach(function(m){
-    last = m.id;
-    if (m.pinned) return;                                    // ピン留め（お知らせ）は掲示板に載せない
-    if (m.webhook_id || (m.author && m.author.bot)) return;  // Bot/Webhookの投稿は載せない
-    if (!m.content) return;
-    let cat = 'その他';
-    cats.forEach(function(c){ if (m.content.indexOf(c) >= 0) cat = c; });
-    const when = Utilities.formatDate(new Date(m.timestamp), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
-    const who = m.author ? (m.author.global_name || m.author.username || '') : '';
-    sh.appendRow([when, cat, m.content, who, m.id]);
+/** 旧方式（Apps Scriptから直接Discord取り込み）の10分毎トリガーが残っていたら削除。エディタで1回実行 */
+function cleanupOldBoardTriggers() {
+  ScriptApp.getProjectTriggers().forEach(function(t){
+    if (t.getHandlerFunction() === 'syncBoard') ScriptApp.deleteTrigger(t);
   });
-  if (last) props.setProperty('board_last_id', last);
+  SpreadsheetApp.getActiveSpreadsheet().toast('旧トリガーを削除しました。', 'GAOGAO', 5);
 }
