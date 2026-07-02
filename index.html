@@ -164,7 +164,7 @@
     WEEKS_PER_MONTH: 3.5,
     ORDER_WEBAPP_URL: "https://script.google.com/macros/s/AKfycbygruSomnxo__KoY3BxEbwOrZEcrPVggI1tqOOA6btrJRqfo8mfvUbpT2RX8DZ8_j3e/exec", // ← Apps Scriptの /exec URL
     ORDER_EMAIL: "toruhyuga0810@gmail.com",     // mailtoフォールバック先
-    COMPANIES: ["QOF様", "SRBC様"],             // 注文者（会社）の選択肢
+    COMPANIES: ["QOF様", "SRBC様", "GAOGAO（テスト）"],  // 注文者（会社）の選択肢
     // ▼ 会社ごとの担当者（発注カートで選択式に。emailは発注メールのCCに自動追加）
     CONTACTS: {
       "QOF様": [
@@ -175,6 +175,9 @@
       "SRBC様": [
         {name:"尾上 裕美", email:"y_onoue@spiceroad.co.jp"},
         {name:"松本 正樹", email:"m_matsumoto@spiceroad.co.jp"}
+      ],
+      "GAOGAO（テスト）": [
+        {name:"テスト担当", email:"toruhyuga0810@gmail.com"}
       ]
     },
     // ▼ 発注確認メール（顧客が自分のメールで送信。To/CC・本文を自動生成＝手間ゼロ）

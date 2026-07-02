@@ -26,7 +26,8 @@ const DISCORD_WEBHOOK_URL = '';
 // ▼ 承認後「納品可能数」メールの宛先（会社名 → 送信先メール配列）
 const COMPANY_EMAILS = {
   'QOF様':  ['y_murakami@qof.co.jp','b_sitalaphinunt@qof.co.jp','s_watanabe@qof.co.jp'],
-  'SRBC様': ['y_onoue@spiceroad.co.jp','m_matsumoto@spiceroad.co.jp']
+  'SRBC様': ['y_onoue@spiceroad.co.jp','m_matsumoto@spiceroad.co.jp'],
+  'GAOGAO（テスト）': ['toruhyuga0810@gmail.com']
 };
 // ▼ 掲示板（Discord「生育情報」チャンネル取り込み）。BotトークンとチャンネルIDを設定。空なら取り込まない
 const BOARD_SHEET       = '掲示板';
