@@ -3,645 +3,114 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GAOGAO 供給量・納品スケジュール</title>
+<title>GAOGAO 発注ポータル</title>
 <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+<link rel="stylesheet" href="assets/app.css">
 <style>
-  :root{
-    --green:#2e7d4f; --green-d:#1f5a38; --bg:#f6f7f4; --card:#fff;
-    --ink:#1d2520; --sub:#6b756e; --line:#e6e9e4; --accent:#e8f3ec;
-    --warn:#b9822b; --warnbg:#fbf3e2; --soon:#3a7bd5; --soonbg:#e9f1fc;
-    --off:#9aa39d; --offbg:#f0f1ef;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
-       color:var(--ink);-webkit-font-smoothing:antialiased;
-       background:linear-gradient(rgba(246,247,244,.84),rgba(246,247,244,.88)),url('img/bg.jpg');
-       background-size:cover;background-position:center;background-attachment:fixed}
-  .wrap{max-width:1100px;margin:0 auto;padding:0 16px 90px}
-  header{position:relative;color:#fff;padding:26px 0 0;margin-bottom:18px;background-color:#2e7d4f;
-         background-image:url('img/header.jpg');background-size:cover;background-position:center 40%;
-         box-shadow:0 2px 14px rgba(31,90,56,.25)}
-  header::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(16,42,27,.52),rgba(20,55,35,.34) 60%,rgba(20,55,35,.46));pointer-events:none}
-  header .wrap{padding-bottom:0;position:relative;z-index:1}
-  h1{margin:0;font-size:22px;letter-spacing:.5px;text-shadow:0 2px 8px rgba(0,0,0,.45)}
-  .lead{text-shadow:0 1px 5px rgba(0,0,0,.4)}
-  .meta{text-shadow:0 1px 4px rgba(0,0,0,.4)}
-  .navlinks{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
-  .navlinks a{color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:9px 14px;border-radius:10px 10px 0 0;background:rgba(16,42,27,.34);text-shadow:0 1px 3px rgba(0,0,0,.4)}
-  .navlinks a.active{background:var(--bg);color:var(--green-d);text-shadow:none}
-  .navlinks a:not(.active):hover{background:rgba(16,42,27,.5)}
-  .lead{margin:8px 0 0;font-size:13px;opacity:.92}
-  .meta{margin-top:12px;font-size:12px;opacity:.85;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
-  .reload{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;padding:4px 12px;font-size:12px;cursor:pointer}
-  .tabs{display:flex;gap:8px;margin:18px 0 14px;flex-wrap:wrap}
-  .tab{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
-  .tab.active{background:var(--green);color:#fff;border-color:var(--green)}
-  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
-  .searchbox{position:relative;flex:1;min-width:200px}
-  .search{width:100%;padding:10px 38px 10px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:#fff}
-  .clr{position:absolute;right:8px;top:50%;transform:translateY(-50%);border:0;background:#e6e9e4;color:#5f6862;
-       width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:15px;line-height:1;display:none;align-items:center;justify-content:center;padding:0}
-  .clr.show{display:flex}
-  .sortsel{padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-size:13px;background:#fff;color:var(--ink);font-weight:600;cursor:pointer}
-  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
-  .seg button{border:0;background:#fff;padding:9px 14px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
-  .seg button.active{background:var(--accent);color:var(--green-d)}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:18px}
-  table{border-collapse:collapse;width:100%;font-size:13px}
-  th,td{padding:10px 10px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
-  th{background:#fafbfa;color:var(--sub);font-weight:600;position:sticky;top:0;z-index:2}
-  td.name,th.name{text-align:left;position:sticky;left:0;background:#fff;z-index:1}
-  th.name{z-index:3}
-  .jp{font-weight:700}
-  .sub{color:var(--sub);font-size:11px}
-  .th{color:#8a9a8f;font-size:11px}
-  .val{font-variant-numeric:tabular-nums;font-weight:600}
-  .o{color:#bcae72;font-weight:700}
-  .empty{color:#d3d7d1}
-  .badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
-  .b-ok{background:var(--accent);color:var(--green-d)}
-  .b-soon{background:var(--soonbg);color:var(--soon)}
-  .b-warn{background:var(--warnbg);color:var(--warn)}
-  .b-off{background:var(--offbg);color:var(--off)}
-  .nextq{display:block;margin-top:3px;font-size:10px;color:var(--sub)}
-  .scroll{overflow:auto;max-height:72vh}
-  .mon.now{background:#fbfdf9;box-shadow:inset 0 0 0 9999px rgba(46,125,79,.035)}
-  th.mon.now{color:var(--green);font-weight:800}
-  /* 右側の操作列（納品開始〜カート追加）を右端に固定 */
-  .p{position:sticky;background:#fff;padding-left:8px;padding-right:8px}
-  td.p{z-index:1}
-  th.p{z-index:4;background:#fafbfa}
-  .p-start{width:84px;min-width:84px;right:236px;border-left:2px solid var(--line);box-shadow:-8px 0 10px -8px rgba(0,0,0,.10)}
-  .p-ord  {width:104px;min-width:104px;right:132px}
-  .p-btn  {width:132px;min-width:132px;right:0}
-  td.ord.p,th.ord.p{background:#f3faf5}
-  .nostk{color:#cbd2cc;text-align:center;vertical-align:middle}
-  .statuscell{text-align:center;vertical-align:middle}
-  .statuscell .badge{white-space:normal;font-size:10.5px;line-height:1.35;padding:4px 7px}
-  .p-ord{vertical-align:top}
-  .availq{margin-top:5px;line-height:1.3;white-space:nowrap}
-  .availq .cap{display:block;font-size:9px;color:var(--sub)}
-  .availq b{font-size:11px;color:var(--green-d);font-weight:700}
-  @media(max-width:820px){
-    td.p-start{position:static;width:auto;min-width:0;border-left:0;box-shadow:none}
-    th.p-start{right:auto;width:auto;min-width:0;border-left:0;box-shadow:none;z-index:2}
-  }
-  /* スマホ：発注+カートは右固定のまま、幅を詰めて月が見える余地を確保。ボタンは2行に折り返す */
-  @media(max-width:560px){
-    td.name,th.name{width:108px;min-width:108px;max-width:108px;white-space:normal;word-break:break-word;overflow:hidden}
-    td.name .jp{font-size:13px;line-height:1.25}
-    .p{padding-left:5px;padding-right:5px}
-    .p-ord{width:66px;min-width:66px;right:70px}
-    .p-btn{width:70px;min-width:70px;right:0}
-    .qty{width:46px;appearance:textfield;-moz-appearance:textfield}
-    .qty::-webkit-inner-spin-button,.qty::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
-    .addbtn{white-space:normal;padding:5px 4px;font-size:10px;line-height:1.2}
-    .addbtn .bl2{display:block}
-    .availq .cap{font-size:8.5px}
-    .availq b{font-size:10px}
-    th,td{padding:8px 5px}
-  }
-  .price{font-variant-numeric:tabular-nums;font-weight:700}
-  .price .yen{font-size:11px;color:var(--sub);font-weight:600}
-  .farmhead{font-size:12px;line-height:1.4}
-  .note{font-size:12px;color:var(--sub);line-height:1.7;background:var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:18px;white-space:pre-line}
-  .legend{font-size:11px;color:var(--sub);margin:6px 2px 0;line-height:1.8}
-  .hide{display:none}
-  .state{padding:40px 16px;text-align:center;color:var(--sub);font-size:14px;line-height:1.8}
-  footer{text-align:center;color:var(--sub);font-size:11px;margin-top:30px}
-  /* ---- order / cart ---- */
-  th.ord,td.ord{background:#f3faf5}
-  .qty{width:74px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
-  .qty.has{border-color:var(--green);background:#f1faf3}
-  .addbtn{border:1px solid var(--green);background:#fff;color:var(--green-d);border-radius:8px;padding:6px 10px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;transition:transform .08s}
-  .addbtn:hover{background:var(--accent)}
-  .addbtn:active{transform:scale(.94)}
-  .addbtn.added{background:var(--green);color:#fff;border-color:var(--green)}
-  .cart-fab{position:fixed;right:18px;bottom:18px;z-index:50;background:var(--green);color:#fff;border:0;border-radius:999px;
-            padding:14px 20px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(31,90,56,.35);display:flex;align-items:center;gap:8px}
-  .cart-fab .cnt{background:#fff;color:var(--green-d);border-radius:999px;min-width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;padding:0 6px}
-  .overlay{position:fixed;inset:0;background:rgba(20,30,24,.45);z-index:60;display:none}
-  .overlay.show{display:block}
-  .drawer{position:fixed;top:0;right:0;height:100%;width:min(440px,100%);background:#fff;z-index:70;
-          transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column}
-  .drawer.show{transform:translateX(0)}
-  .dh{padding:18px 18px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
-  .dh h2{margin:0;font-size:17px}
-  .x{border:0;background:none;font-size:22px;cursor:pointer;color:var(--sub);line-height:1}
-  .dbody{flex:1;overflow-y:auto;padding:14px 18px}
-  .citem{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
-  .citem .nm{flex:1}
-  .citem .nm b{font-weight:700;font-size:14px}
-  .citem .qy{width:78px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;text-align:right;font-size:13px}
-  .citem .unit{color:var(--sub);font-size:12px}
-  .citem .rm{border:0;background:none;color:#c0584f;cursor:pointer;font-size:12px}
-  .empcart{color:var(--sub);text-align:center;padding:40px 10px;font-size:14px}
-  .form label{display:block;font-size:12px;color:var(--sub);margin:12px 0 4px}
-  .form input,.form select,.form textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;background:#fff}
-  .form textarea{min-height:60px;resize:vertical}
-  .dfoot{padding:14px 18px;border-top:1px solid var(--line)}
-  .submit{width:100%;background:var(--green);color:#fff;border:0;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
-  .submit:disabled{background:#b9c6bd;cursor:not-allowed}
-  .hint{font-size:11px;color:var(--sub);margin-top:8px;line-height:1.6}
-  .done{text-align:center;padding:30px 16px}
-  .done .ck{width:56px;height:56px;border-radius:50%;background:var(--accent);color:var(--green-d);font-size:30px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2a23;color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;z-index:90;opacity:0;transition:opacity .2s;pointer-events:none}
-  .toast.show{opacity:1}
-  @media(max-width:600px){ h1{font-size:18px} th,td{padding:8px 8px} }
+  .homegrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin-bottom:6px}
+  .navcard{display:block;background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;text-decoration:none;color:var(--ink);box-shadow:0 1px 3px rgba(20,30,24,.04);transition:transform .08s, box-shadow .12s}
+  .navcard:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(31,90,56,.14)}
+  .navcard .ic{font-size:26px}
+  .navcard .tt{font-weight:700;font-size:15px;margin:8px 0 4px}
+  .navcard .ds{font-size:12px;color:var(--sub);line-height:1.6}
+  .navcard.adm{background:#fafbfa}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;min-height:20px}
+  .chip{background:var(--okbg);color:var(--ok);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:700}
+  .gobtn{display:inline-block;margin-top:12px;background:var(--green);color:#fff;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:700;text-decoration:none}
+  .mini{border-left:4px solid var(--line)}
+  .mini .cat{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;margin-right:8px}
+  .cat.生育状況{background:#eaf3de;color:#3b6d11}
+  .cat.生育遅延{background:#fbf3e2;color:#8a5210}
+  .cat.天候{background:#e6f1fb;color:#185fa5}
+  .cat.病害虫{background:#faece7;color:#993c1d}
+  .cat.その他{background:#f0f1ef;color:#5f5e5a}
+  .more{display:block;text-align:right;font-size:13px;color:var(--green-d);margin-top:-6px}
 </style>
 </head>
 <body>
-<!-- ====================================================================== -->
-<!--  設定：基本ここだけ。                                                  -->
-<!--  ・SHEET_ID … 読み込むGoogleスプレッドシートのID                      -->
-<!--  ・ORDER_WEBAPP_URL … Apps Scriptを公開したら、その /exec URLを貼る    -->
-<!--      空のままなら「注文」はメール下書き(mailto)で送られます           -->
-<!-- ====================================================================== -->
-<script>
-  const CONFIG = {
-    SHEET_ID: "1hyNpkwXwF5JQE3pLY3DFhGGEX5228tQMbnBsyar7Ylg",
-    SUPPLY_SHEET: "推定供給（月間）",
-    PRICE_SHEET:  "圃場別価格表",
-    WEEKS_PER_MONTH: 3.5,
-    ORDER_WEBAPP_URL: "https://script.google.com/macros/s/AKfycbygruSomnxo__KoY3BxEbwOrZEcrPVggI1tqOOA6btrJRqfo8mfvUbpT2RX8DZ8_j3e/exec", // ← Apps Scriptの /exec URL
-    ORDER_EMAIL: "toruhyuga@thaisupermarket99.com", // mailtoフォールバック先（事業用）
-    COMPANIES: ["QOF様", "SRBC様", "GAOGAO（テスト）"],  // 注文者（会社）の選択肢
-    // ▼ 会社ごとの担当者（発注カートで選択式に。emailは発注メールのCCに自動追加）
-    CONTACTS: {
-      "QOF様": [
-        {name:"村上 幸男", email:"y_murakami@qof.co.jp"},
-        {name:"シイタラピナン ブンヤリット", email:"b_sitalaphinunt@qof.co.jp"},
-        {name:"渡辺 良道", email:"s_watanabe@qof.co.jp"}
-      ],
-      "SRBC様": [
-        {name:"尾上 裕美", email:"y_onoue@spiceroad.co.jp"},
-        {name:"松本 正樹", email:"m_matsumoto@spiceroad.co.jp"}
-      ],
-      "GAOGAO（テスト）": [
-        {name:"テスト担当", email:"toruhyuga0810@gmail.com"}
-      ]
-    },
-    // ▼ 発注確認メール（顧客が自分のメールで送信。To/CC・本文を自動生成＝手間ゼロ）
-    ORDER_MAIL_TO: ["toruhyuga@thaisupermarket99.com","m_matsumoto@spiceroad.co.jp","y_onoue@spiceroad.co.jp"],
-    ORDER_MAIL_CC: ["b_sitalaphinunt@qof.co.jp","s_watanabe@qof.co.jp"],
-    ORDER_MAIL_GREETING: "日向様",              // 宛名（受信者）
-    PACK_G: 500                                 // 1パックのグラム数（500g→ kg×2個）
-  };
-</script>
-<!-- ====================================================================== -->
-
 <header><div class="wrap">
-  <h1>🌿 GAOGAO 供給量・納品スケジュール</h1>
-  <div class="lead">2026年 推定年間供給スケジュール ／ 圃場別 卸価格表 ／ 発注</div>
-  <div class="meta">
-    <span>最終取得: <b id="fetched">—</b>（本日基準で出荷ステータスを自動判定）</span>
-    <button class="reload" id="reload">↻ 最新に更新</button>
-  </div>
-  <nav class="navlinks">
-    <a href="index.html" class="active">📅 供給・発注</a>
+  <h1>🌿 GAOGAO 発注ポータル</h1>
+  <div class="lead">タイ野菜の供給スケジュール・発注・生育情報をひとつに</div>
+  <nav class="tabs">
+    <a href="index.html" class="active">🏠 ホーム</a>
+    <a href="hatchu.html">📅 供給・発注</a>
     <a href="order-confirm.html">🧾 注文確認</a>
+    <a href="jisseki.html">📊 納品実績</a>
     <a href="keiziban.html">📋 掲示板</a>
     <a href="admin.html">✅ 承認(管理)</a>
-    <a href="jisseki.html">📊 納品実績</a>
   </nav>
 </div></header>
 
 <div class="wrap">
-  <div class="tabs">
-    <div class="tab active" data-view="schedule">📅 供給スケジュール・発注</div>
-    <div class="tab" data-view="price">💴 圃場別 価格表</div>
+  <div class="homegrid">
+    <a class="navcard" href="hatchu.html"><div class="ic">📅</div><div class="tt">供給・発注</div><div class="ds">年間供給スケジュール・圃場別価格を見て、カートで発注</div></a>
+    <a class="navcard" href="order-confirm.html"><div class="ic">🧾</div><div class="tt">注文確認</div><div class="ds">送信した注文の状態を確認。受付中は数量修正・キャンセルも</div></a>
+    <a class="navcard" href="jisseki.html"><div class="ic">📊</div><div class="tt">納品実績</div><div class="ds">品目別・会社別・月別の集計、グラフ、CSV出力</div></a>
+    <a class="navcard" href="keiziban.html"><div class="ic">📋</div><div class="tt">掲示板</div><div class="ds">生育状況・生育遅延・天候・病害虫のお知らせ</div></a>
+    <a class="navcard adm" href="admin.html"><div class="ic">✅</div><div class="tt">承認(管理)</div><div class="ds">GAOGAO専用：受注の承認・単価入力（パスワード）</div></a>
   </div>
 
-  <div id="view-schedule">
-    <div class="toolbar">
-      <div class="searchbox"><input class="search" id="q1" placeholder="品目を検索（日本名・呼称・タイ語）"><button class="clr" id="clr1" aria-label="検索をクリア">×</button></div>
-      <select id="sortmode" class="sortsel">
-        <option value="shippable-first">🥬 発注可能を上に</option>
-        <option value="shippable-only">✅ 発注可能のみ</option>
-        <option value="default">📄 シート順</option>
-        <option value="name">🔤 品目名順</option>
-      </select>
-      <div class="seg">
-        <button id="m-month" class="active">月間 (kg/月)</button>
-        <button id="m-week">週間 (kg/週)</button>
-      </div>
-    </div>
-    <div class="card"><div class="scroll"><table id="sched"></table></div>
-      <div class="state hide" id="sched-state"></div></div>
-    <div class="legend">◯ ＝ 歩止まり（収穫の立ち上がり・端境期。数量は僅少または不安定）　／　空欄 ＝ 供給なし　／　数値の単位は kg。<br>
-    発注は「発注(kg)」に数量(1kg単位)を入れて「＋ カートに追加」を押すと右下のカートに入ります。<br>
-    出荷ステータス: <span class="badge b-ok">出荷可能</span> 開始済 ／ <span class="badge b-soon">来週出荷できます！</span> 7日以内 ／ <span class="badge b-soon">再来週から</span> 14日以内 ／ <span class="badge b-warn">◯月◯日頃から</span> それ以降</div>
+  <h2>🥬 本日発注可能な品目</h2>
+  <div class="card">
+    <div id="avail" class="chips"><span class="muted">読み込み中…</span></div>
+    <a class="gobtn" href="hatchu.html">📅 発注ページへ</a>
   </div>
 
-  <div id="view-price" class="hide">
-    <div class="note" id="farmnote">同じ品目でも圃場により価格が異なります。空欄（–）はその圃場では現在取扱いがないか、価格未定です。価格は税抜・卸値/kg。</div>
-    <div class="toolbar"><div class="searchbox"><input class="search" id="q2" placeholder="品目を検索"><button class="clr" id="clr2" aria-label="検索をクリア">×</button></div></div>
-    <div class="card"><div class="scroll"><table id="price"></table></div></div>
-    <div class="legend">緑のセル ＝ その圃場で取扱いのある品目。「協議中／仮」など今後変動する場合があります。</div>
-  </div>
+  <h2>📋 最新のお知らせ</h2>
+  <div id="posts"><div class="card state">読み込み中…</div></div>
+  <a class="more" href="keiziban.html">→ 掲示板をすべて見る</a>
 </div>
 
-<footer>GAOGAO × SRBC × クオリア 共有ページ ／ データはGoogleスプレッドシートから自動取得しています。</footer>
+<footer>GAOGAO × SRBC × QOF ／ データはGoogleスプレッドシートから自動取得しています。</footer>
 
-<!-- ---- cart ---- -->
-<button class="cart-fab" id="fab">🛒 カート <span class="cnt" id="fab-cnt">0</span></button>
-<div class="overlay" id="overlay"></div>
-<div class="drawer" id="drawer">
-  <div class="dh"><h2>🛒 発注カート</h2><button class="x" id="close">×</button></div>
-  <div class="dbody" id="dbody"><!-- filled by JS --></div>
-</div>
-<div class="toast" id="toast"></div>
-
+<script src="assets/orders.js"></script>
 <script>
-const MONTHS=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-const today=new Date(); today.setHours(0,0,0,0);
-const nowMonth=today.getMonth();
-let SUPPLY=[], PRICE=[], FARMS=[];
-let mode='monthly';
-const $=id=>document.getElementById(id);
-
-// ====== CART STATE (localStorage persisted) ======
-let cart={};
-try{ cart=JSON.parse(localStorage.getItem('gaogao_cart')||'{}'); }catch(e){ cart={}; }
-function saveCart(){ localStorage.setItem('gaogao_cart', JSON.stringify(cart)); }
-function setQty(call, jp, q){
-  q=parseFloat(q);
-  if(!q || q<=0){ delete cart[call]; }
-  else { cart[call]={call, jp, qty:q}; }
-  saveCart(); updateFab();
+const SUPPLY_SHEET='推定供給（月間）';
+function isShippable(s0){
+  const m=String(s0||'').match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if(!m) return false;
+  const d=new Date(+m[1],+m[2]-1,+m[3]); d.setHours(0,0,0,0);
+  const t=new Date(); t.setHours(0,0,0,0);
+  return d<=t;
 }
-function cartList(){ return Object.values(cart); }
-function updateFab(){
-  const n=cartList().length;
-  $('fab-cnt').textContent=n;
-  $('fab').style.display = 'flex';
-}
-
-// ---- CSV ----
-function parseCSV(text){
-  const rows=[]; let row=[], cell='', q=false;
-  for(let i=0;i<text.length;i++){
-    const c=text[i];
-    if(q){ if(c==='"'){ if(text[i+1]==='"'){cell+='"';i++;} else q=false; } else cell+=c; }
-    else{ if(c==='"') q=true; else if(c===','){ row.push(cell); cell=''; }
-      else if(c==='\n'){ row.push(cell); rows.push(row); row=[]; cell=''; }
-      else if(c==='\r'){} else cell+=c; }
-  }
-  if(cell!==''||row.length){ row.push(cell); rows.push(row); }
-  return rows;
-}
-function gvizURL(sheet){ return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&t=${Date.now()}`; }
-async function fetchSheet(sheet){
-  const res=await fetch(gvizURL(sheet),{cache:'no-store'});
-  if(!res.ok) throw new Error('「'+sheet+'」の取得に失敗 ('+res.status+')');
-  return parseCSV(await res.text());
-}
-const cellv=(r,i)=> (r && r[i]!=null) ? String(r[i]).trim() : '';
-function num(v){ if(v==='') return null; const n=parseFloat(String(v).replace(/[,，\s]/g,'')); return isNaN(n)?null:n; }
-function parseDate(s){ const m=String(s).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/); if(!m) return null; const d=new Date(+m[1],+m[2]-1,+m[3]); d.setHours(0,0,0,0); return d; }
-
-function buildSupply(rows){
-  const h=rows.findIndex(r=>cellv(r,0)==='呼称');
-  if(h<0) throw new Error('供給シートに「呼称」見出しが見つかりません');
-  const out=[];
-  for(let i=h+1;i<rows.length;i++){
-    const r=rows[i]; if(!cellv(r,0)) break;
-    const monthly=[]; for(let m=0;m<12;m++){ const v=cellv(r,3+m); monthly.push(v===''?null:((v==='◯'||v==='○')?'◯':num(v))); }
-    out.push({call:cellv(r,0), jp:cellv(r,1), th:cellv(r,2), monthly, start:cellv(r,15), next:cellv(r,17)});
-  }
-  return out;
-}
-function buildPrice(rows){
-  const headers=[];
-  rows.forEach((r,ri)=> r.forEach((c,ci)=>{ if(typeof c==='string' && c.includes('圃場') && c.includes('：')) headers.push({ri,ci,name:c.trim()}); }));
-  const bandRows=[...new Set(headers.map(h=>h.ri))].sort((a,b)=>a-b);
-  const farms=[]; const master=new Map(); const order=[];
-  function disp(name){ const p=name.split('：'); const left=p[0].trim(); let right=(p[1]||'').replace(/圃場$/,'').trim(); const num=(left.match(/第(\d+)/)||[])[1]; return {num:num?+num:99,title:left,sub:right}; }
-  bandRows.forEach((br,bi)=>{
-    const end = bi+1<bandRows.length ? bandRows[bi+1] : rows.length;
-    headers.filter(h=>h.ri===br).forEach(h=>{
-      const info=disp(h.name);
-      if(!farms.find(f=>f.title===info.title)) farms.push(info);
-      for(let i=br+2;i<end;i++){
-        const r=rows[i]; const call=cellv(r,h.ci+1);
-        if(!call||call==='呼称') continue;
-        if(!master.has(call)){ master.set(call,{call,jp:cellv(r,h.ci+0),en:cellv(r,h.ci+2),prices:{}}); order.push(call); }
-        const p=num(cellv(r,h.ci+4)); if(p!=null) master.get(call).prices[info.title]=p;
-      }
-    });
-  });
-  farms.sort((a,b)=>a.num-b.num); FARMS=farms;
-  return order.map(c=>{ const it=master.get(c); return {call:it.call,jp:it.jp,en:it.en,prices:FARMS.map(f=>it.prices[f.title] ?? null)}; });
-}
-
-function status(s0){
-  if(!s0) return {cls:'b-off',txt:'未定'};
-  const s=parseDate(s0); if(!s) return {cls:'b-off',txt:s0};
-  const diff=Math.round((s-today)/86400000);
-  if(diff<=0) return {cls:'b-ok',txt:'出荷可能'};
-  if(diff<=7) return {cls:'b-soon',txt:'来週出荷できます！'};
-  if(diff<=14) return {cls:'b-soon',txt:'再来週から'};
-  return {cls:'b-warn',txt:(s.getMonth()+1)+'月'+s.getDate()+'日頃から'};
-}
-function cell(v){ if(v===null||v===undefined||v==='') return '<span class="empty">–</span>'; if(v==='◯') return '<span class="o">◯</span>'; return '<span class="val">'+v+'</span>'; }
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-// ボタンのラベル（スマホでは2行に折り返す＝.bl2をblock化）
-function addBtnHTML(added){
-  return added ? '<span class="bl1">✓ 追加</span><span class="bl2">済み</span>'
-               : '<span class="bl1">＋ カート</span><span class="bl2">に追加</span>';
-}
-
-function renderSched(){
-  const q=$('q1').value.trim().toLowerCase();
-  let h='<thead><tr><th class="name">品目</th>';
-  MONTHS.forEach((m,i)=>{ h+='<th class="mon'+(i===nowMonth?' now':'')+'">'+m+'</th>'; });
-  h+='<th class="p p-start">納品開始</th><th class="ord p p-ord">発注(kg)</th><th class="ord p p-btn"></th></tr></thead><tbody>';
-  // 表示順・フィルター（検索で絞り込み→ステータス付与→並び替え）
-  const sm=($('sortmode')||{}).value||'shippable-first';
-  let list=SUPPLY.filter(it=>{ const hay=(it.jp+it.call+it.th).toLowerCase(); return !q||hay.includes(q); })
-                 .map(it=>({it, st:status(it.start)}));
-  if(sm==='shippable-only')      list=list.filter(x=>x.st.cls==='b-ok');
-  else if(sm==='shippable-first') list.sort((a,b)=>((b.st.cls==='b-ok')?1:0)-((a.st.cls==='b-ok')?1:0));
-  else if(sm==='name')            list.sort((a,b)=>a.it.jp.localeCompare(b.it.jp,'ja'));
-  list.forEach(({it,st})=>{
-    const arr= mode==='weekly' ? it.monthly.map(v=> (typeof v==='number')? Math.round(v/CONFIG.WEEKS_PER_MONTH*10)/10 : v) : it.monthly;
-    const shippable = (st.cls==='b-ok');   // 出荷可能のときだけ発注可能
-    const harvest = it.next ? '<div class="availq"><span class="cap">可能収穫量</span><b>'+esc(it.next)+'</b></div>' : '';
-    const cur = cart[it.call] ? cart[it.call].qty : '';
-    h+='<tr><td class="name"><div class="jp">'+esc(it.jp)+'</div><div class="sub">'+esc(it.call)+'</div><div class="th">'+esc(it.th||'')+'</div></td>';
-    arr.forEach((v,i)=>{ h+='<td class="mon'+(i===nowMonth?' now':'')+'">'+cell(v)+'</td>'; });
-    h+='<td class="sub p p-start">'+(esc(it.start)||'–')+'</td>';
-    if(shippable){
-      h+='<td class="ord p p-ord"><input class="qty'+(cur?' has':'')+'" type="number" min="0" step="1" inputmode="numeric" value="'+cur+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'" placeholder="0">'+harvest+'</td>';
-      h+='<td class="ord p p-btn"><button class="addbtn'+(cur?' added':'')+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'">'+addBtnHTML(!!cur)+'</button></td>';
-    } else {
-      h+='<td class="ord p p-ord nostk">—</td>';
-      h+='<td class="ord p p-btn statuscell"><span class="badge '+st.cls+'">'+st.txt+'</span></td>';
+(async function(){
+  // 本日発注可能な品目（納品開始日を過ぎているもの）
+  try{
+    const rows=await fetchSheet(SUPPLY_SHEET);
+    const hi=rows.findIndex(r=>String(r[0]).trim()==='呼称');
+    const chips=[];
+    for(let i=hi+1;i<rows.length;i++){
+      const r=rows[i]; const call=String(r[0]||'').trim(); if(!call) break;
+      if(isShippable(r[15])) chips.push(String(r[1]||'').trim()||call);
     }
-    h+='</tr>';
-  });
-  if(list.length===0){ h+='<tr><td colspan="16" style="text-align:center;color:var(--sub);padding:26px">該当する品目がありません</td></tr>'; }
-  h+='</tbody>';
-  $('sched').innerHTML=h;
-  $('sched').querySelectorAll('.addbtn').forEach(b=> b.addEventListener('click',()=>addFromRow(b)) );
-  $('sched').querySelectorAll('.qty').forEach(inp=> inp.addEventListener('keydown',e=>{
-    if(e.key==='Enter'){ e.preventDefault(); inp.closest('tr').querySelector('.addbtn').click(); }
-  }));
-}
-// 当月の列を品目列のすぐ右に来るよう横スクロール（左に戻せば過去月も見られる）
-function scrollToCurrentMonth(){
-  const scroll=document.querySelector('#view-schedule .scroll');
-  if(!scroll) return;
-  const monthTh=scroll.querySelector('thead th.mon.now');
-  const nameTh=scroll.querySelector('thead th.name');
-  if(!monthTh||!nameTh) return;
-  const nameW=nameTh.getBoundingClientRect().width;
-  const curLeft=monthTh.getBoundingClientRect().left - scroll.getBoundingClientRect().left;
-  scroll.scrollLeft += (curLeft - nameW);
-}
-function renderPrice(){
-  const q=$('q2').value.trim().toLowerCase();
-  let h='<thead><tr><th class="name">品目</th>';
-  FARMS.forEach(f=>{ h+='<th class="farmhead"><b>'+esc(f.title)+'</b>'+(f.sub?'<br><span class="sub">'+esc(f.sub)+'</span>':'')+'</th>'; });
-  h+='</tr></thead><tbody>';
-  PRICE.forEach(it=>{
-    const hay=(it.jp+it.call+(it.en||'')).toLowerCase();
-    if(q && !hay.includes(q)) return;
-    h+='<tr><td class="name"><div class="jp">'+esc(it.jp)+'</div><div class="sub">'+esc(it.call)+'</div></td>';
-    it.prices.forEach(p=>{
-      if(p===null||p===undefined){ h+='<td class="empty">–</td>'; }
-      else { h+='<td style="background:var(--accent)"><span class="price">'+Number(p).toLocaleString()+'<span class="yen"> 円</span></span></td>'; }
-    });
-    h+='</tr>';
-  });
-  h+='</tbody>';
-  $('price').innerHTML=h;
-}
-
-// ====== CART DRAWER ======
-function openCart(){ renderCart(); $('overlay').classList.add('show'); $('drawer').classList.add('show'); }
-function closeCart(){ $('overlay').classList.remove('show'); $('drawer').classList.remove('show'); }
-function renderCart(){
-  const items=cartList();
-  const body=$('dbody');
-  if(items.length===0){ body.innerHTML='<div class="empcart">カートは空です。<br>「供給スケジュール」で発注(kg)に数量を入れてください。</div>'; return; }
-  let h='';
-  items.forEach(it=>{
-    h+='<div class="citem"><div class="nm"><b>'+esc(it.jp)+'</b><div class="sub">'+esc(it.call)+'</div></div>'
-      +'<input class="qy" type="number" min="0" step="1" inputmode="numeric" value="'+it.qty+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'"> <span class="unit">kg</span>'
-      +'<button class="rm" data-call="'+esc(it.call)+'">削除</button></div>';
-  });
-  const opts=CONFIG.COMPANIES.map(c=>'<option>'+esc(c)+'</option>').join('')+'<option>その他</option>';
-  const savedC=localStorage.getItem('gaogao_company')||'';
-  const savedP=localStorage.getItem('gaogao_person')||'';
-  h+='<div class="form">'
-    +'<label>注文者（会社）<span style="color:#c0584f">*</span></label>'
-    +'<select id="f-company">'+opts+'</select>'
-    +'<input id="f-company-other" class="hide" placeholder="会社・店舗名を入力" value="">'
-    +'<label>ご担当者 <span style="color:#c0584f">*</span></label>'
-    +'<select id="f-person"></select>'
-    +'<input id="f-person-other" class="hide" placeholder="ご担当者名を入力" value="">'
-    +'<label>希望納品日</label><input id="f-date" type="date">'
-    +'<label>備考（配送先・希望時間など）</label><textarea id="f-note" placeholder="任意"></textarea>'
-    +'</div>';
-  body.innerHTML=h
-    +'<div class="dfoot">'
-    +'<button class="submit" id="f-submit">この内容で注文する（'+items.length+'品目）</button>'
-    +'<div class="hint" id="f-hint"></div></div>';
-
-  // bind
-  body.querySelectorAll('.qy').forEach(inp=>inp.addEventListener('input',e=>{
-    const t=e.target; setQty(t.dataset.call,t.dataset.jp,t.value);
-    if(!(parseFloat(t.value)>0)) renderCart();
-    syncTableInputs();
-  }));
-  body.querySelectorAll('.rm').forEach(b=>b.addEventListener('click',e=>{
-    const c=e.target.dataset.call; delete cart[c]; saveCart(); updateFab(); renderCart(); syncTableInputs();
-  }));
-  const csel=$('f-company'); if(savedC){ csel.value=savedC; }
-  const other=$('f-company-other');
-  const psel=$('f-person'), pother=$('f-person-other');
-  function fillPersons(){
-    const contacts=(CONFIG.CONTACTS && CONFIG.CONTACTS[csel.value]) || [];
-    psel.innerHTML=contacts.map(c=>'<option value="'+esc(c.name)+'" data-email="'+esc(c.email)+'">'+esc(c.name)+'</option>').join('')
-      +'<option value="__other">その他（自由入力）</option>';
-    if(savedP && contacts.some(c=>c.name===savedP)) psel.value=savedP;
-    syncPersonOther();
-  }
-  function syncPersonOther(){
-    const companyOther=(csel.value==='その他'), personOther=(psel.value==='__other');
-    psel.classList.toggle('hide', companyOther);
-    pother.classList.toggle('hide', !(companyOther || personOther));
-  }
-  function syncOther(){ const o=csel.value==='その他'; other.classList.toggle('hide',!o); fillPersons(); }
-  csel.addEventListener('change',syncOther);
-  psel.addEventListener('change',syncPersonOther);
-  syncOther();
-  $('f-hint').innerHTML = CONFIG.ORDER_WEBAPP_URL
-    ? '送信するとスプレッドシートの「注文」に記録され、GAOGAOに通知が届きます。金額は後日GAOGAOより確定のご連絡をします。'
-    : '⚠️ 現在は<b>メール送信モード</b>です（注文内容がメール下書きとして開きます）。自動記録にするには Apps Script を接続してください（READMEに手順）。';
-  $('f-submit').addEventListener('click',submitOrder);
-}
-function syncTableInputs(){
-  $('sched').querySelectorAll('.qty').forEach(inp=>{
-    const c=inp.dataset.call; const q=cart[c]?cart[c].qty:'';
-    inp.value=q; inp.classList.toggle('has',!!q);
-    const btn=inp.closest('tr').querySelector('.addbtn');
-    if(btn){ btn.classList.toggle('added',!!q); btn.innerHTML=addBtnHTML(!!q); }
-  });
-}
-// 「カートに追加」ボタン押下時の処理（押した手応え＝トースト＋ボタン変化）
-function addFromRow(btn){
-  const row=btn.closest('tr');
-  const inp=row.querySelector('.qty');
-  const call=btn.dataset.call, jp=btn.dataset.jp;
-  let q=Math.round(parseFloat(inp.value)||0);
-  if(q<=0){
-    if(cart[call]){ delete cart[call]; saveCart(); updateFab(); inp.value=''; inp.classList.remove('has');
-      btn.classList.remove('added'); btn.innerHTML=addBtnHTML(false); toast(jp+' をカートから削除しました'); }
-    else { toast('数量（kg）を入力してください'); inp.focus(); }
-    return;
-  }
-  inp.value=q; inp.classList.add('has');
-  setQty(call, jp, q);
-  btn.classList.add('added'); btn.innerHTML=addBtnHTML(true);
-  toast('🛒 '+jp+' '+q+'kg をカートに追加');
-}
-function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
-
-function fmtJpDate(s){ if(!s) return ''; const d=new Date(s+'T00:00:00'); if(isNaN(d)) return s; const w='日月火水木金土'[d.getDay()]; return `${d.getMonth()+1}月${d.getDate()}日(${w})`; }
-function buildOrderMailUrl(company, person, date, items, note, contactEmail){
-  const perKg = Math.round(1000 / (CONFIG.PACK_G||500)); // 500g→2個/kg
-  const d = fmtJpDate(date);
-  const lines = items.map(i=>`・${i.jp}（${i.call}）　${i.qty}kg（${CONFIG.PACK_G||500}gパック${Math.round(i.qty*perKg)}個）`).join('\n');
-  const body =
-`${CONFIG.ORDER_MAIL_GREETING}
-
-${company}の${person}です。いつもお世話になっております。
-${d?d+'着の':''}野菜を発注いたします。
-
-${lines}
-${note?'\n備考：'+note+'\n':''}
-尚、出荷可否のご返信をお願いいたします。
-以上、よろしくお願いいたします。`;
-  const subject = `【発注】${company}${d?'　'+d+'着':''}`;
-  const toList = (CONFIG.ORDER_MAIL_TO||[]);
-  const to = toList.join(',');
-  const ccList = (CONFIG.ORDER_MAIL_CC||[]).slice();
-  if(contactEmail && toList.indexOf(contactEmail)<0 && ccList.indexOf(contactEmail)<0) ccList.push(contactEmail); // 選んだ担当者を控えでCCに（重複時は追加しない）
-  const cc = ccList.join(',');
-  return `mailto:${to}?cc=${encodeURIComponent(cc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-async function submitOrder(){
-  const items=cartList();
-  if(items.length===0){ toast('カートが空です'); return; }
-  let company=$('f-company').value;
-  if(company==='その他') company=$('f-company-other').value.trim();
-  const pselEl=$('f-person');
-  let person='', contactEmail='';
-  if(company==='その他' || pselEl.value==='__other'){
-    person=$('f-person-other').value.trim();
-  } else {
-    person=pselEl.value.trim();
-    const opt=pselEl.selectedOptions[0];
-    contactEmail=opt ? (opt.getAttribute('data-email')||'') : '';
-  }
-  const date=$('f-date').value;
-  const note=$('f-note').value.trim();
-  if(!company){ toast('会社名を入力してください'); return; }
-  if(!person){ toast('ご担当者名を入力してください'); return; }
-  localStorage.setItem('gaogao_company', $('f-company').value);
-  localStorage.setItem('gaogao_person', person);
-  const payload={ company, person, deliveryDate:date, note, items: items.map(i=>({call:i.call,jp:i.jp,qty:i.qty})), submittedAt:new Date().toISOString() };
-
-  const btn=$('f-submit'); btn.disabled=true; btn.textContent='送信中…';
-
-  // --- mailto fallback (Apps Script未設定時) ---
-  if(!CONFIG.ORDER_WEBAPP_URL){
-    const lines=items.map(i=>`・${i.jp}（${i.call}）: ${i.qty} kg`).join('\n');
-    const body=`GAOGAO 発注\n\n会社: ${company}\n担当: ${person}\n希望納品日: ${date||'未定'}\n\n${lines}\n\n備考: ${note||'(なし)'}`;
-    window.location.href=`mailto:${CONFIG.ORDER_EMAIL}?subject=${encodeURIComponent('【GAOGAO発注】'+company)}&body=${encodeURIComponent(body)}`;
-    showDone(null, true); return;
-  }
-
-  // --- Apps Script POST (text/plainでプリフライト回避) ---
+    document.getElementById('avail').innerHTML = chips.length
+      ? chips.map(c=>'<span class="chip">'+esc(c)+'</span>').join('')
+      : '<span class="muted">本日発注可能な品目はありません。</span>';
+  }catch(e){ document.getElementById('avail').innerHTML='<span class="muted">取得できませんでした</span>'; }
+  // 最新のお知らせ（掲示板から3件）
   try{
-    const res=await fetch(CONFIG.ORDER_WEBAPP_URL,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload) });
-    const data=await res.json().catch(()=>({ok:true}));
-    if(data.ok===false) throw new Error(data.error||'送信エラー');
-    const mailUrl=buildOrderMailUrl(company,person,date,items,note,contactEmail);
-    showDone(data.id||null,false,mailUrl);
-    setTimeout(()=>{ try{ window.location.href=mailUrl; }catch(e){} }, 600);
-  }catch(err){
-    btn.disabled=false; btn.textContent='この内容で注文する（'+items.length+'品目）';
-    toast('送信に失敗しました：'+err.message);
-  }
-}
-function showDone(id, mail, mailUrl){
-  cart={}; saveCart(); updateFab(); syncTableInputs();
-  $('dbody').innerHTML='<div class="done"><div class="ck">✓</div>'
-    +'<h2 style="margin:0 0 8px">注文を'+(mail?'メールで送信します':'受け付けました')+'</h2>'
-    +'<p class="sub" style="font-size:13px">'+(mail?'メールアプリが開きます。そのまま送信してください。':'GAOGAOに通知が届きました。')+'</p>'
-    +(id?'<p class="sub">注文番号: <b>'+esc(id)+'</b></p>':'')
-    +(mailUrl?'<p class="sub" style="font-size:12px;margin-top:12px">📧 発注確認メール（To/CC・本文入力済み）が開きます。そのまま送信してください。</p>'
-      +'<a class="submit" style="display:block;margin-top:8px;text-decoration:none" href="'+esc(mailUrl)+'">📧 発注メールを開く</a>':'')
-    +'<button class="submit" style="margin-top:10px;background:#fff;color:var(--green-d);border:1px solid var(--line)" id="done-close">閉じる</button></div>';
-  $('done-close').addEventListener('click',()=>{ closeCart(); });
-}
-
-async function load(){
-  const st=$('sched-state');
-  if(CONFIG.SHEET_ID.includes('ここに')){
-    st.classList.remove('hide'); st.innerHTML='⚙️ index.html 上部の <b>SHEET_ID</b> にスプレッドシートIDを貼ってください。'; $('sched').innerHTML=''; return;
-  }
-  st.classList.remove('hide'); st.textContent='読み込み中…'; $('sched').innerHTML='';
-  try{
-    const [sup,pri]=await Promise.all([fetchSheet(CONFIG.SUPPLY_SHEET),fetchSheet(CONFIG.PRICE_SHEET)]);
-    SUPPLY=buildSupply(sup); PRICE=buildPrice(pri);
-    st.classList.add('hide');
-    $('fetched').textContent=new Date().toLocaleString('ja-JP');
-    renderSched(); renderPrice(); updateFab();
-    requestAnimationFrame(()=>requestAnimationFrame(scrollToCurrentMonth));
-    [120,350,700].forEach(t=>setTimeout(scrollToCurrentMonth,t));
-    if(document.fonts && document.fonts.ready) document.fonts.ready.then(scrollToCurrentMonth);
-    window.addEventListener('load',()=>setTimeout(scrollToCurrentMonth,60),{once:true});
-  }catch(e){
-    st.classList.remove('hide');
-    st.innerHTML='⚠️ データを取得できませんでした。共有設定（リンクを知っている全員＝閲覧者）と SHEET_ID・タブ名をご確認ください。<br><span class="sub">'+esc(e.message)+'</span>';
-  }
-}
-
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-  t.classList.add('active');
-  const v=t.dataset.view;
-  $('view-schedule').classList.toggle('hide',v!=='schedule');
-  $('view-price').classList.toggle('hide',v!=='price');
-});
-$('m-month').onclick=function(){mode='monthly';this.classList.add('active');$('m-week').classList.remove('active');renderSched();};
-$('m-week').onclick=function(){mode='weekly';this.classList.add('active');$('m-month').classList.remove('active');renderSched();};
-function bindSearch(inputId, clrId, render){
-  const inp=$(inputId), clr=$(clrId);
-  const toggle=()=>clr.classList.toggle('show', inp.value.length>0);
-  inp.addEventListener('input',()=>{ toggle(); render(); });
-  clr.addEventListener('click',()=>{ inp.value=''; toggle(); render(); inp.focus(); });
-  toggle();
-}
-bindSearch('q1','clr1',renderSched);
-// 表示順（発注可能を上に/のみ/シート順/品目名順）— 選択は端末に記憶
-(function(){
-  const sel=$('sortmode');
-  const saved=localStorage.getItem('gaogao_sortmode');
-  if(saved && [...sel.options].some(o=>o.value===saved)) sel.value=saved;
-  sel.addEventListener('change',()=>{ localStorage.setItem('gaogao_sortmode',sel.value); renderSched(); });
+    const rows=await fetchSheet('掲示板');
+    const hi=rows.findIndex(r=>r.some(c=>String(c).trim()==='本文'));
+    const head=rows[hi].map(s=>String(s).trim());
+    const col=n=>head.indexOf(n);
+    const posts=[];
+    for(let i=hi+1;i<rows.length;i++){
+      const r=rows[i]; const body=String(r[col('本文')]||'').trim(); if(!body) continue;
+      posts.push({when:String(r[col('日時')]||''), cat:String(r[col('分類')]||'その他').trim(), body, who:String(r[col('投稿者')]||'')});
+    }
+    posts.sort((a,b)=> a.when<b.when?1:-1);
+    const top=posts.slice(0,3);
+    document.getElementById('posts').innerHTML = top.length
+      ? top.map(p=>{
+          const cat=['生育状況','生育遅延','天候','病害虫'].includes(p.cat)?p.cat:'その他';
+          const body=p.body.length>140 ? p.body.slice(0,140)+'…' : p.body;
+          return '<div class="card mini"><span class="cat '+cat+'">'+esc(cat)+'</span><span class="muted" style="font-size:12px">'+esc(fmtDate(p.when)||p.when)+'</span>'
+            +'<div style="margin-top:8px;font-size:14px;line-height:1.7;white-space:pre-wrap">'+esc(body)+'</div>'
+            +(p.who?'<div class="muted" style="margin-top:6px;font-size:12px">— '+esc(p.who)+'</div>':'')+'</div>';
+        }).join('')
+      : '<div class="card state">まだお知らせはありません。</div>';
+  }catch(e){ document.getElementById('posts').innerHTML='<div class="card state">お知らせを取得できませんでした。</div>'; }
 })();
-bindSearch('q2','clr2',renderPrice);
-$('reload').onclick=load;
-$('fab').onclick=openCart;
-$('close').onclick=closeCart;
-$('overlay').onclick=closeCart;
-
-load();
 </script>
 </body>
 </html>
