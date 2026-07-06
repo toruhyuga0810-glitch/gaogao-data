@@ -17,6 +17,7 @@ jobs:
           MAX_PHOTOS: "48"
         run: |
           set -e
+          pip install --quiet pillow
           mkdir -p photos
           curl -s -H "Authorization: Bot $BOT_TOKEN" -H "User-Agent: DiscordBot (https://gaogao, 1.0)" \
             "https://discord.com/api/v10/channels/$CHANNEL_ID/messages?limit=50" -o messages.json
@@ -34,7 +35,7 @@ jobs:
             if [ ! -f "$f" ]; then
               echo "download: $id"
               curl -s -o /tmp/raw_img "$url"
-              convert /tmp/raw_img -auto-orient -resize '1200x1200>' -quality 72 "$f" || cp /tmp/raw_img "$f"
+              python3 -c "from PIL import Image,ImageOps; im=Image.open('/tmp/raw_img'); im=ImageOps.exif_transpose(im).convert('RGB'); im.thumbnail((1200,1200)); im.save('$f','JPEG',quality=72,optimize=True)" || cp /tmp/raw_img "$f"
             fi
           done
           # index.json 再構築（実在ファイルのみ）
