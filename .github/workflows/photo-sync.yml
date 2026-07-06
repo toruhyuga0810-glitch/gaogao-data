@@ -42,8 +42,28 @@ jobs:
           jq '[ .[] | select(.id != null) | {src: ("photos/" + .id + ".jpg"), ts, author, caption} ]' candidates.json > photos/index.new
           python3 - <<'EOF'
           import json, os
+          # 2026-07-06より前の投稿は雑談混在のためテキスト非表示・圃場未分類（それ以降は本文から圃場を自動判定）
+          CUTOFF = '2026-07-06'
+          FARMS = [
+              ('第1圃場', ['第1圃場','第１圃場','Yasato','yasato','YASATO','八郷','中村']),
+              ('第2圃場', ['第2圃場','第２圃場','Hokota','hokota','HOKOTA','鉾田','トゥアン']),
+              ('第3圃場', ['第3圃場','第３圃場','Tsuchiura','tsuchiura','TSUCHIURA','土浦']),
+              ('第4圃場', ['第4圃場','第４圃場','Okinawa','okinawa','OKINAWA','沖縄','マルセイ']),
+          ]
           items = json.load(open('photos/index.new'))
           items = [i for i in items if os.path.exists(i['src'])]
+          for i in items:
+              cap = i.get('caption') or ''
+              if (i.get('ts') or '') < CUTOFF:
+                  i['caption'] = ''
+                  i['farm'] = ''
+              else:
+                  farm = ''
+                  for name, kws in FARMS:
+                      if any(k in cap for k in kws):
+                          farm = name
+                          break
+                  i['farm'] = farm
           json.dump(items, open('photos/index.json','w'), ensure_ascii=False, indent=1)
           keep = {os.path.basename(i['src']) for i in items}
           removed = 0

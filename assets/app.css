@@ -19,6 +19,7 @@ header::before{content:"";position:absolute;inset:0;background:linear-gradient(1
 header.h-confirm{background-image:url('../img/ph-confirm.jpg')}
 header.h-admin{background-image:url('../img/ph-admin.jpg')}
 header.h-jisseki{background-image:url('../img/ph-jisseki.jpg')}
+header.h-photo{background-image:url('../img/ph-photo.jpg')}
 header .wrap{padding-bottom:0;position:relative;z-index:1;min-height:118px}
 h1{margin:0;font-size:21px;letter-spacing:.5px;text-shadow:0 2px 8px rgba(0,0,0,.45)}
 .lead{margin:7px 0 0;font-size:13px;text-shadow:0 1px 5px rgba(0,0,0,.4)}

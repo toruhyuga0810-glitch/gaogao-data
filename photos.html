@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GAOGAO 圃場生育状況</title>
+<link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .chipsbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .fchip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 15px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
+  .fchip.active{background:var(--green);color:#fff;border-color:var(--green)}
+  .dgroup{margin:22px 0 8px}
+  .dhead{font-size:14px;font-weight:700;color:var(--green-d);border-left:4px solid var(--green);padding-left:10px;margin-bottom:10px}
+  .dhead .cnt{color:var(--sub);font-weight:600;font-size:12px;margin-left:8px}
+  .gallery{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+  .ph{position:relative;border-radius:12px;overflow:hidden;cursor:pointer;background:#e8ece8;aspect-ratio:1;border:0;padding:0}
+  .ph img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .15s}
+  .ph:hover img{transform:scale(1.04)}
+  .ph .tag{position:absolute;top:8px;left:8px;background:rgba(31,90,56,.85);color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px}
+  .lightbox{position:fixed;inset:0;background:rgba(12,18,14,.9);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+  .lightbox img{max-width:94vw;max-height:78vh;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  .lb-meta{color:#fff;font-size:13px;margin-top:12px;text-align:center;line-height:1.7;max-width:700px;white-space:pre-wrap}
+  .lb-close{position:absolute;top:14px;right:18px;background:rgba(255,255,255,.15);border:0;color:#fff;font-size:22px;width:40px;height:40px;border-radius:50%;cursor:pointer}
+</style>
+</head>
+<body>
+<header class="h-photo"><div class="wrap">
+  <h1>🌿 GAOGAO 発注ポータル</h1>
+  <div class="lead">圃場生育状況 — 畑のいまを写真でお届けします</div>
+  <nav class="tabs">
+    <a href="index.html">ホーム</a>
+    <a href="hatchu.html">供給・発注</a>
+    <a href="order-confirm.html">注文確認</a>
+    <a href="jisseki.html">納品実績</a>
+    <a href="keiziban.html">掲示板</a>
+    <a href="photos.html" class="active">圃場生育状況</a>
+    <a href="admin.html">承認(管理)</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <div class="card">
+    <div class="chipsbar" id="farm-chips"><span class="muted">読み込み中…</span></div>
+    <div class="muted" style="margin-top:10px">Discord「圃場別生育状況-写真共有」の写真が自動で反映されます（約30分ごと・日付ごとに表示）。写真をクリックすると拡大します。</div>
+  </div>
+
+  <div id="state" class="card state">読み込み中…</div>
+  <div id="groups"></div>
+</div>
+
+<div class="lightbox hide" id="lightbox">
+  <button class="lb-close" id="lb-close">×</button>
+  <img id="lb-img" src="" alt="圃場写真">
+  <div class="lb-meta" id="lb-meta"></div>
+</div>
+
+<footer>GAOGAO 圃場生育状況 ／ Discord「圃場別生育状況-写真共有」と連携</footer>
+
+<script src="assets/orders.js"></script>
+<script>
+let PHOTOS=[], FILTER='';
+const FARM_ORDER=['第1圃場','第2圃場','第3圃場','第4圃場'];
+
+function dkey(ts){ const d=new Date(ts); if(isNaN(d)) return '日付不明';
+  return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+'（'+'日月火水木金土'[d.getDay()]+'）'; }
+
+function render(){
+  const list=PHOTOS.filter(p=>{
+    if(!FILTER) return true;
+    if(FILTER==='未分類') return !p.farm;
+    return p.farm===FILTER;
+  });
+  const g=document.getElementById('groups'), st=document.getElementById('state');
+  if(!list.length){ g.innerHTML=''; st.classList.remove('hide'); st.textContent='該当する写真がありません。'; return; }
+  st.classList.add('hide');
+  // 日付ごとにグループ化（新しい日付が上）
+  const groups=new Map();
+  list.forEach(p=>{ const k=dkey(p.ts); if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(p); });
+  let h='';
+  for(const [k,arr] of groups){
+    h+='<div class="dgroup"><div class="dhead">'+esc(k)+'<span class="cnt">'+arr.length+'枚</span></div><div class="gallery">';
+    arr.forEach(p=>{
+      const i=PHOTOS.indexOf(p);
+      h+='<button class="ph" data-i="'+i+'"><img loading="lazy" src="'+esc(p.src)+'" alt="圃場写真">'
+        +(p.farm?'<span class="tag">'+esc(p.farm)+'</span>':'')+'</button>';
+    });
+    h+='</div></div>';
+  }
+  g.innerHTML=h;
+  g.querySelectorAll('.ph').forEach(b=>b.addEventListener('click',()=>openLB(+b.dataset.i)));
+}
+
+function buildChips(){
+  const present=new Set(PHOTOS.map(p=>p.farm).filter(Boolean));
+  const farms=FARM_ORDER.filter(f=>present.has(f));
+  const hasUnsorted=PHOTOS.some(p=>!p.farm);
+  let chips=[{v:'',t:'すべて'}];
+  farms.forEach(f=>chips.push({v:f,t:f}));
+  if(hasUnsorted && farms.length) chips.push({v:'未分類',t:'未分類'});
+  const el=document.getElementById('farm-chips');
+  el.innerHTML=chips.map(c=>'<button class="fchip'+(FILTER===c.v?' active':'')+'" data-v="'+esc(c.v)+'">'+esc(c.t)+'</button>').join('');
+  el.querySelectorAll('.fchip').forEach(b=>b.addEventListener('click',()=>{ FILTER=b.dataset.v; buildChips(); render(); }));
+}
+
+function openLB(i){
+  const p=PHOTOS[i]; if(!p) return;
+  document.getElementById('lb-img').src=p.src;
+  const d=new Date(p.ts);
+  const when=isNaN(d)?'':(d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate());
+  document.getElementById('lb-meta').textContent=[when, p.farm, p.author, p.caption].filter(Boolean).join('　');
+  document.getElementById('lightbox').classList.remove('hide');
+}
+document.getElementById('lb-close').addEventListener('click',()=>document.getElementById('lightbox').classList.add('hide'));
+document.getElementById('lightbox').addEventListener('click',e=>{ if(e.target.id==='lightbox') document.getElementById('lightbox').classList.add('hide'); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.getElementById('lightbox').classList.add('hide'); });
+
+(async function(){
+  try{
+    const res=await fetch('photos/index.json?t='+Date.now(),{cache:'no-store'});
+    if(!res.ok) throw new Error('no photos');
+    PHOTOS=await res.json();
+    PHOTOS.sort((a,b)=> a.ts<b.ts?1:-1);
+    if(!PHOTOS.length) throw new Error('no photos');
+    buildChips(); render();
+  }catch(e){
+    document.getElementById('farm-chips').innerHTML='';
+    document.getElementById('state').innerHTML='写真はまだありません。<br><span class="muted">Discord「圃場別生育状況-写真共有」に投稿すると、約30分でここに表示されます。</span>';
+  }
+})();
+</script>
+</body>
+</html>
