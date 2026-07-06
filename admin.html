@@ -116,6 +116,11 @@
       </div>
       <div id="sup-state" class="card state">読み込み中…</div>
       <div class="card hide" id="sup-card"><div style="overflow:auto;max-height:72vh"><table class="sup" id="sup-table"></table></div></div>
+
+      <h2 style="font-size:15px;margin:20px 0 10px">圃場別 卸価格（円/kg・税抜）</h2>
+      <div class="card"><div class="muted">価格もここから編集できます。空欄＝その圃場では取扱なし／価格未定。行の「保存」で確定します。</div></div>
+      <div id="price-state" class="card state">読み込み中…</div>
+      <div class="card hide" id="price-card"><div style="overflow:auto;max-height:60vh"><table class="sup" id="price-table"></table></div></div>
     </div>
   </div>
 </div>
@@ -312,7 +317,60 @@ async function saveSupplyRow(btn){
   else if(r && r.error==='unauthorized'){ toast('権限エラー：ロックし直してください'); }
   else { toast('保存失敗: '+((r&&r.error)||'')); }
 }
-document.getElementById('sup-reload').onclick=loadSupply;
+/* ===== 圃場別価格の編集 ===== */
+const PRICE_SHEET='圃場別価格表';
+let PRICES=[], PFARMS=[], priceLoaded=false;
+async function loadPrices(){
+  const st=document.getElementById('price-state'), card=document.getElementById('price-card');
+  st.classList.remove('hide'); st.textContent='読み込み中…'; card.classList.add('hide');
+  try{
+    const rows=await fetchSheet(PRICE_SHEET);
+    const heads=[];
+    rows.forEach((r,ri)=>r.forEach((c,ci)=>{ if(typeof c==='string'&&c.includes('圃場')&&c.includes('：')){const m=c.match(/第(\d+)/); if(m)heads.push({ri,ci,num:+m[1]});}}));
+    if(!heads.length) throw new Error('圃場見出しが見つかりません');
+    const bandRows=[...new Set(heads.map(h=>h.ri))].sort((a,b)=>a-b);
+    const master=new Map(); const order=[];
+    bandRows.forEach((br,bi)=>{
+      const end=bi+1<bandRows.length?bandRows[bi+1]:rows.length;
+      heads.filter(h=>h.ri===br).forEach(h=>{
+        for(let i=br+2;i<end;i++){
+          const r=rows[i]||[]; const call=String(r[h.ci+1]||'').trim();
+          if(!call||call==='呼称') continue;
+          if(!master.has(call)){ master.set(call,{call, jp:String(r[h.ci]||'').trim(), prices:{}}); order.push(call); }
+          master.get(call).prices['第'+h.num+'圃場']=String(r[h.ci+4]==null?'':r[h.ci+4]).trim();
+        }
+      });
+    });
+    PFARMS=[...new Set(heads.map(h=>h.num))].sort((a,b)=>a-b).map(n=>'第'+n+'圃場');
+    PRICES=order.map(c=>master.get(c));
+    renderPrices(); st.classList.add('hide'); card.classList.remove('hide'); priceLoaded=true;
+  }catch(e){ st.innerHTML='⚠️ 価格表を読み込めませんでした：'+esc(e.message); }
+}
+function renderPrices(){
+  let h='<thead><tr><th class="nm">品目</th>';
+  PFARMS.forEach(f=>h+='<th>'+esc(f)+'</th>');
+  h+='<th></th></tr></thead><tbody>';
+  PRICES.forEach((it,idx)=>{
+    h+='<tr data-idx="'+idx+'"><td class="nm"><b>'+esc(it.jp)+'</b><div class="muted" style="font-size:10px">'+esc(it.call)+'</div></td>';
+    PFARMS.forEach(f=>{ h+='<td><input class="nIn pIn" data-f="'+esc(f)+'" value="'+esc(it.prices[f]||'')+'" placeholder="–" style="width:76px;text-align:right"></td>'; });
+    h+='<td><button class="btn sm price-save">保存</button></td></tr>';
+  });
+  h+='</tbody>';
+  const t=document.getElementById('price-table'); t.innerHTML=h;
+  t.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',()=>inp.classList.add('dirty')));
+  t.querySelectorAll('.price-save').forEach(b=>b.addEventListener('click',()=>savePriceRow(b)));
+}
+async function savePriceRow(btn){
+  const tr=btn.closest('tr'); const it=PRICES[+tr.dataset.idx];
+  const prices={}; tr.querySelectorAll('.pIn').forEach(inp=>{ prices[inp.dataset.f]=inp.value.trim(); });
+  btn.disabled=true; btn.textContent='保存中…';
+  const r=await postAction({action:'priceUpdate', call:it.call, prices, token:ADMIN_TOKEN_VAL});
+  btn.disabled=false; btn.textContent='保存';
+  if(r && r.ok===true){ tr.querySelectorAll('input').forEach(inp=>inp.classList.remove('dirty')); toast(it.jp+' の価格を保存しました'); }
+  else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Scriptが未更新です（priceUpdate対応の再デプロイが必要）'); }
+  else { toast('保存失敗: '+((r&&r.error)||'')); }
+}
+document.getElementById('sup-reload').onclick=()=>{ loadSupply(); loadPrices(); };
 document.getElementById('na-add').addEventListener('click', async ()=>{
   const call=document.getElementById('na-call').value.trim();
   const jp=document.getElementById('na-jp').value.trim();
@@ -326,7 +384,7 @@ document.getElementById('na-add').addEventListener('click', async ()=>{
   if(r && r.ok===true){
     toast(jp+' を追加しました');
     ['na-call','na-jp','na-th','na-start','na-next'].forEach(i=>document.getElementById(i).value='');
-    loadSupply();
+    loadSupply(); loadPrices();
   }
   else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Scriptが未更新です（supplyAdd対応の再デプロイが必要）'); }
   else { toast('追加失敗: '+((r&&r.error)||'')); }
@@ -337,7 +395,7 @@ document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
   const v=t.dataset.v;
   document.getElementById('view-orders').classList.toggle('hide',v!=='orders');
   document.getElementById('view-supply').classList.toggle('hide',v!=='supply');
-  if(v==='supply' && !supLoaded) loadSupply();
+  if(v==='supply'){ if(!supLoaded) loadSupply(); if(!priceLoaded) loadPrices(); }
 }));
 </script>
 </body>

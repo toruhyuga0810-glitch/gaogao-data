@@ -68,12 +68,13 @@ function doPost(e) {
     // パスワード確認用（承認ページのログイン）
     if (action === 'auth') return json_({ ok: data.token === ADMIN_TOKEN });
     // 承認系の操作（単価設定・承認/納品済み・供給マスタ編集）は管理者トークン必須
-    const needToken = (action === 'setPrice') || (action === 'supplyUpdate') || (action === 'supplyAdd') ||
+    const needToken = (action === 'setPrice') || (action === 'supplyUpdate') || (action === 'supplyAdd') || (action === 'priceUpdate') ||
                       (action === 'setStatus' && (data.status === '承認済み' || data.status === '納品済み'));
     if (needToken && data.token !== ADMIN_TOKEN) return json_({ ok:false, error:'unauthorized' });
     const sh = sheet_();
     if (action === 'supplyUpdate') return json_(supplyUpdate_(data));  // 承認画面から供給シートを直接編集
     if (action === 'supplyAdd')    return json_(supplyAdd_(data));     // 承認画面から品目を追加
+    if (action === 'priceUpdate')  return json_(priceUpdate_(data));   // 承認画面から圃場別価格を編集
     if (action === 'boardSync')  return json_(boardSync_(data));   // GitHub Actionsから掲示板投稿を受け取る
     if (action === 'order')      return json_(recordOrder_(sh, data));
     if (action === 'setStatus')  return json_(setStatus_(sh, data));
@@ -341,5 +342,86 @@ function supplyAdd_(data) {
   if (data.start) sh.getRange(R, 16).setValue(data.start);
   if (data.next) sh.getRange(R, 18).setValue(data.next);
   try { if (String(values[1][15]).trim() === '更新日') sh.getRange(2, 17).setValue(new Date()); } catch (e) {}
+  // 価格表シートにも品目行を自動追加（価格は空欄）
+  try { priceAddRow_(call, jp, String(data.th || '').trim()); } catch (e) {}
   return { ok:true };
+}
+
+/* ===== 圃場別価格表の編集（承認画面から） ===== */
+const PRICE_SHEET_NAME = '圃場別価格表';
+function findPriceHeads_(values) {
+  const heads = [];
+  for (let r = 0; r < values.length; r++) {
+    const row = values[r] || [];
+    for (let c = 0; c < row.length; c++) {
+      const t = String(row[c] || '');
+      if (t.indexOf('圃場') >= 0 && t.indexOf('：') >= 0) {
+        const m = t.match(/第(\d+)/);
+        if (m) heads.push({ r: r, c: c, num: Number(m[1]) });
+      }
+    }
+  }
+  return heads;
+}
+/** 品目×圃場の卸値を更新。prices例: {"第1圃場":"1700","第2圃場":""} */
+function priceUpdate_(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(PRICE_SHEET_NAME);
+  if (!sh) return { ok:false, error:'価格表シートが見つかりません' };
+  const values = sh.getDataRange().getValues();
+  const call = String(data.call || '').trim();
+  if (!call) return { ok:false, error:'呼称が必要です' };
+  const prices = data.prices || {};
+  const heads = findPriceHeads_(values);
+  if (!heads.length) return { ok:false, error:'圃場見出しが見つかりません' };
+  const bandRows = heads.map(function(h){return h.r;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+  let updated = 0;
+  heads.forEach(function(h) {
+    const key = '第' + h.num + '圃場';
+    if (!(key in prices)) return;
+    let v = prices[key]; v = (v == null) ? '' : String(v).trim();
+    const bi = bandRows.indexOf(h.r);
+    const end = (bi + 1 < bandRows.length) ? bandRows[bi + 1] : values.length;
+    for (let r = h.r + 2; r < end; r++) {
+      if (String((values[r] || [])[h.c + 1] || '').trim() === call) {
+        const cell = sh.getRange(r + 1, h.c + 5);
+        if (v === '') cell.setValue('');
+        else { const n = parseFloat(v); cell.setValue(isNaN(n) ? v : n); }
+        updated++;
+        break;
+      }
+    }
+  });
+  try { if (String(values[1][10]).trim() === '更新日') sh.getRange(2, 12).setValue(new Date()); } catch (e) {}
+  if (updated === 0) return { ok:false, error:'価格表にこの品目の行がありません: ' + call };
+  return { ok:true, updated: updated };
+}
+/** 品目追加時に価格表の各圃場ブロックへ行を追加（下のブロックから処理して行ズレを回避） */
+function priceAddRow_(call, jp, th) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(PRICE_SHEET_NAME);
+  if (!sh) return;
+  const values = sh.getDataRange().getValues();
+  const heads = findPriceHeads_(values);
+  if (!heads.length) return;
+  const bandRows = heads.map(function(h){return h.r;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+  for (let bi = bandRows.length - 1; bi >= 0; bi--) {
+    const br = bandRows[bi];
+    const bandHeads = heads.filter(function(h){return h.r===br;}).sort(function(a,b){return a.c-b.c;});
+    const end = (bi + 1 < bandRows.length) ? bandRows[bi + 1] : values.length;
+    const h0 = bandHeads[0];
+    let last = br + 1, exists = false;
+    for (let r = br + 2; r < end; r++) {
+      const c0 = String((values[r] || [])[h0.c + 1] || '').trim();
+      if (!c0) break;
+      if (c0 === call) exists = true;
+      last = r;
+    }
+    if (exists) continue;
+    sh.insertRowAfter(last + 1);
+    const R = last + 2;
+    bandHeads.forEach(function(h) {
+      sh.getRange(R, h.c + 1, 1, 4).setValues([[jp, call, '', th || '']]);
+    });
+  }
 }
