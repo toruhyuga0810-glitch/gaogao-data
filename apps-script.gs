@@ -67,12 +67,13 @@ function doPost(e) {
     const action = data.action || 'order';
     // パスワード確認用（承認ページのログイン）
     if (action === 'auth') return json_({ ok: data.token === ADMIN_TOKEN });
-    // 承認系の操作（単価設定・承認済み/納品済みへの変更）は管理者トークン必須
-    const needToken = (action === 'setPrice') ||
+    // 承認系の操作（単価設定・承認/納品済み・供給マスタ編集）は管理者トークン必須
+    const needToken = (action === 'setPrice') || (action === 'supplyUpdate') ||
                       (action === 'setStatus' && (data.status === '承認済み' || data.status === '納品済み'));
     if (needToken && data.token !== ADMIN_TOKEN) return json_({ ok:false, error:'unauthorized' });
     const sh = sheet_();
-    if (action === 'boardSync')  return json_(boardSync_(data));   // Cloudflare Workerから掲示板投稿を受け取る
+    if (action === 'supplyUpdate') return json_(supplyUpdate_(data));  // 承認画面から供給シートを直接編集
+    if (action === 'boardSync')  return json_(boardSync_(data));   // GitHub Actionsから掲示板投稿を受け取る
     if (action === 'order')      return json_(recordOrder_(sh, data));
     if (action === 'setStatus')  return json_(setStatus_(sh, data));
     if (action === 'updateItem') return json_(updateItem_(sh, data));
@@ -274,4 +275,42 @@ function cleanupOldBoardTriggers() {
     if (t.getHandlerFunction() === 'syncBoard') ScriptApp.deleteTrigger(t);
   });
   SpreadsheetApp.getActiveSpreadsheet().toast('旧トリガーを削除しました。', 'GAOGAO', 5);
+}
+
+/* ===== 供給シート編集（承認画面の「供給・出荷マスタ」タブから） ===== */
+const SUPPLY_SHEET_NAME = '推定供給（月間）';
+function supplyUpdate_(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(SUPPLY_SHEET_NAME);
+  if (!sh) return { ok:false, error:'供給シートが見つかりません' };
+  const values = sh.getDataRange().getValues();
+  let hr = -1;
+  for (let r = 0; r < values.length; r++) { if (String(values[r][0]).trim() === '呼称') { hr = r; break; } }
+  if (hr < 0) return { ok:false, error:'見出し行が見つかりません' };
+  let row = -1;
+  for (let r = hr + 1; r < values.length; r++) {
+    const c = String(values[r][0]).trim();
+    if (!c) break;
+    if (c === String(data.call).trim()) { row = r; break; }
+  }
+  if (row < 0) return { ok:false, error:'品目が見つかりません: ' + data.call };
+  const R = row + 1;
+  // 月別供給量（D〜O列＝1〜12月）。数字/◯/空欄
+  if (data.months) {
+    for (let m = 1; m <= 12; m++) {
+      const key = String(m);
+      if (!(key in data.months)) continue;
+      let v = data.months[key]; v = (v == null) ? '' : String(v).trim();
+      if (v === '') sh.getRange(R, 3 + m).setValue('');
+      else if (v === '◯' || v === '○' || v === 'o' || v === 'O') sh.getRange(R, 3 + m).setValue('◯');
+      else { const n = parseFloat(v); sh.getRange(R, 3 + m).setValue(isNaN(n) ? v : n); }
+    }
+  }
+  // 納品開始日（P列）
+  if (data.start !== undefined) sh.getRange(R, 16).setValue(data.start || '');
+  // 可能収穫量（R列）
+  if (data.next !== undefined) sh.getRange(R, 18).setValue(data.next || '');
+  // 更新日（Q2）を自動更新
+  try { if (String(values[1][15]).trim() === '更新日') sh.getRange(2, 17).setValue(new Date()); } catch (e) {}
+  return { ok:true };
 }

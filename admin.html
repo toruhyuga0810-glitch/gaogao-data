@@ -23,6 +23,20 @@
   .gate-err{color:var(--cancel);font-size:13px;margin-top:12px;min-height:18px}
   .lockcard .exit{margin-top:18px;font-size:12px;color:var(--sub)}
   .lockcard .exit a{color:var(--green-d)}
+  /* 管理タブ（受注管理／供給・出荷マスタ） */
+  .vtabs{display:flex;gap:8px;margin-bottom:14px}
+  .vtb{background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 18px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
+  .vtb.active{background:var(--green);color:#fff;border-color:var(--green)}
+  /* 供給マスタ表 */
+  table.sup{border-collapse:collapse;font-size:12px;white-space:nowrap;width:100%}
+  table.sup th,table.sup td{padding:6px 5px;border-bottom:1px solid var(--line);text-align:center}
+  table.sup th{background:#fafbfa;color:var(--sub);position:sticky;top:0;z-index:2;font-weight:600}
+  table.sup td.nm,table.sup th.nm{text-align:left;position:sticky;left:0;background:#fff;z-index:1;min-width:110px}
+  table.sup th.nm{z-index:3;background:#fafbfa}
+  .mIn{width:44px;padding:5px 3px;text-align:center;border:1px solid var(--line);border-radius:6px;font-size:12px}
+  .dIn{padding:5px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px}
+  .nIn{width:82px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px}
+  .dirty{border-color:var(--warn);background:#fffaf0}
 </style>
 </head>
 <body>
@@ -59,20 +73,39 @@
   </div>
 
   <div id="admin-content" class="hide">
-    <div class="card">
-      <div class="row">
-        <div><div class="muted">ステータス</div><select id="f-status">
-          <option value="受付">受付（要対応）</option><option value="">すべて</option>
-          <option>承認済み</option><option>納品済み</option><option>キャンセル</option></select></div>
-        <div><div class="muted">会社</div><select id="f-company"><option value="">すべて</option></select></div>
-        <div style="flex:1"></div>
-        <button class="btn ghost sm" id="lock-again">🔒 ロック</button>
-        <button class="btn ghost sm" id="reload">↻ 更新</button>
-      </div>
-      <div id="conn" class="muted" style="margin-top:10px"></div>
+    <div class="vtabs">
+      <button class="vtb active" data-v="orders">受注管理</button>
+      <button class="vtb" data-v="supply">供給・出荷マスタ</button>
     </div>
-    <div id="state" class="card state">読み込み中…</div>
-    <div id="list"></div>
+
+    <div id="view-orders">
+      <div class="card">
+        <div class="row">
+          <div><div class="muted">ステータス</div><select id="f-status">
+            <option value="受付">受付（要対応）</option><option value="">すべて</option>
+            <option>承認済み</option><option>納品済み</option><option>キャンセル</option></select></div>
+          <div><div class="muted">会社</div><select id="f-company"><option value="">すべて</option></select></div>
+          <div style="flex:1"></div>
+          <button class="btn ghost sm" id="lock-again">🔒 ロック</button>
+          <button class="btn ghost sm" id="reload">↻ 更新</button>
+        </div>
+        <div id="conn" class="muted" style="margin-top:10px"></div>
+      </div>
+      <div id="state" class="card state">読み込み中…</div>
+      <div id="list"></div>
+    </div>
+
+    <div id="view-supply" class="hide">
+      <div class="card">
+        <div class="row">
+          <div class="muted" style="max-width:760px;line-height:1.8">供給シートをここから直接編集できます（スプシを開く必要なし）。<b>月別の数量</b>＝数字・◯・空欄（=供給なし）、<b>納品開始日</b>＝発注ページの「出荷可能」判定に使われます。編集した行の<b>「保存」</b>を押すと即反映されます。</div>
+          <div style="flex:1"></div>
+          <button class="btn ghost sm" id="sup-reload">↻ 再読込</button>
+        </div>
+      </div>
+      <div id="sup-state" class="card state">読み込み中…</div>
+      <div class="card hide" id="sup-card"><div style="overflow:auto;max-height:72vh"><table class="sup" id="sup-table"></table></div></div>
+    </div>
   </div>
 </div>
 
@@ -213,6 +246,70 @@ async function gateInit(){
 }
 document.getElementById('lock-again').onclick=lockAgain;
 gateInit();
+
+/* ===== 供給・出荷マスタ編集（スプシ直編集の代わり） ===== */
+const SUPPLY_SHEET='推定供給（月間）';
+let SUP=[], supLoaded=false;
+function startToInput(s){ const m=String(s||'').match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/); return m? m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2):''; }
+async function loadSupply(){
+  const st=document.getElementById('sup-state'), card=document.getElementById('sup-card');
+  st.classList.remove('hide'); st.textContent='読み込み中…'; card.classList.add('hide');
+  try{
+    const rows=await fetchSheet(SUPPLY_SHEET);
+    const hi=rows.findIndex(r=>String(r[0]).trim()==='呼称');
+    if(hi<0) throw new Error('見出し行が見つかりません');
+    SUP=[];
+    for(let i=hi+1;i<rows.length;i++){
+      const r=rows[i]; const call=String(r[0]||'').trim(); if(!call) break;
+      SUP.push({call, jp:String(r[1]||'').trim(),
+        months:Array.from({length:12},(_,m)=>String(r[3+m]==null?'':r[3+m]).trim()),
+        start:String(r[15]==null?'':r[15]).trim(), next:String(r[17]==null?'':r[17]).trim()});
+    }
+    renderSupply(); st.classList.add('hide'); card.classList.remove('hide'); supLoaded=true;
+  }catch(e){ st.innerHTML='⚠️ 供給シートを読み込めませんでした：'+esc(e.message); }
+}
+function renderSupply(){
+  let h='<thead><tr><th class="nm">品目</th>';
+  for(let m=1;m<=12;m++) h+='<th>'+m+'月</th>';
+  h+='<th>納品開始日</th><th>可能収穫量</th><th></th></tr></thead><tbody>';
+  SUP.forEach((it,idx)=>{
+    h+='<tr data-idx="'+idx+'"><td class="nm"><b>'+esc(it.jp)+'</b><div class="muted" style="font-size:10px">'+esc(it.call)+'</div></td>';
+    it.months.forEach((v,m)=>{ h+='<td><input class="mIn" data-m="'+(m+1)+'" value="'+esc(v)+'" placeholder="–"></td>'; });
+    h+='<td><input type="date" class="dIn" value="'+esc(startToInput(it.start))+'"></td>';
+    h+='<td><input class="nIn" value="'+esc(it.next)+'" placeholder="例: 4kg"></td>';
+    h+='<td><button class="btn sm sup-save">保存</button></td></tr>';
+  });
+  h+='</tbody>';
+  const t=document.getElementById('sup-table'); t.innerHTML=h;
+  t.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',()=>inp.classList.add('dirty')));
+  t.querySelectorAll('.sup-save').forEach(b=>b.addEventListener('click',()=>saveSupplyRow(b)));
+}
+async function saveSupplyRow(btn){
+  const tr=btn.closest('tr'); const it=SUP[+tr.dataset.idx];
+  const months={}; tr.querySelectorAll('.mIn').forEach(inp=>{ months[inp.dataset.m]=inp.value.trim(); });
+  const dv=tr.querySelector('.dIn').value;
+  const start=dv? dv.replace(/-/g,'/') : '';
+  const next=tr.querySelector('.nIn').value.trim();
+  btn.disabled=true; btn.textContent='保存中…';
+  const r=await postAction({action:'supplyUpdate', call:it.call, months, start, next, token:ADMIN_TOKEN_VAL});
+  btn.disabled=false; btn.textContent='保存';
+  if(r && r.ok===true){
+    tr.querySelectorAll('input').forEach(inp=>inp.classList.remove('dirty'));
+    toast(it.jp+' を保存しました（発注ページに即反映）');
+  } else if(r && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続'); }
+  else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ サーバー(Apps Script)が未更新です。新コードで再デプロイしてください'); }
+  else if(r && r.error==='unauthorized'){ toast('権限エラー：ロックし直してください'); }
+  else { toast('保存失敗: '+((r&&r.error)||'')); }
+}
+document.getElementById('sup-reload').onclick=loadSupply;
+document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.vtb').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  const v=t.dataset.v;
+  document.getElementById('view-orders').classList.toggle('hide',v!=='orders');
+  document.getElementById('view-supply').classList.toggle('hide',v!=='supply');
+  if(v==='supply' && !supLoaded) loadSupply();
+}));
 </script>
 </body>
 </html>
