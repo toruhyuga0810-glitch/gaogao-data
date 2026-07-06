@@ -27,6 +27,12 @@
   .lightbox img{max-width:94vw;max-height:78vh;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
   .lb-meta{color:#fff;font-size:13px;margin-top:12px;text-align:center;line-height:1.7;max-width:700px;white-space:pre-wrap}
   .lb-close{position:absolute;top:14px;right:18px;background:rgba(255,255,255,.15);border:0;color:#fff;font-size:22px;width:40px;height:40px;border-radius:50%;cursor:pointer}
+  .lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.15);border:0;color:#fff;font-size:30px;width:48px;height:48px;border-radius:50%;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;padding-bottom:4px}
+  .lb-nav:hover{background:rgba(255,255,255,.32)}
+  .lb-nav.prev{left:12px}
+  .lb-nav.next{right:12px}
+  .lb-count{color:rgba(255,255,255,.75);font-size:12px;margin-top:6px}
+  @media (max-width:600px){ .lb-nav{width:40px;height:40px;font-size:24px} }
 </style>
 </head>
 <body>
@@ -57,15 +63,18 @@
 
 <div class="lightbox hide" id="lightbox">
   <button class="lb-close" id="lb-close">×</button>
+  <button class="lb-nav prev hide" id="lb-prev" aria-label="前の写真">‹</button>
+  <button class="lb-nav next hide" id="lb-next" aria-label="次の写真">›</button>
   <img id="lb-img" src="" alt="圃場写真">
   <div class="lb-meta" id="lb-meta"></div>
+  <div class="lb-count" id="lb-count"></div>
 </div>
 
 <footer>GAOGAO 圃場生育状況 ／ Discord「圃場別生育状況-写真共有」と連携</footer>
 
 <script src="assets/orders.js"></script>
 <script>
-let PHOTOS=[], FILTER='';
+let PHOTOS=[], FILTER='', VIEW=[], CUR=-1;
 const FARM_ORDER=['第1圃場','第2圃場','第3圃場','第4圃場'];
 
 function dkey(ts){ const d=new Date(ts); if(isNaN(d)) return '日付不明';
@@ -78,6 +87,7 @@ function render(){
     return p.farm===FILTER;
   });
   const g=document.getElementById('groups'), st=document.getElementById('state');
+  VIEW=[];
   if(!list.length){ g.innerHTML=''; st.classList.remove('hide'); st.textContent='該当する写真がありません。'; return; }
   st.classList.add('hide');
   // 日付ごと → さらに投稿（同一メッセージ）ごとにグループ化（新しい順）
@@ -98,15 +108,15 @@ function render(){
         +(p0.caption?'<div class="ptext">'+esc(p0.caption)+'</div>':'')
         +'<div class="gallery">';
       arr.forEach(p=>{
-        const i=PHOTOS.indexOf(p);
-        h+='<button class="ph" data-i="'+i+'"><img loading="lazy" src="'+esc(p.src)+'" alt="圃場写真"></button>';
+        const v=VIEW.length; VIEW.push(p);
+        h+='<button class="ph" data-v="'+v+'"><img loading="lazy" src="'+esc(p.src)+'" alt="圃場写真"></button>';
       });
       h+='</div></div>';
     }
     h+='</div>';
   }
   g.innerHTML=h;
-  g.querySelectorAll('.ph').forEach(b=>b.addEventListener('click',()=>openLB(+b.dataset.i)));
+  g.querySelectorAll('.ph').forEach(b=>b.addEventListener('click',()=>openLB(+b.dataset.v)));
 }
 
 function buildChips(){
@@ -121,17 +131,47 @@ function buildChips(){
   el.querySelectorAll('.fchip').forEach(b=>b.addEventListener('click',()=>{ FILTER=b.dataset.v; buildChips(); render(); }));
 }
 
-function openLB(i){
-  const p=PHOTOS[i]; if(!p) return;
+function openLB(v){
+  if(v<0 || v>=VIEW.length) return;
+  const p=VIEW[v]; CUR=v;
   document.getElementById('lb-img').src=p.src;
   const d=new Date(p.ts);
   const when=isNaN(d)?'':(d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate());
   document.getElementById('lb-meta').textContent=[when, p.farm, p.author].filter(Boolean).join('　');
+  document.getElementById('lb-count').textContent=(v+1)+' / '+VIEW.length+' 枚';
+  document.getElementById('lb-prev').classList.toggle('hide', v===0);
+  document.getElementById('lb-next').classList.toggle('hide', v===VIEW.length-1);
   document.getElementById('lightbox').classList.remove('hide');
 }
-document.getElementById('lb-close').addEventListener('click',()=>document.getElementById('lightbox').classList.add('hide'));
-document.getElementById('lightbox').addEventListener('click',e=>{ if(e.target.id==='lightbox') document.getElementById('lightbox').classList.add('hide'); });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.getElementById('lightbox').classList.add('hide'); });
+function closeLB(){ document.getElementById('lightbox').classList.add('hide'); }
+function lbOpen(){ return !document.getElementById('lightbox').classList.contains('hide'); }
+function lbNav(d){ if(lbOpen()) openLB(CUR+d); }
+document.getElementById('lb-close').addEventListener('click',closeLB);
+document.getElementById('lb-prev').addEventListener('click',e=>{ e.stopPropagation(); lbNav(-1); });
+document.getElementById('lb-next').addEventListener('click',e=>{ e.stopPropagation(); lbNav(1); });
+document.getElementById('lightbox').addEventListener('click',e=>{ if(e.target.id==='lightbox') closeLB(); });
+document.addEventListener('keydown',e=>{
+  if(!lbOpen()) return;
+  if(e.key==='Escape') closeLB();
+  else if(e.key==='ArrowLeft') lbNav(-1);
+  else if(e.key==='ArrowRight') lbNav(1);
+});
+// ホイール／トラックパッドのスクロールで前後（連続発火は間引く）
+let wheelAt=0;
+document.getElementById('lightbox').addEventListener('wheel',e=>{
+  e.preventDefault();
+  const now=Date.now(); if(now-wheelAt<250) return; wheelAt=now;
+  const d=(Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY);
+  if(d!==0) lbNav(d>0?1:-1);
+},{passive:false});
+// スマホはスワイプで前後
+let touchX=null;
+document.getElementById('lightbox').addEventListener('touchstart',e=>{ touchX=e.touches[0].clientX; },{passive:true});
+document.getElementById('lightbox').addEventListener('touchend',e=>{
+  if(touchX==null) return;
+  const dx=e.changedTouches[0].clientX-touchX; touchX=null;
+  if(Math.abs(dx)>40) lbNav(dx<0?1:-1);
+},{passive:true});
 
 (async function(){
   try{

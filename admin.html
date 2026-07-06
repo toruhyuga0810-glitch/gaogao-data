@@ -21,6 +21,7 @@
   .lockrow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
   .lockcard input{width:230px;text-align:center;letter-spacing:1px}
   .gate-err{color:var(--cancel);font-size:13px;margin-top:12px;min-height:18px}
+  .pw-show{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:10px;font-size:12px;color:var(--sub);cursor:pointer;user-select:none}
   .lockcard .exit{margin-top:18px;font-size:12px;color:var(--sub)}
   .lockcard .exit a{color:var(--green-d)}
   /* 管理タブ（受注管理／供給・出荷マスタ） */
@@ -62,9 +63,10 @@
     <h2>承認・受付管理（GAOGAO専用）</h2>
     <div class="muted">このページの内容を見るにはパスワードが必要です。</div>
     <div class="lockrow">
-      <input id="gate-pw" type="text" placeholder="パスワード" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <input id="gate-pw" type="password" placeholder="パスワード" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
       <button class="btn" id="gate-go">開く</button>
     </div>
+    <label class="pw-show"><input type="checkbox" id="gate-show"> 入力した文字を表示する</label>
     <div class="gate-err" id="gate-err"></div>
     <div class="muted" style="font-size:12px;margin-top:8px">一度入力すると、この端末では次回から自動で開きます（解除は画面内の「🔒ロック」）。</div>
     <div class="exit">GAOGAO以外の方はこちらへ →
@@ -248,10 +250,14 @@ async function gateInit(){
   const saved=localStorage.getItem(TOKEN_KEY);
   if(saved){ const r=await tryAuth(saved); if(r && r.ok===true){ unlock(saved); return; } }
   const go=$('gate-go'), pw=$('gate-pw'), err=$('gate-err');
+  // 全角英数字→半角に自動変換し、空白は除去（IME事故の保険）
+  const normTok=s=>String(s||'').replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/\s+/g,'');
+  $('gate-show').onchange=e=>{ pw.type=e.target.checked?'text':'password'; pw.focus(); };
   async function submit(){
     go.disabled=true; err.textContent='確認中…';
-    const r=await tryAuth(pw.value);
-    if(r && r.ok===true){ localStorage.setItem(TOKEN_KEY,pw.value); err.textContent=''; unlock(pw.value); }
+    const v=normTok(pw.value);
+    const r=await tryAuth(v);
+    if(r && r.ok===true){ localStorage.setItem(TOKEN_KEY,v); err.textContent=''; unlock(v); }
     else if(r && r.error && String(r.error).indexOf('unknown action')>=0){
       err.innerHTML='⚠️ サーバー(Apps Script)が未更新です。<br>コードを更新して「新バージョンで再デプロイ」してください。'; go.disabled=false; }
     else { err.textContent='パスワードが違います'; go.disabled=false; }
