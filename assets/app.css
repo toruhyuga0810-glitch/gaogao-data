@@ -27,6 +27,11 @@ nav.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:30px}
 nav.tabs a{color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:9px 14px;border-radius:10px 10px 0 0;background:rgba(16,42,27,.34);text-shadow:0 1px 3px rgba(0,0,0,.4)}
 nav.tabs a.active{background:var(--bg);color:var(--green-d);text-shadow:none}
 nav.tabs a:not(.active):hover{background:rgba(255,255,255,.22)}
+nav.tabs .navsp{flex:1 1 auto}
+nav.tabs a.sub{background:rgba(16,42,27,.22);border-radius:999px;font-size:12px;padding:7px 13px;align-self:center;margin-bottom:6px}
+nav.tabs a.sub.active{background:var(--bg);color:var(--green-d);text-shadow:none}
+nav.tabs a.adm{margin-left:12px;border:1px solid rgba(255,255,255,.35)}
+nav.tabs a.adm.active{border-color:transparent}
 h2{font-size:17px;margin:22px 0 12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(20,30,24,.04)}
 .muted{color:var(--sub);font-size:13px}

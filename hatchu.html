@@ -30,6 +30,11 @@
   .navlinks a{color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:9px 14px;border-radius:10px 10px 0 0;background:rgba(16,42,27,.34);text-shadow:0 1px 3px rgba(0,0,0,.4)}
   .navlinks a.active{background:var(--bg);color:var(--green-d);text-shadow:none}
   .navlinks a:not(.active):hover{background:rgba(16,42,27,.5)}
+  .navlinks .navsp{flex:1 1 auto}
+  .navlinks a.sub{background:rgba(16,42,27,.22);border-radius:999px;font-size:12px;padding:7px 13px;align-self:center;margin-bottom:6px}
+  .navlinks a.sub.active{background:var(--bg);color:var(--green-d);text-shadow:none}
+  .navlinks a.adm{margin-left:12px;border:1px solid rgba(255,255,255,.35)}
+  .navlinks a.adm.active{border-color:transparent}
   .lead{margin:8px 0 0;font-size:13px;opacity:.92}
   .meta{margin-top:12px;font-size:12px;opacity:.85;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
   .reload{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;padding:4px 12px;font-size:12px;cursor:pointer}
@@ -202,9 +207,10 @@
     <a href="hatchu.html" class="active">供給・発注</a>
     <a href="order-confirm.html">注文確認</a>
     <a href="jisseki.html">納品実績</a>
-    <a href="keiziban.html">掲示板</a>
-    <a href="photos.html">圃場生育状況</a>
-    <a href="admin.html">承認(管理)</a>
+    <span class="navsp"></span>
+    <a class="sub" href="keiziban.html">掲示板</a>
+    <a class="sub" href="photos.html">圃場生育状況</a>
+    <a class="sub adm" href="admin.html">承認(管理)</a>
   </nav>
 </div></header>
 
