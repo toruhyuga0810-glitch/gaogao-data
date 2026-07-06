@@ -68,11 +68,12 @@ function doPost(e) {
     // パスワード確認用（承認ページのログイン）
     if (action === 'auth') return json_({ ok: data.token === ADMIN_TOKEN });
     // 承認系の操作（単価設定・承認/納品済み・供給マスタ編集）は管理者トークン必須
-    const needToken = (action === 'setPrice') || (action === 'supplyUpdate') ||
+    const needToken = (action === 'setPrice') || (action === 'supplyUpdate') || (action === 'supplyAdd') ||
                       (action === 'setStatus' && (data.status === '承認済み' || data.status === '納品済み'));
     if (needToken && data.token !== ADMIN_TOKEN) return json_({ ok:false, error:'unauthorized' });
     const sh = sheet_();
     if (action === 'supplyUpdate') return json_(supplyUpdate_(data));  // 承認画面から供給シートを直接編集
+    if (action === 'supplyAdd')    return json_(supplyAdd_(data));     // 承認画面から品目を追加
     if (action === 'boardSync')  return json_(boardSync_(data));   // GitHub Actionsから掲示板投稿を受け取る
     if (action === 'order')      return json_(recordOrder_(sh, data));
     if (action === 'setStatus')  return json_(setStatus_(sh, data));
@@ -311,6 +312,34 @@ function supplyUpdate_(data) {
   // 可能収穫量（R列）
   if (data.next !== undefined) sh.getRange(R, 18).setValue(data.next || '');
   // 更新日（Q2）を自動更新
+  try { if (String(values[1][15]).trim() === '更新日') sh.getRange(2, 17).setValue(new Date()); } catch (e) {}
+  return { ok:true };
+}
+
+/** 品目の新規追加（承認画面の「供給・出荷マスタ」タブから） */
+function supplyAdd_(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(SUPPLY_SHEET_NAME);
+  if (!sh) return { ok:false, error:'供給シートが見つかりません' };
+  const call = String(data.call || '').trim();
+  const jp = String(data.jp || '').trim();
+  if (!call || !jp) return { ok:false, error:'呼称と日本名は必須です' };
+  const values = sh.getDataRange().getValues();
+  let hr = -1;
+  for (let r = 0; r < values.length; r++) { if (String(values[r][0]).trim() === '呼称') { hr = r; break; } }
+  if (hr < 0) return { ok:false, error:'見出し行が見つかりません' };
+  let last = hr;
+  for (let r = hr + 1; r < values.length; r++) {
+    const c = String(values[r][0]).trim();
+    if (!c) break;
+    if (c === call) return { ok:false, error:'同じ呼称の品目が既にあります: ' + call };
+    last = r;
+  }
+  sh.insertRowAfter(last + 1);
+  const R = last + 2;
+  sh.getRange(R, 1, 1, 3).setValues([[call, jp, String(data.th || '').trim()]]);
+  if (data.start) sh.getRange(R, 16).setValue(data.start);
+  if (data.next) sh.getRange(R, 18).setValue(data.next);
   try { if (String(values[1][15]).trim() === '更新日') sh.getRange(2, 17).setValue(new Date()); } catch (e) {}
   return { ok:true };
 }

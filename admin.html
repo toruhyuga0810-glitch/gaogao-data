@@ -103,6 +103,17 @@
           <button class="btn ghost sm" id="sup-reload">↻ 再読込</button>
         </div>
       </div>
+      <div class="card">
+        <div class="row" style="align-items:flex-end;gap:10px">
+          <div><div class="muted">呼称（タイ呼び名）<span style="color:#c0584f">*</span></div><input id="na-call" class="dIn" style="width:140px" placeholder="例: パクチー"></div>
+          <div><div class="muted">日本名 <span style="color:#c0584f">*</span></div><input id="na-jp" class="dIn" style="width:160px" placeholder="例: コリアンダー"></div>
+          <div><div class="muted">タイ語名</div><input id="na-th" class="dIn" style="width:130px" placeholder="任意"></div>
+          <div><div class="muted">納品開始日</div><input id="na-start" type="date" class="dIn"></div>
+          <div><div class="muted">可能収穫量</div><input id="na-next" class="dIn" style="width:90px" placeholder="任意"></div>
+          <button class="btn sm" id="na-add">＋ 品目を追加</button>
+        </div>
+        <div class="muted" style="margin-top:8px">追加後、月別の数量は下の表に行が増えるので入力して「保存」。価格が必要な場合はスプシの「圃場別価格表」に追記してください。</div>
+      </div>
       <div id="sup-state" class="card state">読み込み中…</div>
       <div class="card hide" id="sup-card"><div style="overflow:auto;max-height:72vh"><table class="sup" id="sup-table"></table></div></div>
     </div>
@@ -302,6 +313,24 @@ async function saveSupplyRow(btn){
   else { toast('保存失敗: '+((r&&r.error)||'')); }
 }
 document.getElementById('sup-reload').onclick=loadSupply;
+document.getElementById('na-add').addEventListener('click', async ()=>{
+  const call=document.getElementById('na-call').value.trim();
+  const jp=document.getElementById('na-jp').value.trim();
+  if(!call||!jp){ toast('呼称と日本名は必須です'); return; }
+  const th=document.getElementById('na-th').value.trim();
+  const dv=document.getElementById('na-start').value; const start=dv? dv.replace(/-/g,'/') : '';
+  const next=document.getElementById('na-next').value.trim();
+  const b=document.getElementById('na-add'); b.disabled=true; b.textContent='追加中…';
+  const r=await postAction({action:'supplyAdd', call, jp, th, start, next, token:ADMIN_TOKEN_VAL});
+  b.disabled=false; b.textContent='＋ 品目を追加';
+  if(r && r.ok===true){
+    toast(jp+' を追加しました');
+    ['na-call','na-jp','na-th','na-start','na-next'].forEach(i=>document.getElementById(i).value='');
+    loadSupply();
+  }
+  else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Scriptが未更新です（supplyAdd対応の再デプロイが必要）'); }
+  else { toast('追加失敗: '+((r&&r.error)||'')); }
+});
 document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.vtb').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');
