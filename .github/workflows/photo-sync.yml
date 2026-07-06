@@ -1,0 +1,66 @@
+name: photo-sync
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # 30分ごと（Discord写真チャンネル → リポジトリへ同期）
+  workflow_dispatch:          # 手動実行も可能
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch Discord photos and commit to repo
+        env:
+          BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          CHANNEL_ID: "1484109455242297386"   # 圃場別生育状況-写真共有
+          MAX_PHOTOS: "48"
+        run: |
+          set -e
+          mkdir -p photos
+          curl -s -H "Authorization: Bot $BOT_TOKEN" -H "User-Agent: DiscordBot (https://gaogao, 1.0)" \
+            "https://discord.com/api/v10/channels/$CHANNEL_ID/messages?limit=50" -o messages.json
+          # 画像添付を新しい順に最大MAX_PHOTOS件抽出
+          jq --argjson max "$MAX_PHOTOS" '[ .[] | . as $m | ($m.attachments // [])[] as $a
+              | select((($a.content_type // "") | startswith("image/")))
+              | {id: $a.id, url: $a.url, ts: $m.timestamp,
+                 author: ($m.author.global_name // $m.author.username // ""),
+                 caption: ($m.content // "")} ]
+            | sort_by(.ts) | reverse | .[0:$max]' messages.json > candidates.json
+          echo "候補画像: $(jq length candidates.json)件"
+          # 新しい画像だけダウンロード→リサイズ圧縮
+          jq -r '.[] | [.id, .url] | @tsv' candidates.json | while IFS=$'\t' read -r id url; do
+            f="photos/${id}.jpg"
+            if [ ! -f "$f" ]; then
+              echo "download: $id"
+              curl -s -o /tmp/raw_img "$url"
+              convert /tmp/raw_img -auto-orient -resize '1200x1200>' -quality 72 "$f" || cp /tmp/raw_img "$f"
+            fi
+          done
+          # index.json 再構築（実在ファイルのみ）
+          jq '[ .[] | select(.id != null) | {src: ("photos/" + .id + ".jpg"), ts, author, caption} ]' candidates.json > photos/index.new
+          python3 - <<'EOF'
+          import json, os
+          items = json.load(open('photos/index.new'))
+          items = [i for i in items if os.path.exists(i['src'])]
+          json.dump(items, open('photos/index.json','w'), ensure_ascii=False, indent=1)
+          keep = {os.path.basename(i['src']) for i in items}
+          removed = 0
+          for f in os.listdir('photos'):
+              if f.endswith('.jpg') and f not in keep:
+                  os.remove(os.path.join('photos', f)); removed += 1
+          print(f"index: {len(items)}件 / 古い画像削除: {removed}件")
+          EOF
+          rm -f photos/index.new messages.json candidates.json /tmp/raw_img
+          # 変更があればコミット
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add photos
+          if git diff --cached --quiet; then
+            echo "変更なし"
+          else
+            git commit -m "photo-sync: 圃場写真を更新"
+            git pull --rebase origin main
+            git push origin main
+            echo "pushed"
+          fi

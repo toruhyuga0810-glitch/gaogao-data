@@ -24,6 +24,21 @@
   .cat.病害虫{background:#faece7;color:#993c1d}
   .cat.その他{background:#f0f1ef;color:#5f5e5a}
   .when{color:var(--sub);font-size:12px}
+  /* 表示切替タブ */
+  .viewtabs{display:flex;gap:8px;margin-bottom:14px}
+  .vtab{background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 18px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
+  .vtab.active{background:var(--green);color:#fff;border-color:var(--green)}
+  /* 圃場フォト ギャラリー */
+  .gallery{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+  .ph{position:relative;border-radius:12px;overflow:hidden;cursor:pointer;background:#e8ece8;aspect-ratio:1;border:0;padding:0}
+  .ph img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .15s}
+  .ph:hover img{transform:scale(1.04)}
+  .ph .d{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,rgba(0,0,0,.55));color:#fff;font-size:11px;padding:14px 8px 6px;text-align:left}
+  /* ライトボックス */
+  .lightbox{position:fixed;inset:0;background:rgba(12,18,14,.9);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+  .lightbox img{max-width:94vw;max-height:80vh;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  .lb-meta{color:#fff;font-size:13px;margin-top:12px;text-align:center;line-height:1.7;max-width:700px;white-space:pre-wrap}
+  .lb-close{position:absolute;top:14px;right:18px;background:rgba(255,255,255,.15);border:0;color:#fff;font-size:22px;width:40px;height:40px;border-radius:50%;cursor:pointer}
 </style>
 </head>
 <body>
@@ -41,19 +56,40 @@
 </div></header>
 
 <div class="wrap">
-  <div class="card">
-    <div class="row">
-      <div><div class="muted">分類でしぼり込み</div>
-        <select id="f-cat"><option value="">すべて</option>
-          <option>生育状況</option><option>生育遅延</option><option>天候</option><option>病害虫</option><option>その他</option></select></div>
-      <div style="flex:1"></div>
-      <button class="btn ghost sm" id="reload">↻ 更新</button>
-    </div>
-    <div class="muted" style="margin-top:8px">Discordの専用チャンネルに投稿された内容がここに反映されます（連携後）。新しい順に表示。</div>
+  <div class="viewtabs">
+    <button class="vtab active" data-view="posts">お知らせ</button>
+    <button class="vtab" data-view="photos">圃場フォト</button>
   </div>
 
-  <div id="state" class="card state">読み込み中…</div>
-  <div id="feed" class="feed"></div>
+  <div id="view-posts">
+    <div class="card">
+      <div class="row">
+        <div><div class="muted">分類でしぼり込み</div>
+          <select id="f-cat"><option value="">すべて</option>
+            <option>生育状況</option><option>生育遅延</option><option>天候</option><option>病害虫</option><option>その他</option></select></div>
+        <div style="flex:1"></div>
+        <button class="btn ghost sm" id="reload">↻ 更新</button>
+      </div>
+      <div class="muted" style="margin-top:8px">Discordの専用チャンネルに投稿された内容がここに反映されます。新しい順に表示。</div>
+    </div>
+
+    <div id="state" class="card state">読み込み中…</div>
+    <div id="feed" class="feed"></div>
+  </div>
+
+  <div id="view-photos" class="hide">
+    <div class="card">
+      <div class="muted">圃場の現在の様子です。Discord「圃場別生育状況-写真共有」チャンネルの写真が自動で反映されます（約30分ごと）。写真をクリックすると拡大表示。</div>
+    </div>
+    <div id="photo-state" class="card state">読み込み中…</div>
+    <div id="gallery" class="gallery"></div>
+  </div>
+</div>
+
+<div class="lightbox hide" id="lightbox">
+  <button class="lb-close" id="lb-close">×</button>
+  <img id="lb-img" src="" alt="圃場写真">
+  <div class="lb-meta" id="lb-meta"></div>
 </div>
 
 <footer>GAOGAO 掲示板 ／ Discord「生育情報」チャンネルと連携（予定）</footer>
@@ -114,6 +150,53 @@ async function init(){
 document.getElementById('f-cat').addEventListener('change',render);
 document.getElementById('reload').onclick=init;
 init();
+
+/* ===== 圃場フォト ===== */
+let PHOTOS=[], photosLoaded=false;
+function fmtPhotoDate(ts){
+  const d=new Date(ts); if(isNaN(d)) return '';
+  return (d.getMonth()+1)+'/'+d.getDate();
+}
+async function loadPhotos(){
+  const st=document.getElementById('photo-state'), g=document.getElementById('gallery');
+  st.classList.remove('hide'); st.textContent='読み込み中…'; g.innerHTML='';
+  try{
+    const res=await fetch('photos/index.json?t='+Date.now(),{cache:'no-store'});
+    if(!res.ok) throw new Error('まだ写真がありません');
+    PHOTOS=await res.json();
+    if(!PHOTOS.length) throw new Error('まだ写真がありません');
+    st.classList.add('hide');
+    g.innerHTML=PHOTOS.map((p,i)=>
+      '<button class="ph" data-i="'+i+'"><img loading="lazy" src="'+esc(p.src)+'" alt="圃場写真">'
+      +'<span class="d">'+esc(fmtPhotoDate(p.ts))+(p.author?'・'+esc(p.author):'')+'</span></button>').join('');
+    g.querySelectorAll('.ph').forEach(b=>b.addEventListener('click',()=>openLB(+b.dataset.i)));
+    photosLoaded=true;
+  }catch(e){
+    st.classList.remove('hide');
+    st.innerHTML='圃場フォトはまだありません。<br><span class="muted">Discord「圃場別生育状況-写真共有」に投稿すると、約30分でここに表示されます。</span>';
+  }
+}
+function openLB(i){
+  const p=PHOTOS[i]; if(!p) return;
+  document.getElementById('lb-img').src=p.src;
+  const d=new Date(p.ts);
+  const when=isNaN(d)?'':(d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate());
+  document.getElementById('lb-meta').textContent=[when, p.author, p.caption].filter(Boolean).join('　');
+  document.getElementById('lightbox').classList.remove('hide');
+}
+document.getElementById('lb-close').addEventListener('click',()=>document.getElementById('lightbox').classList.add('hide'));
+document.getElementById('lightbox').addEventListener('click',e=>{ if(e.target.id==='lightbox') document.getElementById('lightbox').classList.add('hide'); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') document.getElementById('lightbox').classList.add('hide'); });
+
+/* タブ切替 */
+document.querySelectorAll('.vtab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.vtab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  const v=t.dataset.view;
+  document.getElementById('view-posts').classList.toggle('hide',v!=='posts');
+  document.getElementById('view-photos').classList.toggle('hide',v!=='photos');
+  if(v==='photos' && !photosLoaded) loadPhotos();
+}));
 </script>
 </body>
 </html>
