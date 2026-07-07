@@ -68,13 +68,14 @@ function doPost(e) {
     // パスワード確認用（承認ページのログイン）
     if (action === 'auth') return json_({ ok: data.token === ADMIN_TOKEN });
     // 承認系の操作（単価設定・承認/納品済み・供給マスタ編集）は管理者トークン必須
-    const needToken = (action === 'setPrice') || (action === 'supplyUpdate') || (action === 'supplyAdd') || (action === 'priceUpdate') ||
+    const needToken = (action === 'setPrice') || (action === 'supplyUpdate') || (action === 'supplyAdd') || (action === 'priceUpdate') || (action === 'farmAdd') ||
                       (action === 'setStatus' && (data.status === '承認済み' || data.status === '納品済み'));
     if (needToken && data.token !== ADMIN_TOKEN) return json_({ ok:false, error:'unauthorized' });
     const sh = sheet_();
     if (action === 'supplyUpdate') return json_(supplyUpdate_(data));  // 承認画面から供給シートを直接編集
     if (action === 'supplyAdd')    return json_(supplyAdd_(data));     // 承認画面から品目を追加
     if (action === 'priceUpdate')  return json_(priceUpdate_(data));   // 承認画面から圃場別価格を編集
+    if (action === 'farmAdd')      return json_(priceAddFarm_(data));  // 承認画面から圃場を追加
     if (action === 'boardSync')  return json_(boardSync_(data));   // GitHub Actionsから掲示板投稿を受け取る
     if (action === 'order')      return json_(recordOrder_(sh, data));
     if (action === 'setStatus')  return json_(setStatus_(sh, data));
@@ -95,7 +96,7 @@ function recordOrder_(sh, data) {
     sh.appendRow([id, now, data.company||'', data.person||'', data.deliveryDate||'',
                   it.call||'', it.jp||'', it.qty||'', '', '受付', data.note||'', now]);
   });
-  const lines = items.map(function(it){ return '・'+it.jp+'（'+it.call+'）: '+it.qty+' kg'; }).join('\n');
+  const lines = items.map(function(it){ return '・'+it.call+'（'+it.jp+'）: '+it.qty+' kg'; }).join('\n');
   const summary = '注文番号: '+id+'\n会社: '+(data.company||'')+'\n担当: '+(data.person||'')+
                   '\n希望納品日: '+(data.deliveryDate||'未定')+'\n\n'+lines+'\n\n備考: '+(data.note||'(なし)');
   // GAOGAOへメール通知
@@ -123,7 +124,7 @@ function setStatus_(sh, data) {
       sh.getRange(r+1, cUpd+1).setValue(new Date());
       company=values[r][cCo]; person=values[r][cPe]; deliveryDate=values[r][cDl];
       const pr=values[r][cPr];
-      lines.push('・'+values[r][cJp]+'（'+values[r][cCall]+'）　'+values[r][cQty]+' kg'+((pr!==''&&pr!=null)?'　単価 '+pr+'円（税抜）':''));
+      lines.push('・'+values[r][cCall]+'（'+values[r][cJp]+'）　'+values[r][cQty]+' kg'+((pr!==''&&pr!=null)?'　単価 '+pr+'円（税抜）':''));
       n++;
     }
   }
@@ -395,6 +396,46 @@ function priceUpdate_(data) {
   try { if (String(values[1][10]).trim() === '更新日') sh.getRange(2, 12).setValue(new Date()); } catch (e) {}
   if (updated === 0) return { ok:false, error:'価格表にこの品目の行がありません: ' + call };
   return { ok:true, updated: updated };
+}
+/** 圃場の新規追加：価格表の一番下に新ブロックを作り、既存の品目一覧を複製（価格は空欄） */
+function priceAddFarm_(data) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(PRICE_SHEET_NAME);
+  if (!sh) return { ok:false, error:'価格表シートが見つかりません' };
+  const num = parseInt(data.num, 10);
+  if (!num || num < 1) return { ok:false, error:'圃場番号が正しくありません' };
+  const values = sh.getDataRange().getValues();
+  const heads = findPriceHeads_(values);
+  if (!heads.length) return { ok:false, error:'既存の圃場見出しが見つかりません' };
+  if (heads.some(function(h){ return h.num === num; })) return { ok:false, error:'第' + num + '圃場は既にあります' };
+  // 基準ブロック（最初の圃場）から品目一覧と列見出しをコピー
+  const sorted = heads.slice().sort(function(a,b){ return a.r - b.r || a.c - b.c; });
+  const h0 = sorted[0];
+  const bandRows = heads.map(function(h){return h.r;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+  const bi = bandRows.indexOf(h0.r);
+  const end = (bi + 1 < bandRows.length) ? bandRows[bi + 1] : values.length;
+  const items = [];
+  for (let r = h0.r + 2; r < end; r++) {
+    const row = values[r] || [];
+    const call = String(row[h0.c + 1] || '').trim();
+    if (!call) break;
+    items.push([ String(row[h0.c] || ''), call, String(row[h0.c + 2] || ''), String(row[h0.c + 3] || ''), '' ]);
+  }
+  const hRow = values[h0.r + 1] || [];
+  const hdr = [
+    String(hRow[h0.c] || '日本名'), String(hRow[h0.c + 1] || '呼称'),
+    String(hRow[h0.c + 2] || '英語名'), String(hRow[h0.c + 3] || 'タイ語名'),
+    String(hRow[h0.c + 4] || '卸値（円/kg・税抜）')
+  ];
+  // シート最下部に1行空けて追加（列位置は基準ブロックと同じ）
+  const start = sh.getLastRow() + 2;   // 1-based
+  const col = h0.c + 1;                // 1-based
+  const loc = String(data.loc || '').trim();
+  sh.getRange(start, col).setValue('第' + num + '圃場：' + loc).setFontWeight('bold');
+  sh.getRange(start + 1, col, 1, 5).setValues([hdr]).setFontWeight('bold');
+  if (items.length) sh.getRange(start + 2, col, items.length, 5).setValues(items);
+  try { if (String(values[1][10]).trim() === '更新日') sh.getRange(2, 12).setValue(new Date()); } catch (e) {}
+  return { ok:true, farm:'第' + num + '圃場', items: items.length };
 }
 /** 品目追加時に価格表の各圃場ブロックへ行を追加（下のブロックから処理して行ズレを回避） */
 function priceAddRow_(call, jp, th) {

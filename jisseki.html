@@ -132,14 +132,14 @@ function render(){
 
   // tables
   let h='<thead><tr><th>品目</th><th class="num">総数量</th><th class="num">注文回数</th><th class="num">推定金額(税抜)</th></tr></thead><tbody>';
-  itemRows.forEach(r=>{ h+=`<tr><td><b>${esc(r.jp)}</b> <span class="muted">${esc(r.call)}</span></td><td class="num">${kg(r.qty)}</td><td class="num">${r.cnt}</td><td class="num">${r.hasPrice?yen(r.val):'–'}</td></tr>`; });
+  itemRows.forEach(r=>{ h+=`<tr><td><b>${esc(r.call)}</b> <span class="muted">${esc(r.jp)}</span></td><td class="num">${kg(r.qty)}</td><td class="num">${r.cnt}</td><td class="num">${r.hasPrice?yen(r.val):'–'}</td></tr>`; });
   document.getElementById('t-item').innerHTML=h+'</tbody>';
   let hc='<thead><tr><th>会社</th><th class="num">注文件数</th><th class="num">総数量</th><th class="num">推定金額(税抜)</th></tr></thead><tbody>';
   compRows.forEach(r=>{ hc+=`<tr><td><b>${esc(r.company)}</b></td><td class="num">${r.orders}</td><td class="num">${kg(r.qty)}</td><td class="num">${r.val?yen(r.val):'–'}</td></tr>`; });
   document.getElementById('t-company').innerHTML=hc+'</tbody>';
 
   // charts
-  drawBar('ch-item', itemRows.slice(0,12).map(r=>r.jp), itemRows.slice(0,12).map(r=>Math.round(r.qty*10)/10));
+  drawBar('ch-item', itemRows.slice(0,12).map(r=>r.call), itemRows.slice(0,12).map(r=>Math.round(r.qty*10)/10));
   drawDoughnut('ch-company', compRows.map(r=>r.company), compRows.map(r=>Math.round(r.qty*10)/10));
   drawLine('ch-month', months, months.map(m=>Math.round(byMonth[m].qty*10)/10));
 }

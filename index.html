@@ -103,7 +103,7 @@ function isShippable(s0){
     const chips=[];
     for(let i=hi+1;i<rows.length;i++){
       const r=rows[i]; const call=String(r[0]||'').trim(); if(!call) break;
-      if(isShippable(r[15])) chips.push(String(r[1]||'').trim()||call);
+      if(isShippable(r[15])) chips.push(call);
     }
     document.getElementById('avail').innerHTML = chips.length
       ? chips.map(c=>'<span class="chip">'+esc(c)+'</span>').join('')

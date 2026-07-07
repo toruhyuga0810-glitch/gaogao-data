@@ -64,7 +64,7 @@ function render(){
   let h='';
   list.forEach(o=>{
     const editable=(o.status==='受付');
-    const rows=o.items.map(it=>`<tr><td><b>${esc(it.jp)}</b> <span class="muted">${esc(it.call)}</span></td>
+    const rows=o.items.map(it=>`<tr><td><b>${esc(it.call)}</b> <span class="muted">${esc(it.jp)}</span></td>
       <td class="num">${editable
         ? `<input class="qy" type="number" min="0" step="1" value="${it.qty}" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><span class="unit">kg</span>`
         : it.qty+' <span class="unit">kg</span>'}</td></tr>`).join('');

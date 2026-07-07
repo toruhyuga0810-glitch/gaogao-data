@@ -114,13 +114,21 @@
           <div><div class="muted">可能収穫量</div><input id="na-next" class="dIn" style="width:90px" placeholder="任意"></div>
           <button class="btn sm" id="na-add">＋ 品目を追加</button>
         </div>
-        <div class="muted" style="margin-top:8px">追加後、月別の数量は下の表に行が増えるので入力して「保存」。価格が必要な場合はスプシの「圃場別価格表」に追記してください。</div>
+        <div class="muted" style="margin-top:8px">追加後、月別の数量は下の表に行が増えるので入力して「保存」。価格表にも自動で行が入るので、価格はさらに下の「圃場別 卸価格」で入力できます。</div>
       </div>
       <div id="sup-state" class="card state">読み込み中…</div>
       <div class="card hide" id="sup-card"><div style="overflow:auto;max-height:72vh"><table class="sup" id="sup-table"></table></div></div>
 
       <h2 style="font-size:15px;margin:20px 0 10px">圃場別 卸価格（円/kg・税抜）</h2>
       <div class="card"><div class="muted">価格もここから編集できます。空欄＝その圃場では取扱なし／価格未定。行の「保存」で確定します。</div></div>
+      <div class="card">
+        <div class="row" style="align-items:flex-end;gap:10px">
+          <div><div class="muted">圃場番号 <span style="color:#c0584f">*</span></div><input id="nf-num" type="number" min="1" class="dIn" style="width:90px" placeholder="例: 5"></div>
+          <div><div class="muted">場所・名称</div><input id="nf-loc" class="dIn" style="width:220px" placeholder="例: Yasato（八郷）"></div>
+          <button class="btn sm" id="nf-add">＋ 圃場を追加</button>
+        </div>
+        <div class="muted" style="margin-top:8px">価格表の一番下に「第◯圃場：場所」のブロックが追加され、全品目の名前入り行が自動で入ります（価格は空欄）。追加後、上下の表に反映されます。</div>
+      </div>
       <div id="price-state" class="card state">読み込み中…</div>
       <div class="card hide" id="price-card"><div style="overflow:auto;max-height:60vh"><table class="sup" id="price-table"></table></div></div>
     </div>
@@ -150,7 +158,7 @@ function render(){
       const qtyCell = editable
         ? `<input class="qty-in" type="number" min="0" step="1" value="${it.qty}" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><span class="unit">kg</span>`
         : `${it.qty}<span class="unit">kg</span>`;
-      return `<tr><td><b>${esc(it.jp)}</b> <span class="muted">${esc(it.call)}</span></td>
+      return `<tr><td><b>${esc(it.call)}</b> <span class="muted">${esc(it.jp)}</span></td>
         <td class="num">${qtyCell}</td>
         <td class="num"><input class="price-in" type="number" min="0" step="10" value="${it.price??''}" data-id="${esc(o.id)}" data-call="${esc(it.call)}" placeholder="単価"></td>
         <td class="num">${p!=null?yen(p*it.qty):'–'}</td></tr>`;
@@ -295,7 +303,7 @@ function renderSupply(){
   for(let m=1;m<=12;m++) h+='<th>'+m+'月</th>';
   h+='<th>納品開始日</th><th>可能収穫量</th><th></th></tr></thead><tbody>';
   SUP.forEach((it,idx)=>{
-    h+='<tr data-idx="'+idx+'"><td class="nm"><b>'+esc(it.jp)+'</b><div class="muted" style="font-size:10px">'+esc(it.call)+'</div></td>';
+    h+='<tr data-idx="'+idx+'"><td class="nm"><b>'+esc(it.call)+'</b><div class="muted" style="font-size:10px">'+esc(it.jp)+'</div></td>';
     it.months.forEach((v,m)=>{ h+='<td><input class="mIn" data-m="'+(m+1)+'" value="'+esc(v)+'" placeholder="–"></td>'; });
     h+='<td><input type="date" class="dIn" value="'+esc(startToInput(it.start))+'"></td>';
     h+='<td><input class="nIn" value="'+esc(it.next)+'" placeholder="例: 4kg"></td>';
@@ -317,7 +325,7 @@ async function saveSupplyRow(btn){
   btn.disabled=false; btn.textContent='保存';
   if(r && r.ok===true){
     tr.querySelectorAll('input').forEach(inp=>inp.classList.remove('dirty'));
-    toast(it.jp+' を保存しました（発注ページに即反映）');
+    toast(it.call+' を保存しました（発注ページに即反映）');
   } else if(r && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続'); }
   else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ サーバー(Apps Script)が未更新です。新コードで再デプロイしてください'); }
   else if(r && r.error==='unauthorized'){ toast('権限エラー：ロックし直してください'); }
@@ -357,7 +365,7 @@ function renderPrices(){
   PFARMS.forEach(f=>h+='<th>'+esc(f)+'</th>');
   h+='<th></th></tr></thead><tbody>';
   PRICES.forEach((it,idx)=>{
-    h+='<tr data-idx="'+idx+'"><td class="nm"><b>'+esc(it.jp)+'</b><div class="muted" style="font-size:10px">'+esc(it.call)+'</div></td>';
+    h+='<tr data-idx="'+idx+'"><td class="nm"><b>'+esc(it.call)+'</b><div class="muted" style="font-size:10px">'+esc(it.jp)+'</div></td>';
     PFARMS.forEach(f=>{ h+='<td><input class="nIn pIn" data-f="'+esc(f)+'" value="'+esc(it.prices[f]||'')+'" placeholder="–" style="width:76px;text-align:right"></td>'; });
     h+='<td><button class="btn sm price-save">保存</button></td></tr>';
   });
@@ -372,11 +380,26 @@ async function savePriceRow(btn){
   btn.disabled=true; btn.textContent='保存中…';
   const r=await postAction({action:'priceUpdate', call:it.call, prices, token:ADMIN_TOKEN_VAL});
   btn.disabled=false; btn.textContent='保存';
-  if(r && r.ok===true){ tr.querySelectorAll('input').forEach(inp=>inp.classList.remove('dirty')); toast(it.jp+' の価格を保存しました'); }
+  if(r && r.ok===true){ tr.querySelectorAll('input').forEach(inp=>inp.classList.remove('dirty')); toast(it.call+' の価格を保存しました'); }
   else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Scriptが未更新です（priceUpdate対応の再デプロイが必要）'); }
   else { toast('保存失敗: '+((r&&r.error)||'')); }
 }
 document.getElementById('sup-reload').onclick=()=>{ loadSupply(); loadPrices(); };
+document.getElementById('nf-add').addEventListener('click', async ()=>{
+  const numV=document.getElementById('nf-num').value.trim();
+  if(!numV||+numV<1){ toast('圃場番号を入れてください'); return; }
+  const loc=document.getElementById('nf-loc').value.trim();
+  const b=document.getElementById('nf-add'); b.disabled=true; b.textContent='追加中…';
+  const r=await postAction({action:'farmAdd', num:+numV, loc, token:ADMIN_TOKEN_VAL});
+  b.disabled=false; b.textContent='＋ 圃場を追加';
+  if(r && r.ok===true){
+    toast('第'+numV+'圃場を追加しました');
+    document.getElementById('nf-num').value=''; document.getElementById('nf-loc').value='';
+    loadPrices();
+  }
+  else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Scriptが未更新です（farmAdd対応の再デプロイが必要）'); }
+  else { toast('追加失敗: '+((r&&r.error)||'')); }
+});
 document.getElementById('na-add').addEventListener('click', async ()=>{
   const call=document.getElementById('na-call').value.trim();
   const jp=document.getElementById('na-jp').value.trim();
@@ -388,7 +411,7 @@ document.getElementById('na-add').addEventListener('click', async ()=>{
   const r=await postAction({action:'supplyAdd', call, jp, th, start, next, token:ADMIN_TOKEN_VAL});
   b.disabled=false; b.textContent='＋ 品目を追加';
   if(r && r.ok===true){
-    toast(jp+' を追加しました');
+    toast(call+' を追加しました');
     ['na-call','na-jp','na-th','na-start','na-next'].forEach(i=>document.getElementById(i).value='');
     loadSupply(); loadPrices();
   }

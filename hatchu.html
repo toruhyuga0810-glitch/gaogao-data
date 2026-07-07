@@ -222,7 +222,7 @@
 
   <div id="view-schedule">
     <div class="toolbar">
-      <div class="searchbox"><input class="search" id="q1" placeholder="品目を検索（日本名・呼称・タイ語）"><button class="clr" id="clr1" aria-label="検索をクリア">×</button></div>
+      <div class="searchbox"><input class="search" id="q1" placeholder="品目を検索（呼称・日本名・タイ語）"><button class="clr" id="clr1" aria-label="検索をクリア">×</button></div>
       <select id="sortmode" class="sortsel">
         <option value="shippable-first">発注可能を上に</option>
         <option value="shippable-only">発注可能のみ</option>
@@ -370,13 +370,13 @@ function renderSched(){
                  .map(it=>({it, st:status(it.start)}));
   if(sm==='shippable-only')      list=list.filter(x=>x.st.cls==='b-ok');
   else if(sm==='shippable-first') list.sort((a,b)=>((b.st.cls==='b-ok')?1:0)-((a.st.cls==='b-ok')?1:0));
-  else if(sm==='name')            list.sort((a,b)=>a.it.jp.localeCompare(b.it.jp,'ja'));
+  else if(sm==='name')            list.sort((a,b)=>a.it.call.localeCompare(b.it.call,'ja'));
   list.forEach(({it,st})=>{
     const arr= mode==='weekly' ? it.monthly.map(v=> (typeof v==='number')? Math.round(v/CONFIG.WEEKS_PER_MONTH*10)/10 : v) : it.monthly;
     const shippable = (st.cls==='b-ok');   // 出荷可能のときだけ発注可能
     const harvest = it.next ? '<div class="availq"><span class="cap">可能収穫量</span><b>'+esc(it.next)+'</b></div>' : '';
     const cur = cart[it.call] ? cart[it.call].qty : '';
-    h+='<tr><td class="name"><div class="jp">'+esc(it.jp)+'</div><div class="sub">'+esc(it.call)+'</div><div class="th">'+esc(it.th||'')+'</div></td>';
+    h+='<tr><td class="name"><div class="jp">'+esc(it.call)+'</div><div class="sub">'+esc(it.jp)+'</div><div class="th">'+esc(it.th||'')+'</div></td>';
     arr.forEach((v,i)=>{ h+='<td class="mon'+(i===nowMonth?' now':'')+'">'+cell(v)+'</td>'; });
     h+='<td class="sub p p-start">'+(esc(it.start)||'–')+'</td>';
     if(shippable){
@@ -415,7 +415,7 @@ function renderPrice(){
   PRICE.forEach(it=>{
     const hay=(it.jp+it.call+(it.en||'')).toLowerCase();
     if(q && !hay.includes(q)) return;
-    h+='<tr><td class="name"><div class="jp">'+esc(it.jp)+'</div><div class="sub">'+esc(it.call)+'</div></td>';
+    h+='<tr><td class="name"><div class="jp">'+esc(it.call)+'</div><div class="sub">'+esc(it.jp)+'</div></td>';
     it.prices.forEach(p=>{
       if(p===null||p===undefined){ h+='<td class="empty">–</td>'; }
       else { h+='<td style="background:var(--accent)"><span class="price">'+Number(p).toLocaleString()+'<span class="yen"> 円</span></span></td>'; }
@@ -435,7 +435,7 @@ function renderCart(){
   if(items.length===0){ body.innerHTML='<div class="empcart">カートは空です。<br>「供給スケジュール」で発注(kg)に数量を入れてください。</div>'; return; }
   let h='';
   items.forEach(it=>{
-    h+='<div class="citem"><div class="nm"><b>'+esc(it.jp)+'</b><div class="sub">'+esc(it.call)+'</div></div>'
+    h+='<div class="citem"><div class="nm"><b>'+esc(it.call)+'</b><div class="sub">'+esc(it.jp)+'</div></div>'
       +'<input class="qy" type="number" min="0" step="1" inputmode="numeric" value="'+it.qty+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'"> <span class="unit">kg</span>'
       +'<button class="rm" data-call="'+esc(it.call)+'">削除</button></div>';
   });
@@ -521,7 +521,7 @@ function fmtJpDate(s){ if(!s) return ''; const d=new Date(s+'T00:00:00'); if(isN
 function buildOrderMailUrl(company, person, date, items, note, contactEmail){
   const perKg = Math.round(1000 / (CONFIG.PACK_G||500)); // 500g→2個/kg
   const d = fmtJpDate(date);
-  const lines = items.map(i=>`・${i.jp}（${i.call}）　${i.qty}kg（${CONFIG.PACK_G||500}gパック${Math.round(i.qty*perKg)}個）`).join('\n');
+  const lines = items.map(i=>`・${i.call}（${i.jp}）　${i.qty}kg（${CONFIG.PACK_G||500}gパック${Math.round(i.qty*perKg)}個）`).join('\n');
   const body =
 `${CONFIG.ORDER_MAIL_GREETING}
 
@@ -566,7 +566,7 @@ async function submitOrder(){
 
   // --- mailto fallback (Apps Script未設定時) ---
   if(!CONFIG.ORDER_WEBAPP_URL){
-    const lines=items.map(i=>`・${i.jp}（${i.call}）: ${i.qty} kg`).join('\n');
+    const lines=items.map(i=>`・${i.call}（${i.jp}）: ${i.qty} kg`).join('\n');
     const body=`GAOGAO 発注\n\n会社: ${company}\n担当: ${person}\n希望納品日: ${date||'未定'}\n\n${lines}\n\n備考: ${note||'(なし)'}`;
     window.location.href=`mailto:${CONFIG.ORDER_EMAIL}?subject=${encodeURIComponent('【GAOGAO発注】'+company)}&body=${encodeURIComponent(body)}`;
     showDone(null, true); return;
