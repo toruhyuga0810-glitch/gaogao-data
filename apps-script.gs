@@ -418,7 +418,7 @@ function priceAddFarm_(data) {
   for (let r = h0.r + 2; r < end; r++) {
     const row = values[r] || [];
     const call = String(row[h0.c + 1] || '').trim();
-    if (!call) break;
+    if (!call || call === '呼称') continue;   // ブロック内の空行・見出し行は飛ばして最後まで拾う
     items.push([ String(row[h0.c] || ''), call, String(row[h0.c + 2] || ''), String(row[h0.c + 3] || ''), '' ]);
   }
   const hRow = values[h0.r + 1] || [];
