@@ -610,12 +610,10 @@ function migratePriceSheet() {
     const m = master[c];
     grid.push([m.jp, c, m.en, m.th].concat(nums.map(function(n){ return (m.prices[n] != null) ? m.prices[n] : ''; })));
   });
-  ns.getRange(1, 1).setValue('圃場別 卸価格（円/kg・税抜）※空欄＝取扱なし').setFontWeight('bold');
-  ns.getRange(1, 6).setValue('更新日');
-  ns.getRange(1, 7).setValue(new Date());
-  ns.getRange(2, 1, grid.length, header.length).setValues(grid);
-  ns.getRange(2, 1, 1, header.length).setFontWeight('bold').setBackground('#2e7d4f').setFontColor('#ffffff').setHorizontalAlignment('center');
-  ns.setFrozenRows(2);
+  // 1行目＝見出し行にする（タイトル行は置かない：数値列の上に文字があるとWeb読み取りで欠落するため）
+  ns.getRange(1, 1, grid.length, header.length).setValues(grid);
+  ns.getRange(1, 1, 1, header.length).setFontWeight('bold').setBackground('#2e7d4f').setFontColor('#ffffff').setHorizontalAlignment('center');
+  ns.setFrozenRows(1);
   ns.setFrozenColumns(2);
   ns.setColumnWidth(1, 160); ns.setColumnWidth(2, 160); ns.setColumnWidth(3, 140); ns.setColumnWidth(4, 130);
   for (let i = 0; i < nums.length; i++) ns.setColumnWidth(5 + i, 170);

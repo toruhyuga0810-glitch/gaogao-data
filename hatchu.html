@@ -298,7 +298,7 @@ function parseCSV(text){
   if(cell!==''||row.length){ row.push(cell); rows.push(row); }
   return rows;
 }
-function gvizURL(sheet){ return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&t=${Date.now()}`; }
+function gvizURL(sheet){ return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&headers=1&t=${Date.now()}`; }
 async function fetchSheet(sheet){
   const res=await fetch(gvizURL(sheet),{cache:'no-store'});
   if(!res.ok) throw new Error('「'+sheet+'」の取得に失敗 ('+res.status+')');
