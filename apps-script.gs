@@ -293,7 +293,7 @@ function supplyUpdate_(data) {
   let row = -1;
   for (let r = hr + 1; r < values.length; r++) {
     const c = String(values[r][0]).trim();
-    if (!c) break;
+    if (!c) continue;   // 途中の空行では打ち切らない
     if (c === String(data.call).trim()) { row = r; break; }
   }
   if (row < 0) return { ok:false, error:'品目が見つかりません: ' + data.call };
@@ -333,7 +333,8 @@ function supplyAdd_(data) {
   let last = hr;
   for (let r = hr + 1; r < values.length; r++) {
     const c = String(values[r][0]).trim();
-    if (!c) break;
+    const j = String(values[r][1] || '').trim();
+    if (!c || !j) continue;   // 呼称と日本名が揃った行だけを品目とみなす（空行・メモ行は飛ばす）
     if (c === call) return { ok:false, error:'同じ呼称の品目が既にあります: ' + call };
     last = r;
   }
@@ -348,8 +349,14 @@ function supplyAdd_(data) {
   return { ok:true };
 }
 
-/* ===== 圃場別価格表の編集（承認画面から） ===== */
+/* ===== 圃場別価格表の編集（承認画面から） =====
+ * レイアウトは2種類に対応：
+ *  ・新レイアウト（推奨）：行=品目・列=圃場のマトリクス。migratePriceSheet で移行できる
+ *  ・旧レイアウト：圃場ごとのブロック型（従来）
+ */
 const PRICE_SHEET_NAME = '圃場別価格表';
+
+// 旧レイアウト（ブロック型）の圃場見出し検出
 function findPriceHeads_(values) {
   const heads = [];
   for (let r = 0; r < values.length; r++) {
@@ -364,6 +371,43 @@ function findPriceHeads_(values) {
   }
   return heads;
 }
+
+// 新レイアウトの検出：同じ行に「呼称」と「第N圃場：…」が並んでいれば新レイアウト
+function findPriceMatrix_(values) {
+  for (let r = 0; r < values.length; r++) {
+    const row = values[r] || [];
+    let cCall = -1, cJp = -1, cEn = -1, cTh = -1;
+    const farms = [];
+    for (let c = 0; c < row.length; c++) {
+      const t = String(row[c] || '').trim();
+      if (t === '呼称') cCall = c;
+      else if (t === '日本名') cJp = c;
+      else if (t === '英語名') cEn = c;
+      else if (t === 'タイ語名') cTh = c;
+      else if (t.indexOf('圃場') >= 0 && t.indexOf('：') >= 0) {
+        const m = t.match(/第(\d+)/);
+        if (m) farms.push({ c: c, num: Number(m[1]), name: t });
+      }
+    }
+    if (cCall >= 0 && farms.length) {
+      return { hr: r, cCall: cCall, cJp: (cJp >= 0 ? cJp : Math.max(cCall - 1, 0)), cEn: cEn, cTh: cTh, farms: farms };
+    }
+  }
+  return null;
+}
+
+// 「更新日」ラベルの右隣セルに現在日時を書く（新旧レイアウト共通）
+function touchPriceUpdated_(sh, values) {
+  try {
+    for (let r = 0; r < Math.min(3, values.length); r++) {
+      const row = values[r] || [];
+      for (let c = 0; c < row.length; c++) {
+        if (String(row[c] || '').trim() === '更新日') { sh.getRange(r + 1, c + 2).setValue(new Date()); return; }
+      }
+    }
+  } catch (e) {}
+}
+
 /** 品目×圃場の卸値を更新。prices例: {"第1圃場":"1700","第2圃場":""} */
 function priceUpdate_(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -373,6 +417,28 @@ function priceUpdate_(data) {
   const call = String(data.call || '').trim();
   if (!call) return { ok:false, error:'呼称が必要です' };
   const prices = data.prices || {};
+  // --- 新レイアウト ---
+  const mx = findPriceMatrix_(values);
+  if (mx) {
+    let row = -1;
+    for (let r = mx.hr + 1; r < values.length; r++) {
+      if (String((values[r] || [])[mx.cCall] || '').trim() === call) { row = r; break; }
+    }
+    if (row < 0) return { ok:false, error:'価格表にこの品目の行がありません: ' + call };
+    let updated = 0;
+    mx.farms.forEach(function(f) {
+      const key = '第' + f.num + '圃場';
+      if (!(key in prices)) return;
+      let v = prices[key]; v = (v == null) ? '' : String(v).trim();
+      const cell = sh.getRange(row + 1, f.c + 1);
+      if (v === '') cell.setValue('');
+      else { const n = parseFloat(v); cell.setValue(isNaN(n) ? v : n); }
+      updated++;
+    });
+    touchPriceUpdated_(sh, values);
+    return { ok:true, updated: updated };
+  }
+  // --- 旧レイアウト（ブロック型） ---
   const heads = findPriceHeads_(values);
   if (!heads.length) return { ok:false, error:'圃場見出しが見つかりません' };
   const bandRows = heads.map(function(h){return h.r;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
@@ -393,22 +459,34 @@ function priceUpdate_(data) {
       }
     }
   });
-  try { if (String(values[1][10]).trim() === '更新日') sh.getRange(2, 12).setValue(new Date()); } catch (e) {}
+  touchPriceUpdated_(sh, values);
   if (updated === 0) return { ok:false, error:'価格表にこの品目の行がありません: ' + call };
   return { ok:true, updated: updated };
 }
-/** 圃場の新規追加：価格表の一番下に新ブロックを作り、既存の品目一覧を複製（価格は空欄） */
+
+/** 圃場の新規追加。新レイアウトなら列を1本追加するだけ（品目は全行に自動適用） */
 function priceAddFarm_(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName(PRICE_SHEET_NAME);
   if (!sh) return { ok:false, error:'価格表シートが見つかりません' };
   const num = parseInt(data.num, 10);
   if (!num || num < 1) return { ok:false, error:'圃場番号が正しくありません' };
+  const loc = String(data.loc || '').trim();
   const values = sh.getDataRange().getValues();
+  // --- 新レイアウト：最後の圃場列の右に1列追加 ---
+  const mx = findPriceMatrix_(values);
+  if (mx) {
+    if (mx.farms.some(function(f){ return f.num === num; })) return { ok:false, error:'第' + num + '圃場は既にあります' };
+    const lastF = mx.farms.reduce(function(a, b){ return a.c > b.c ? a : b; });
+    sh.insertColumnAfter(lastF.c + 1);
+    sh.getRange(mx.hr + 1, lastF.c + 2).setValue('第' + num + '圃場：' + loc).setFontWeight('bold');
+    touchPriceUpdated_(sh, values);
+    return { ok:true, farm:'第' + num + '圃場', mode:'column' };
+  }
+  // --- 旧レイアウト：一番下に新ブロックを作り、品目一覧を複製 ---
   const heads = findPriceHeads_(values);
   if (!heads.length) return { ok:false, error:'既存の圃場見出しが見つかりません' };
   if (heads.some(function(h){ return h.num === num; })) return { ok:false, error:'第' + num + '圃場は既にあります' };
-  // 基準ブロック（最初の圃場）から品目一覧と列見出しをコピー
   const sorted = heads.slice().sort(function(a,b){ return a.r - b.r || a.c - b.c; });
   const h0 = sorted[0];
   const bandRows = heads.map(function(h){return h.r;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
@@ -427,22 +505,40 @@ function priceAddFarm_(data) {
     String(hRow[h0.c + 2] || '英語名'), String(hRow[h0.c + 3] || 'タイ語名'),
     String(hRow[h0.c + 4] || '卸値（円/kg・税抜）')
   ];
-  // シート最下部に1行空けて追加（列位置は基準ブロックと同じ）
   const start = sh.getLastRow() + 2;   // 1-based
   const col = h0.c + 1;                // 1-based
-  const loc = String(data.loc || '').trim();
   sh.getRange(start, col).setValue('第' + num + '圃場：' + loc).setFontWeight('bold');
   sh.getRange(start + 1, col, 1, 5).setValues([hdr]).setFontWeight('bold');
   if (items.length) sh.getRange(start + 2, col, items.length, 5).setValues(items);
-  try { if (String(values[1][10]).trim() === '更新日') sh.getRange(2, 12).setValue(new Date()); } catch (e) {}
+  touchPriceUpdated_(sh, values);
   return { ok:true, farm:'第' + num + '圃場', items: items.length };
 }
-/** 品目追加時に価格表の各圃場ブロックへ行を追加（下のブロックから処理して行ズレを回避） */
+
+/** 品目追加時に価格表へ行を追加（supplyAdd_ から自動で呼ばれる） */
 function priceAddRow_(call, jp, th) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName(PRICE_SHEET_NAME);
   if (!sh) return;
   const values = sh.getDataRange().getValues();
+  // --- 新レイアウト：一番下に1行追加するだけ ---
+  const mx = findPriceMatrix_(values);
+  if (mx) {
+    let last = mx.hr, exists = false;
+    for (let r = mx.hr + 1; r < values.length; r++) {
+      const c0 = String((values[r] || [])[mx.cCall] || '').trim();
+      if (!c0) continue;
+      if (c0 === call) exists = true;
+      last = r;
+    }
+    if (exists) return;
+    sh.insertRowAfter(last + 1);
+    const R = last + 2;
+    sh.getRange(R, mx.cJp + 1).setValue(jp);
+    sh.getRange(R, mx.cCall + 1).setValue(call);
+    if (mx.cTh >= 0 && th) sh.getRange(R, mx.cTh + 1).setValue(th);
+    return;
+  }
+  // --- 旧レイアウト：各ブロックへ行を追加（下のブロックから処理して行ズレを回避） ---
   const heads = findPriceHeads_(values);
   if (!heads.length) return;
   const bandRows = heads.map(function(h){return h.r;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
@@ -465,4 +561,68 @@ function priceAddRow_(call, jp, th) {
       sh.getRange(R, h.c + 1, 1, 4).setValues([[jp, call, '', th || '']]);
     });
   }
+}
+
+/**
+ * 【一度だけ実行】圃場別価格表を「行=品目・列=圃場」の新レイアウトに作り替えます。
+ * ・品目が増えても行がズレない構造になります
+ * ・旧シートは「圃場別価格表（旧バックアップ）」という名前で残ります（自動では消しません）
+ * 実行方法：エディタ上部の関数選択で migratePriceSheet を選んで ▶ 実行
+ */
+function migratePriceSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(PRICE_SHEET_NAME);
+  if (!sh) throw new Error('「' + PRICE_SHEET_NAME + '」シートが見つかりません');
+  const values = sh.getDataRange().getValues();
+  if (findPriceMatrix_(values)) { ss.toast('すでに新レイアウトです。何もしていません。', 'GAOGAO', 8); return; }
+  const heads = findPriceHeads_(values);
+  if (!heads.length) throw new Error('圃場見出し（第◯圃場：…）が見つかりません');
+  const bandRows = heads.map(function(h){return h.r;}).filter(function(v,i,a){return a.indexOf(v)===i;}).sort(function(a,b){return a-b;});
+  const order = [];
+  const master = {};
+  const farmNames = {};
+  heads.forEach(function(h) {
+    farmNames[h.num] = String(values[h.r][h.c]).trim();
+    const bi = bandRows.indexOf(h.r);
+    const end = (bi + 1 < bandRows.length) ? bandRows[bi + 1] : values.length;
+    for (let r = h.r + 2; r < end; r++) {
+      const row = values[r] || [];
+      const call = String(row[h.c + 1] || '').trim();
+      if (!call || call === '呼称') continue;
+      if (!master[call]) { master[call] = { jp:'', en:'', th:'', prices:{} }; order.push(call); }
+      const m = master[call];
+      if (!m.jp) m.jp = String(row[h.c] || '').trim();
+      if (!m.en) m.en = String(row[h.c + 2] || '').trim();
+      if (!m.th) m.th = String(row[h.c + 3] || '').trim();
+      const p = row[h.c + 4];
+      if (p !== '' && p != null) m.prices[h.num] = p;
+    }
+  });
+  const nums = Object.keys(farmNames).map(Number).sort(function(a,b){return a-b;});
+  // 新シートを組み立て
+  const tmpName = PRICE_SHEET_NAME + '＿作成中';
+  let ns = ss.getSheetByName(tmpName);
+  if (ns) ss.deleteSheet(ns);
+  ns = ss.insertSheet(tmpName);
+  const header = ['日本名','呼称','英語名','タイ語名'].concat(nums.map(function(n){ return farmNames[n]; }));
+  const grid = [header];
+  order.forEach(function(c) {
+    const m = master[c];
+    grid.push([m.jp, c, m.en, m.th].concat(nums.map(function(n){ return (m.prices[n] != null) ? m.prices[n] : ''; })));
+  });
+  ns.getRange(1, 1).setValue('圃場別 卸価格（円/kg・税抜）※空欄＝取扱なし').setFontWeight('bold');
+  ns.getRange(1, 6).setValue('更新日');
+  ns.getRange(1, 7).setValue(new Date());
+  ns.getRange(2, 1, grid.length, header.length).setValues(grid);
+  ns.getRange(2, 1, 1, header.length).setFontWeight('bold').setBackground('#2e7d4f').setFontColor('#ffffff').setHorizontalAlignment('center');
+  ns.setFrozenRows(2);
+  ns.setFrozenColumns(2);
+  ns.setColumnWidth(1, 160); ns.setColumnWidth(2, 160); ns.setColumnWidth(3, 140); ns.setColumnWidth(4, 130);
+  for (let i = 0; i < nums.length; i++) ns.setColumnWidth(5 + i, 170);
+  // 入れ替え：旧をバックアップ名に、新を正式名に
+  let bak = PRICE_SHEET_NAME + '（旧バックアップ）';
+  if (ss.getSheetByName(bak)) bak = bak + '_' + Utilities.formatDate(new Date(), 'Asia/Tokyo', 'MMddHHmm');
+  sh.setName(bak);
+  ns.setName(PRICE_SHEET_NAME);
+  ss.toast('新レイアウトに移行しました（品目' + order.length + '件 × 圃場' + nums.length + '面）。旧シートは「' + bak + '」として残っています。', 'GAOGAO', 10);
 }

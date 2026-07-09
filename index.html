@@ -102,7 +102,8 @@ function isShippable(s0){
     const hi=rows.findIndex(r=>String(r[0]).trim()==='呼称');
     const chips=[];
     for(let i=hi+1;i<rows.length;i++){
-      const r=rows[i]; const call=String(r[0]||'').trim(); if(!call) break;
+      const r=rows[i]; const call=String(r[0]||'').trim();
+      if(!call||!String(r[1]||'').trim()) continue;   // 呼称＋日本名が揃った行だけ品目扱い
       if(isShippable(r[15])) chips.push(call);
     }
     document.getElementById('avail').innerHTML = chips.length

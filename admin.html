@@ -290,7 +290,8 @@ async function loadSupply(){
     if(hi<0) throw new Error('見出し行が見つかりません');
     SUP=[];
     for(let i=hi+1;i<rows.length;i++){
-      const r=rows[i]; const call=String(r[0]||'').trim(); if(!call) break;
+      const r=rows[i]; const call=String(r[0]||'').trim();
+      if(!call||!String(r[1]||'').trim()) continue;   // 呼称＋日本名が揃った行だけ品目扱い（空行で打ち切らない）
       SUP.push({call, jp:String(r[1]||'').trim(),
         months:Array.from({length:12},(_,m)=>String(r[3+m]==null?'':r[3+m]).trim()),
         start:String(r[15]==null?'':r[15]).trim(), next:String(r[17]==null?'':r[17]).trim()});
@@ -339,6 +340,25 @@ async function loadPrices(){
   st.classList.remove('hide'); st.textContent='読み込み中…'; card.classList.add('hide');
   try{
     const rows=await fetchSheet(PRICE_SHEET);
+    // 新レイアウト（行=品目・列=圃場）：見出し行に「呼称」と「第N圃場：…」が同居
+    const mhi=rows.findIndex(r=> r.some(c=>String(c).trim()==='呼称') && r.some(c=>{const t=String(c);return t.includes('圃場')&&t.includes('：')&&/第\d+/.test(t);}));
+    if(mhi>=0){
+      const head=rows[mhi].map(s=>String(s).trim());
+      const cJp=head.indexOf('日本名'), cCall=head.indexOf('呼称');
+      const farms=[]; head.forEach((c,ci)=>{ const m=c.match(/第(\d+)/); if(c.includes('圃場')&&c.includes('：')&&m) farms.push({ci,num:+m[1]}); });
+      farms.sort((a,b)=>a.num-b.num);
+      PFARMS=farms.map(f=>'第'+f.num+'圃場');
+      PRICES=[];
+      for(let i=mhi+1;i<rows.length;i++){
+        const r=rows[i]||[]; const call=String(r[cCall]||'').trim(); if(!call) continue;
+        const it={call, jp:cJp>=0?String(r[cJp]||'').trim():'', prices:{}};
+        farms.forEach(f=>{ it.prices['第'+f.num+'圃場']=String(r[f.ci]==null?'':r[f.ci]).trim(); });
+        PRICES.push(it);
+      }
+      renderPrices(); st.classList.add('hide'); card.classList.remove('hide'); priceLoaded=true;
+      return;
+    }
+    // 旧レイアウト（ブロック型）
     const heads=[];
     rows.forEach((r,ri)=>r.forEach((c,ci)=>{ if(typeof c==='string'&&c.includes('圃場')&&c.includes('：')){const m=c.match(/第(\d+)/); if(m)heads.push({ri,ci,num:+m[1]});}}));
     if(!heads.length) throw new Error('圃場見出しが見つかりません');
@@ -424,7 +444,12 @@ document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
   const v=t.dataset.v;
   document.getElementById('view-orders').classList.toggle('hide',v!=='orders');
   document.getElementById('view-supply').classList.toggle('hide',v!=='supply');
-  if(v==='supply'){ if(!supLoaded) loadSupply(); if(!priceLoaded) loadPrices(); }
+  if(v==='supply'){
+    // タブを開くたびに最新を読み直す（保存していない編集がある間は上書きしない）
+    const editing=document.querySelector('#sup-table .dirty, #price-table .dirty');
+    if(!editing){ loadSupply(); loadPrices(); }
+    else { if(!supLoaded) loadSupply(); if(!priceLoaded) loadPrices(); }
+  }
 }));
 </script>
 </body>

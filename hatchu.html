@@ -313,18 +313,33 @@ function buildSupply(rows){
   if(h<0) throw new Error('供給シートに「呼称」見出しが見つかりません');
   const out=[];
   for(let i=h+1;i<rows.length;i++){
-    const r=rows[i]; if(!cellv(r,0)) break;
+    const r=rows[i]; if(!cellv(r,0)||!cellv(r,1)) continue;   // 呼称＋日本名が揃った行だけ品目扱い
     const monthly=[]; for(let m=0;m<12;m++){ const v=cellv(r,3+m); monthly.push(v===''?null:((v==='◯'||v==='○')?'◯':num(v))); }
     out.push({call:cellv(r,0), jp:cellv(r,1), th:cellv(r,2), monthly, start:cellv(r,15), next:cellv(r,17)});
   }
   return out;
 }
 function buildPrice(rows){
+  function disp(name){ const p=name.split('：'); const left=p[0].trim(); let right=(p[1]||'').replace(/圃場$/,'').trim(); const num=(left.match(/第(\d+)/)||[])[1]; return {num:num?+num:99,title:left,sub:right}; }
+  // 新レイアウト（行=品目・列=圃場）：見出し行に「呼称」と「第N圃場：…」が同居
+  const mhi=rows.findIndex(r=> r.some(c=>String(c).trim()==='呼称') && r.some(c=>{const t=String(c);return t.includes('圃場')&&t.includes('：')&&/第\d+/.test(t);}));
+  if(mhi>=0){
+    const head=rows[mhi].map(s=>String(s).trim());
+    const cJp=head.indexOf('日本名'), cCall=head.indexOf('呼称'), cEn=head.indexOf('英語名');
+    const mfarms=[]; head.forEach((c,ci)=>{ if(c.includes('圃場')&&c.includes('：')&&/第\d+/.test(c)) mfarms.push(Object.assign(disp(c),{ci})); });
+    mfarms.sort((a,b)=>a.num-b.num); FARMS=mfarms;
+    const out=[];
+    for(let i=mhi+1;i<rows.length;i++){
+      const r=rows[i]; const call=cellv(r,cCall); if(!call) continue;
+      out.push({call, jp:cJp>=0?cellv(r,cJp):'', en:cEn>=0?cellv(r,cEn):'', prices:mfarms.map(f=>num(cellv(r,f.ci)))});
+    }
+    return out;
+  }
+  // 旧レイアウト（ブロック型）
   const headers=[];
   rows.forEach((r,ri)=> r.forEach((c,ci)=>{ if(typeof c==='string' && c.includes('圃場') && c.includes('：')) headers.push({ri,ci,name:c.trim()}); }));
   const bandRows=[...new Set(headers.map(h=>h.ri))].sort((a,b)=>a-b);
   const farms=[]; const master=new Map(); const order=[];
-  function disp(name){ const p=name.split('：'); const left=p[0].trim(); let right=(p[1]||'').replace(/圃場$/,'').trim(); const num=(left.match(/第(\d+)/)||[])[1]; return {num:num?+num:99,title:left,sub:right}; }
   bandRows.forEach((br,bi)=>{
     const end = bi+1<bandRows.length ? bandRows[bi+1] : rows.length;
     headers.filter(h=>h.ri===br).forEach(h=>{

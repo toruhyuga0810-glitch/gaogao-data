@@ -83,11 +83,23 @@ const kg=n=> (Math.round((n||0)*10)/10).toLocaleString()+' kg';
 async function loadPriceMap(){
   try{
     const rows=await fetchSheet(CONFIG.PRICE_SHEET); const map={};
-    rows.forEach((r,ri)=>r.forEach((c,ci)=>{ if(typeof c==='string'&&c.includes('圃場')&&c.includes('：')){
-      // farm block: 呼称 at ci+2 (left) , price ci+5 — scan following rows
-      for(let i=ri+2;i<rows.length;i++){ const rr=rows[i]; const call=(rr[ci+1]||'').trim(); const p=num(rr[ci+4]);
-        if(call && p!=null){ if(map[call]==null||p<map[call]) map[call]=p; } if(rr.some(x=>typeof x==='string'&&x.includes('圃場')&&x.includes('：'))&&i>ri+2) break; }
-    }}));
+    // 新レイアウト（行=品目・列=圃場）：最安値を品目単価の目安に
+    const mhi=rows.findIndex(r=> r.some(c=>String(c).trim()==='呼称') && r.some(c=>{const t=String(c);return t.includes('圃場')&&t.includes('：')&&/第\d+/.test(t);}));
+    if(mhi>=0){
+      const head=rows[mhi].map(s=>String(s).trim());
+      const cCall=head.indexOf('呼称');
+      const fcols=[]; head.forEach((c,ci)=>{ if(c.includes('圃場')&&c.includes('：')&&/第\d+/.test(c)) fcols.push(ci); });
+      for(let i=mhi+1;i<rows.length;i++){
+        const r=rows[i]||[]; const call=String(r[cCall]||'').trim(); if(!call) continue;
+        fcols.forEach(ci=>{ const p=num(r[ci]); if(p!=null){ if(map[call]==null||p<map[call]) map[call]=p; } });
+      }
+    } else {
+      // 旧レイアウト（ブロック型）
+      rows.forEach((r,ri)=>r.forEach((c,ci)=>{ if(typeof c==='string'&&c.includes('圃場')&&c.includes('：')){
+        for(let i=ri+2;i<rows.length;i++){ const rr=rows[i]; const call=(rr[ci+1]||'').trim(); const p=num(rr[ci+4]);
+          if(call && p!=null){ if(map[call]==null||p<map[call]) map[call]=p; } if(rr.some(x=>typeof x==='string'&&x.includes('圃場')&&x.includes('：'))&&i>ri+2) break; }
+      }}));
+    }
     PRICEMAP=map;
   }catch(e){ PRICEMAP={}; }
 }
