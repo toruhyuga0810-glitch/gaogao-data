@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GAOGAO 承認・受付管理</title>
 <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
-<link rel="stylesheet" href="assets/app.css?v=6">
+<link rel="stylesheet" href="assets/app.css?v=7">
 <style>
-  .order{border:1px solid rgba(255,255,255,.35);border-radius:14px;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);margin-bottom:14px;overflow:hidden}
+  .order{border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);margin-bottom:14px;overflow:hidden}
   .oh{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:13px 16px;background:#fafbfa;border-bottom:1px solid var(--line)}
   .oh .id{font-weight:700}
   .oh .meta{font-size:12px;color:var(--sub)}
@@ -126,7 +126,7 @@
       <div id="sup-state" class="card state">読み込み中…</div>
       <div class="card hide" id="sup-card"><div style="overflow:auto;max-height:72vh"><table class="sup" id="sup-table"></table></div></div>
 
-      <h2 style="font-size:15px;margin:20px 0 10px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.5)">圃場別 卸価格（円/kg・税抜）</h2>
+      <h2 style="font-size:15px;margin:20px 0 10px">圃場別 卸価格（円/kg・税抜）</h2>
       <div class="card"><div class="muted">価格もここから編集できます。空欄＝その圃場では取扱なし／価格未定。行の「保存」で確定します。</div></div>
       <div class="card">
         <div class="row" style="align-items:flex-end;gap:10px">

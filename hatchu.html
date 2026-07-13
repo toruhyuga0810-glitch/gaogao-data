@@ -15,7 +15,7 @@
   *{box-sizing:border-box}
   body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
        color:var(--ink);-webkit-font-smoothing:antialiased;
-       background:linear-gradient(rgba(74,80,76,.36),rgba(64,70,66,.44)),url('img/bg2.jpg');
+       background:linear-gradient(rgba(248,249,247,.62),rgba(246,247,244,.72)),url('img/bg2.jpg');
        background-size:cover;background-position:center;background-attachment:fixed}
   .wrap{max-width:1100px;margin:0 auto;padding:0 16px 90px;position:relative;z-index:1}
   header{position:relative;color:#fff;padding:30px 0 0;margin-bottom:18px}
@@ -55,7 +55,7 @@
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
   .seg button{border:0;background:#fff;padding:9px 14px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
   .seg button.active{background:var(--accent);color:var(--green-d)}
-  .card{background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.35);border-radius:14px;overflow:hidden;margin-bottom:18px;box-shadow:0 2px 10px rgba(15,22,17,.18)}
+  .card{background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:18px;box-shadow:0 1px 6px rgba(20,30,24,.07)}
   table{border-collapse:collapse;width:100%;font-size:13px}
   th,td{padding:10px 10px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
   th{background:#fafbfa;color:var(--sub);font-weight:600;position:sticky;top:0;z-index:2}
@@ -114,10 +114,10 @@
   .price .yen{font-size:11px;color:var(--sub);font-weight:600}
   .farmhead{font-size:12px;line-height:1.4}
   .note{font-size:12px;color:var(--sub);line-height:1.7;background:var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:18px;white-space:pre-line}
-  .legend{font-size:11px;color:rgba(255,255,255,.85);text-shadow:0 1px 4px rgba(0,0,0,.45);margin:6px 2px 0;line-height:1.8}
+  .legend{font-size:11px;color:var(--sub);margin:6px 2px 0;line-height:1.8}
   .hide{display:none}
   .state{padding:40px 16px;text-align:center;color:var(--sub);font-size:14px;line-height:1.8}
-  footer{text-align:center;color:rgba(255,255,255,.78);text-shadow:0 1px 4px rgba(0,0,0,.45);font-size:11px;margin-top:30px}
+  footer{text-align:center;color:var(--sub);font-size:11px;margin-top:30px}
   /* ---- order / cart ---- */
   th.ord,td.ord{background:#f3faf5}
   .qty{width:74px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
