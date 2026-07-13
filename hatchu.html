@@ -29,20 +29,34 @@
   h1{margin:0;font-size:21px;letter-spacing:.5px;text-shadow:0 2px 8px rgba(0,0,0,.45)}
   .lead{text-shadow:0 1px 5px rgba(0,0,0,.4)}
   .meta{text-shadow:0 1px 4px rgba(0,0,0,.4)}
-  .navlinks{position:relative;isolation:isolate;display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:14px;margin-bottom:14px;padding:6px 8px;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.16)}
-  .navlinks::before{content:"";position:absolute;inset:0;border-radius:999px;z-index:-2;
-    background:linear-gradient(120deg,rgba(185,215,232,.18),rgba(255,255,255,.05) 55%,rgba(200,228,240,.10));
-    -webkit-backdrop-filter:blur(4px) brightness(1.07);
-    backdrop-filter:blur(4px) brightness(1.07);
-    backdrop-filter:url(#glass-distortion) brightness(1.07)}
-  .navlinks::after{content:"";position:absolute;inset:0;border-radius:999px;z-index:-1;pointer-events:none;
-    box-shadow:inset 2px 2px 1px -1px rgba(255,255,255,.6),inset -1px -1px 1px 0 rgba(255,255,255,.3)}
-  .navlinks a{color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:8px 15px;border-radius:999px;text-shadow:0 1px 2px rgba(0,0,0,.45);transition:background .15s}
-  .navlinks a:not(.active):hover{background:rgba(255,255,255,.18)}
-  .navlinks a.active{background:rgba(255,255,255,.92);color:var(--ink);text-shadow:none;box-shadow:0 2px 8px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.9)}
+  @property --angle-1{syntax:"<angle>";inherits:false;initial-value:-75deg}
+  @property --angle-2{syntax:"<angle>";inherits:false;initial-value:-45deg}
+  .navlinks{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;margin-bottom:16px}
+  .navlinks a{--border-width:1px;position:relative;isolation:isolate;color:rgba(50,50,50,1);text-decoration:none;font-size:13px;font-weight:600;padding:9px 17px;border-radius:999px;
+    background:linear-gradient(-75deg,rgba(255,255,255,.08),rgba(255,255,255,.28),rgba(255,255,255,.08));
+    box-shadow:inset 0 2px 2px rgba(0,0,0,.05),inset 0 -2px 2px rgba(255,255,255,.5),0 3px 2px -2px rgba(0,0,0,.2),inset 0 0 2px 3px rgba(255,255,255,.2);
+    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+    text-shadow:0 2px 1px rgba(0,0,0,.08);
+    transition:all 400ms cubic-bezier(.25,1,.5,1)}
+  .navlinks a::after{content:"";position:absolute;z-index:1;inset:calc(var(--border-width)/-2);padding:var(--border-width);border-radius:999px;box-sizing:border-box;pointer-events:none;
+    background:conic-gradient(from var(--angle-1,-75deg) at 50% 50%,rgba(0,0,0,.4),rgba(0,0,0,0) 5% 40%,rgba(0,0,0,.4) 50%,rgba(0,0,0,0) 60% 95%,rgba(0,0,0,.4)),linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,.5));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+    box-shadow:inset 0 0 0 calc(var(--border-width)/2) rgba(255,255,255,.5);
+    transition:all 400ms cubic-bezier(.25,1,.5,1),--angle-1 500ms ease}
+  .navlinks a::before{content:"";position:absolute;z-index:2;inset:1px;border-radius:999px;pointer-events:none;
+    background:linear-gradient(var(--angle-2,-45deg),rgba(255,255,255,0) 0%,rgba(255,255,255,.5) 40% 50%,rgba(255,255,255,0) 55%);
+    mix-blend-mode:screen;background-size:200% 200%;background-position:0% 50%;background-repeat:no-repeat;
+    transition:background-position 500ms cubic-bezier(.25,1,.5,1),--angle-2 500ms cubic-bezier(.25,1,.5,1)}
+  .navlinks a:hover{transform:scale(.975);backdrop-filter:blur(.5px);-webkit-backdrop-filter:blur(.5px)}
+  .navlinks a:hover::before{background-position:25% 50%}
+  .navlinks a:hover::after{--angle-1:-125deg}
+  .navlinks a:active::before{background-position:50% 15%;--angle-2:-15deg}
+  .navlinks a.active{background:linear-gradient(-75deg,rgba(255,255,255,.55),rgba(255,255,255,.9),rgba(255,255,255,.55));color:var(--ink)}
   .navlinks .navsp{flex:1 1 auto}
-  .navlinks a.sub{font-size:12px;padding:7px 12px}
-  .navlinks a.adm{margin-left:4px}
+  .navlinks a.sub{font-size:12px;padding:8px 14px}
+  .navlinks a.adm{margin-left:8px}
   .lead{margin:7px 0 0;font-size:14px;font-weight:600;letter-spacing:.2px}
   .meta{position:absolute;top:0;right:16px;margin:0;font-size:12px;opacity:.9;display:flex;gap:10px;align-items:center;white-space:nowrap}
   @media(max-width:680px){ .meta{position:static;margin-top:10px;white-space:normal;flex-wrap:wrap} }
