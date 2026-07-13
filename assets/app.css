@@ -23,21 +23,20 @@ header::before{content:"";position:absolute;inset:0;z-index:0;
 header .wrap{padding-bottom:0;position:relative;z-index:1;min-height:140px;display:flex;flex-direction:column;align-items:stretch}
 h1{margin:0;font-size:21px;letter-spacing:.5px;text-shadow:0 2px 8px rgba(0,0,0,.45)}
 .lead{margin:7px 0 0;font-size:14px;font-weight:600;letter-spacing:.2px;text-shadow:0 1px 5px rgba(0,0,0,.4)}
-nav.tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:auto;padding-top:14px;padding-bottom:14px}
-nav.tabs a{position:relative;isolation:isolate;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:9px 16px;border-radius:999px;text-shadow:0 1px 3px rgba(0,0,0,.4);box-shadow:0 4px 10px rgba(0,0,0,.16)}
-nav.tabs a::before{content:"";position:absolute;inset:0;border-radius:999px;z-index:-2;
+nav.tabs{position:relative;isolation:isolate;display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:auto;margin-bottom:14px;padding:6px 8px;border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.16)}
+nav.tabs::before{content:"";position:absolute;inset:0;border-radius:999px;z-index:-2;
   background:rgba(255,255,255,.10);
-  -webkit-backdrop-filter:blur(3px) saturate(1.6);
-  backdrop-filter:blur(3px) saturate(1.6);
+  -webkit-backdrop-filter:blur(4px) saturate(1.6);
+  backdrop-filter:blur(4px) saturate(1.6);
   backdrop-filter:url(#glass-distortion) saturate(1.6)}
-nav.tabs a::after{content:"";position:absolute;inset:0;border-radius:999px;z-index:-1;
-  box-shadow:inset 2px 2px 1px -1px rgba(255,255,255,.65),inset -1px -1px 1px 0 rgba(255,255,255,.3)}
-nav.tabs a:not(.active):hover::before{background:rgba(255,255,255,.22)}
-nav.tabs a.active{color:var(--green-d);text-shadow:none}
-nav.tabs a.active::before{background:rgba(255,255,255,.92);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+nav.tabs::after{content:"";position:absolute;inset:0;border-radius:999px;z-index:-1;pointer-events:none;
+  box-shadow:inset 2px 2px 1px -1px rgba(255,255,255,.6),inset -1px -1px 1px 0 rgba(255,255,255,.3)}
+nav.tabs a{color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:8px 15px;border-radius:999px;text-shadow:0 1px 3px rgba(0,0,0,.4);transition:background .15s}
+nav.tabs a:not(.active):hover{background:rgba(255,255,255,.16)}
+nav.tabs a.active{background:rgba(255,255,255,.92);color:var(--green-d);text-shadow:none;box-shadow:0 2px 8px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.9)}
 nav.tabs .navsp{flex:1 1 auto}
-nav.tabs a.sub{font-size:12px;padding:7px 13px}
-nav.tabs a.adm{margin-left:12px}
+nav.tabs a.sub{font-size:12px;padding:7px 12px}
+nav.tabs a.adm{margin-left:4px}
 h2{font-size:17px;margin:22px 0 12px}
 .card{background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px;box-shadow:0 1px 6px rgba(20,30,24,.07)}
 .muted{color:var(--sub);font-size:13px}
