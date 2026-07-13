@@ -49,11 +49,11 @@
     background:linear-gradient(var(--angle-2,-45deg),rgba(255,255,255,0) 0%,rgba(255,255,255,.5) 40% 50%,rgba(255,255,255,0) 55%);
     mix-blend-mode:screen;background-size:200% 200%;background-position:0% 50%;background-repeat:no-repeat;
     transition:background-position 500ms cubic-bezier(.25,1,.5,1),--angle-2 500ms cubic-bezier(.25,1,.5,1)}
-  .navlinks a:hover{transform:scale(.975);backdrop-filter:blur(.5px);-webkit-backdrop-filter:blur(.5px)}
+  .navlinks a:hover{transform:scale(.975);backdrop-filter:blur(.5px) brightness(1.22) saturate(1.05);-webkit-backdrop-filter:blur(.5px) brightness(1.22) saturate(1.05)}
   .navlinks a:hover::before{background-position:25% 50%}
   .navlinks a:hover::after{--angle-1:-125deg}
   .navlinks a:active::before{background-position:50% 15%;--angle-2:-15deg}
-  .navlinks a.active{background:linear-gradient(-75deg,rgba(255,255,255,.55),rgba(255,255,255,.9),rgba(255,255,255,.55));color:var(--ink)}
+  .navlinks a.active{background:linear-gradient(-75deg,rgba(255,255,255,.25),rgba(255,255,255,.48),rgba(255,255,255,.25));backdrop-filter:blur(2px) brightness(1.4) saturate(1.1);-webkit-backdrop-filter:blur(2px) brightness(1.4) saturate(1.1);color:var(--ink)}
   .navlinks .navsp{flex:1 1 auto}
   .navlinks a.sub{font-size:12px;padding:8px 14px}
   .navlinks a.adm{margin-left:8px}
