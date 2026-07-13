@@ -11,15 +11,15 @@ body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-
   color:var(--ink);-webkit-font-smoothing:antialiased;
   background:linear-gradient(rgba(74,80,76,.36),rgba(64,70,66,.44)),url('../img/bg2.jpg');
   background-size:cover;background-position:center;background-attachment:fixed}
-.wrap{max-width:1100px;margin:0 auto;padding:0 16px 70px}
-header{position:relative;color:#fff;padding:30px 0 0;margin-bottom:18px;background-color:#2e7d4f;
-  background-image:url('../img/header2.jpg');background-size:cover;background-position:center 42%;
-  box-shadow:0 2px 14px rgba(31,90,56,.25)}
-header::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(14,38,24,.40),rgba(16,46,29,.22) 50%,rgba(16,46,29,.42));pointer-events:none}
-header.h-confirm{background-image:url('../img/ph-confirm.jpg')}
-header.h-admin{background-image:url('../img/ph-admin.jpg')}
-header.h-jisseki{background-image:url('../img/ph-jisseki.jpg')}
-header.h-photo{background-image:url('../img/ph-photo.jpg')}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px 70px;position:relative;z-index:1}
+header{position:relative;color:#fff;padding:30px 0 0;margin-bottom:18px}
+/* ヘッダー写真は下端でふわっと透明になり、ページ背景と重なりながら入れ替わる */
+header::before{content:"";position:absolute;inset:0 0 -90px 0;z-index:0;
+  background:linear-gradient(180deg,rgba(14,38,24,.40),rgba(16,46,29,.22) 50%,rgba(16,46,29,.42)),url('../img/header2.jpg');
+  background-size:cover;background-position:center 42%;
+  -webkit-mask-image:linear-gradient(180deg,#000 55%,rgba(0,0,0,.55) 78%,transparent 100%);
+  mask-image:linear-gradient(180deg,#000 55%,rgba(0,0,0,.55) 78%,transparent 100%);
+  pointer-events:none}
 header .wrap{padding-bottom:0;position:relative;z-index:1;min-height:118px}
 h1{margin:0;font-size:21px;letter-spacing:.5px;text-shadow:0 2px 8px rgba(0,0,0,.45)}
 .lead{margin:7px 0 0;font-size:13px;text-shadow:0 1px 5px rgba(0,0,0,.4)}
