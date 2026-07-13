@@ -42,6 +42,10 @@ jobs:
           jq '[ .[] | select(.id != null) | {src: ("photos/" + .id + ".jpg"), ts, author, caption} ]' candidates.json > photos/index.new
           python3 - <<'EOF'
           import json, os
+          from datetime import datetime
+          def pts(s):
+              try: return datetime.fromisoformat(str(s).replace('Z','+00:00'))
+              except Exception: return None
           # 2026-07-06より前の投稿は雑談混在のためテキスト非表示・圃場未分類（それ以降は本文から圃場を自動判定）
           CUTOFF = '2026-07-06'
           FARMS = [
@@ -52,7 +56,30 @@ jobs:
           ]
           items = json.load(open('photos/index.new'))
           items = [i for i in items if os.path.exists(i['src'])]
+          # 写真と別メッセージで送られた本文を拾う（同じ投稿者・前後20分以内の文章メッセージ）
+          texts = []
+          try:
+              for m in json.load(open('messages.json')):
+                  au = m.get('author') or {}
+                  if au.get('bot'): continue
+                  atts = m.get('attachments') or []
+                  has_img = any(str((a.get('content_type') or '')).startswith('image/') for a in atts)
+                  c = (m.get('content') or '').strip()
+                  if c and not has_img:
+                      texts.append({'ts': pts(m.get('timestamp')), 'author': (au.get('global_name') or au.get('username') or ''), 'content': c})
+          except Exception:
+              pass
           for i in items:
+              if not (i.get('caption') or '').strip() and texts:
+                  t0 = pts(i.get('ts'))
+                  best = None; bestd = None
+                  for t in texts:
+                      if not t['ts'] or not t0: continue
+                      if t['author'] != (i.get('author') or ''): continue
+                      d = abs((t['ts'] - t0).total_seconds())
+                      if d <= 1200 and (bestd is None or d < bestd):
+                          best, bestd = t, d
+                  if best: i['caption'] = best['content']
               cap = i.get('caption') or ''
               if (i.get('ts') or '') < CUTOFF:
                   i['caption'] = ''
