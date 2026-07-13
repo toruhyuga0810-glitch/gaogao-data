@@ -156,15 +156,15 @@ function render(){
   drawDoughnut('ch-company', compRows.map(r=>r.company), compRows.map(r=>Math.round(r.qty*10)/10));
   drawLine('ch-month', months, months.map(m=>Math.round(byMonth[m].qty*10)/10));
 }
-const GREENS=['#2e7d4f','#5dcaa5','#9fe1cb','#3a7bd5','#b9822b','#7f77dd','#639922','#d4537e','#1d9e75','#e8a33d','#5b6ad0','#8a9a8f'];
+const GREENS=['#587565','#93b3a4','#c2d5cb','#5f83ab','#a5824e','#8f8bc0','#7d9257','#b57286','#5c8f7c','#c39a5e','#7a80b8','#8a9a8f'];
 function destroy(id){ if(charts[id]) charts[id].destroy(); }
 function drawBar(id,labels,data){ destroy(id); charts[id]=new Chart(document.getElementById(id),{type:'bar',
-  data:{labels,datasets:[{data,backgroundColor:'#2e7d4f',borderRadius:6}]},
+  data:{labels,datasets:[{data,backgroundColor:'#587565',borderRadius:6}]},
   options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}},maintainAspectRatio:false}});}
 function drawDoughnut(id,labels,data){ destroy(id); charts[id]=new Chart(document.getElementById(id),{type:'doughnut',
   data:{labels,datasets:[{data,backgroundColor:GREENS}]},options:{plugins:{legend:{position:'right'}},maintainAspectRatio:false}});}
 function drawLine(id,labels,data){ destroy(id); charts[id]=new Chart(document.getElementById(id),{type:'line',
-  data:{labels,datasets:[{data,borderColor:'#2e7d4f',backgroundColor:'rgba(46,125,79,.12)',fill:true,tension:.3}]},
+  data:{labels,datasets:[{data,borderColor:'#587565',backgroundColor:'rgba(88,117,101,.12)',fill:true,tension:.3}]},
   options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}},maintainAspectRatio:false}});}
 
 function exportCSV(){

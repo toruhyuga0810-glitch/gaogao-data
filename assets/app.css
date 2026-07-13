@@ -1,9 +1,9 @@
 :root{
-  --green:#2e7d4f; --green-d:#1f5a38; --bg:#f6f7f4; --card:#fff;
-  --ink:#1d2520; --sub:#6b756e; --line:#e6e9e4; --accent:#e8f3ec;
-  --warn:#b9822b; --warnbg:#fbf3e2; --soon:#3a7bd5; --soonbg:#e9f1fc;
-  --ok:#2e7d4f; --okbg:#e8f3ec; --done:#5b6ad0; --donebg:#eceefb;
-  --cancel:#b04a4a; --cancelbg:#fbeded; --off:#9aa39d; --offbg:#f0f1ef;
+  --green:#587565; --green-d:#3e5749; --bg:#f6f7f4; --card:#fff;
+  --ink:#1d2520; --sub:#6b756e; --line:#e6e9e4; --accent:#ecefe9;
+  --warn:#a5824e; --warnbg:#f5efe1; --soon:#5f83ab; --soonbg:#eaf0f5;
+  --ok:#587565; --okbg:#ecefe9; --done:#7a80b8; --donebg:#eeeff6;
+  --cancel:#a86458; --cancelbg:#f6ecea; --off:#9aa39d; --offbg:#f0f1ef;
 }
 *{box-sizing:border-box}
 .hide{display:none!important}
@@ -77,4 +77,4 @@ footer{text-align:center;color:var(--sub);font-size:11px;margin-top:26px}
 @media(max-width:600px){ h1{font-size:18px} th,td{padding:8px 8px} }
 
 /* フォーカス色をサイトの緑に統一（ブラウザ標準の青を使わない） */
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(46,125,79,.14)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(88,117,101,.14)}
