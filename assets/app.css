@@ -31,8 +31,8 @@ nav.tabs::before{content:"";position:absolute;inset:0;border-radius:999px;z-inde
   backdrop-filter:url(#glass-distortion) brightness(1.07)}
 nav.tabs::after{content:"";position:absolute;inset:0;border-radius:999px;z-index:-1;pointer-events:none;
   box-shadow:inset 2px 2px 1px -1px rgba(255,255,255,.6),inset -1px -1px 1px 0 rgba(255,255,255,.3)}
-nav.tabs a{color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:8px 15px;border-radius:999px;text-shadow:0 1px 3px rgba(0,0,0,.4);transition:background .15s}
-nav.tabs a:not(.active):hover{background:rgba(255,255,255,.16)}
+nav.tabs a{color:var(--ink);text-decoration:none;font-size:13px;font-weight:600;padding:8px 15px;border-radius:999px;transition:background .15s}
+nav.tabs a:not(.active):hover{background:rgba(255,255,255,.35)}
 nav.tabs a.active{background:rgba(255,255,255,.92);color:var(--ink);text-shadow:none;box-shadow:0 2px 8px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.9)}
 nav.tabs .navsp{flex:1 1 auto}
 nav.tabs a.sub{font-size:12px;padding:7px 12px}
