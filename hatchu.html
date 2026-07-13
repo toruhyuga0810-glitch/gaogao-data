@@ -48,6 +48,7 @@
        width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:15px;line-height:1;display:none;align-items:center;justify-content:center;padding:0}
   .clr.show{display:flex}
   .sortsel{padding:9px 11px;border:1px solid var(--line);border-radius:10px;font-size:13px;background:#fff;color:var(--ink);font-weight:600;cursor:pointer}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(46,125,79,.14)}
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
   .seg button{border:0;background:#fff;padding:9px 14px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
   .seg button.active{background:var(--accent);color:var(--green-d)}
@@ -196,7 +197,7 @@
 <!-- ====================================================================== -->
 
 <header><div class="wrap">
-  <h1>🌿 GAOGAO 供給量・納品スケジュール</h1>
+  <h1>GAOGAO 供給量・納品スケジュール</h1>
   <div class="lead">2026年 推定年間供給スケジュール ／ 圃場別 卸価格表 ／ 発注</div>
   <div class="meta">
     <span>最終取得: <b id="fetched">—</b>（本日基準で出荷ステータスを自動判定）</span>
@@ -252,10 +253,10 @@
 <footer>GAOGAO × SRBC × クオリア 共有ページ ／ データはGoogleスプレッドシートから自動取得しています。</footer>
 
 <!-- ---- cart ---- -->
-<button class="cart-fab" id="fab">🛒 カート <span class="cnt" id="fab-cnt">0</span></button>
+<button class="cart-fab" id="fab">カート <span class="cnt" id="fab-cnt">0</span></button>
 <div class="overlay" id="overlay"></div>
 <div class="drawer" id="drawer">
-  <div class="dh"><h2>🛒 発注カート</h2><button class="x" id="close">×</button></div>
+  <div class="dh"><h2>発注カート</h2><button class="x" id="close">×</button></div>
   <div class="dbody" id="dbody"><!-- filled by JS --></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -528,7 +529,7 @@ function addFromRow(btn){
   inp.value=q; inp.classList.add('has');
   setQty(call, jp, q);
   btn.classList.add('added'); btn.innerHTML=addBtnHTML(true);
-  toast('🛒 '+jp+' '+q+'kg をカートに追加');
+  toast(call+' '+q+'kg をカートに追加');
 }
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
 

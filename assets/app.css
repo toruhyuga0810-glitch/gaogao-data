@@ -63,3 +63,6 @@ footer{text-align:center;color:var(--sub);font-size:11px;margin-top:26px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2a23;color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;z-index:90;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 @media(max-width:600px){ h1{font-size:18px} th,td{padding:8px 8px} }
+
+/* フォーカス色をサイトの緑に統一（ブラウザ標準の青を使わない） */
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(46,125,79,.14)}
