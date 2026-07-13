@@ -9,7 +9,7 @@
 .hide{display:none!important}
 body{margin:0;font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
   color:var(--ink);-webkit-font-smoothing:antialiased;
-  background:linear-gradient(rgba(246,247,244,.84),rgba(246,247,244,.88)),url('../img/bg2.jpg');
+  background:linear-gradient(rgba(15,22,17,.55),rgba(15,22,17,.66)),url('../img/bg2.jpg');
   background-size:cover;background-position:center;background-attachment:fixed}
 .wrap{max-width:1100px;margin:0 auto;padding:0 16px 70px}
 header{position:relative;color:#fff;padding:30px 0 0;margin-bottom:18px;background-color:#2e7d4f;
@@ -33,6 +33,7 @@ nav.tabs a.sub.active{background:var(--bg);color:var(--green-d);text-shadow:none
 nav.tabs a.adm{margin-left:12px;border:1px solid rgba(255,255,255,.35)}
 nav.tabs a.adm.active{border-color:transparent}
 h2{font-size:17px;margin:22px 0 12px}
+.wrap>h2{color:#fff;text-shadow:0 1px 8px rgba(0,0,0,.55)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px;box-shadow:0 1px 3px rgba(20,30,24,.04)}
 .muted{color:var(--sub);font-size:13px}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
@@ -59,7 +60,7 @@ input,select,textarea{font-family:inherit;font-size:14px;padding:9px 11px;border
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .state{padding:40px 16px;text-align:center;color:var(--sub);font-size:14px;line-height:1.8}
 .qy{width:70px;text-align:right}
-footer{text-align:center;color:var(--sub);font-size:11px;margin-top:26px}
+footer{text-align:center;color:rgba(255,255,255,.78);text-shadow:0 1px 4px rgba(0,0,0,.45);font-size:11px;margin-top:26px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2a23;color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;z-index:90;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 @media(max-width:600px){ h1{font-size:18px} th,td{padding:8px 8px} }
