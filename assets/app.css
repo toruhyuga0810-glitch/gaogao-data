@@ -58,6 +58,12 @@ nav.tabs .navsp{flex:1 1 auto}
 nav.tabs a.sub{font-size:12px}
 nav.tabs a.sub span{padding-inline:1.15em;padding-block:0.7em}
 nav.tabs a.adm{margin-left:8px}
+/* 液体ハイライト（ホバーで玉がタブへ伸びて追従） */
+nav.tabs{position:relative}
+.goo-layer{position:absolute;inset:0;z-index:0;pointer-events:none;filter:url(#goo)}
+.goo-blob{position:absolute;top:0;left:0;border-radius:999px;background:rgba(255,255,255,.65);opacity:0}
+.goo-b1{transition:transform .26s cubic-bezier(.3,.9,.35,1),width .26s,height .26s,opacity .2s}
+.goo-b2{transition:transform .52s cubic-bezier(.22,.8,.3,1),width .52s,height .52s,opacity .2s}
 h2{font-size:17px;margin:22px 0 12px}
 .card{background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:16px;box-shadow:0 1px 6px rgba(20,30,24,.07)}
 .muted{color:var(--sub);font-size:13px}
