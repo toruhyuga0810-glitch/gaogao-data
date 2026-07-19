@@ -26,6 +26,17 @@
   .jnum{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
   .jnum b{font-size:14px}
   .jnum .amt{color:var(--sub);font-size:11px;display:block}
+  /* 品目データボード */
+  table.jboard{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  table.jboard th,table.jboard td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:right}
+  table.jboard th{background:#fafbfa;color:var(--sub);font-weight:600;font-size:11px}
+  table.jboard th:first-child,table.jboard td:first-child{text-align:left}
+  table.jboard td.share{min-width:150px}
+  .sharebar{display:inline-flex;align-items:center;gap:8px;width:100%;justify-content:flex-end}
+  .sharebar .track{flex:0 0 90px;height:8px;border-radius:99px;background:#eceeea;overflow:hidden}
+  .sharebar .track i{display:block;height:100%;border-radius:99px;background:#2f8a5f}
+  .jboard .fchips{margin-top:0;justify-content:flex-end}
+  .jboard td .rank{display:inline-block;width:20px;color:var(--sub);font-size:11px}
 </style>
 </head>
 <body>
@@ -63,6 +74,18 @@
     <div class="metric"><div class="k">納品回数</div><div class="v" id="jm-cnt">–</div></div>
     <div class="metric"><div class="k">商品売上(税抜)</div><div class="v" id="jm-val">–</div></div>
     <div class="metric"><div class="k">送料・雑費</div><div class="v" id="jm-ship">–</div></div>
+  </div>
+  <div id="j-dash" class="hide">
+    <div class="charts">
+      <div class="card"><h2 style="margin-top:0">品目別 累計納品量・構成比</h2><div class="chartbox"><canvas id="jd-item"></canvas></div></div>
+      <div class="card"><h2 style="margin-top:0">圃場別 累計納品量・構成比</h2><div class="chartbox"><canvas id="jd-farm"></canvas></div></div>
+    </div>
+    <div class="card"><h2 style="margin-top:0">累計納品量の推移（全体と上位3品目）</h2><div class="chartbox"><canvas id="jd-cum"></canvas></div></div>
+    <div class="card"><h2 style="margin-top:0">品目データボード</h2>
+      <div class="scroll"><table id="jd-board" class="jboard"></table></div>
+      <div class="muted" style="margin-top:8px">平均単価＝累計売上 ÷ 累計kg（重量加重）。構成比は累計納品量に対する割合。</div>
+    </div>
+    <h2>納品書ごとの明細</h2>
   </div>
   <div id="j-view"><div class="card state">読み込み中…</div></div>
 
@@ -245,6 +268,7 @@ async function loadJisseki(){
     items.forEach(c=>{const o=document.createElement('option');o.textContent=c;sel.appendChild(o);});
     document.getElementById('j-upd').textContent='データ更新: '+(JIS.updated||'');
     renderJisseki();
+    buildJDashboard();
   }catch(e){
     document.getElementById('j-view').innerHTML='<div class="card state">納品実績データはまだありません。</div>';
     document.getElementById('j-metrics').classList.add('hide');
@@ -307,6 +331,72 @@ function renderJisseki(){
     });
   }
   v.innerHTML=h;
+}
+// ---- ダッシュボード（累計・構成比） ----
+const JD_GREEN='#2f8a5f', JD_CAT=['#2f8a5f','#3f7cbd','#bd7f33','#9179d6'], JD_INK='#3e4a42', JD_GRID='#e6e9e4', JD_SUB='#6b756e';
+function endLabelPlugin(fmt){
+  return {id:'endLabel',afterDatasetsDraw(c){
+    const ds=c.data.datasets[0], meta=c.getDatasetMeta(0), ctx=c.ctx;
+    ctx.save();ctx.fillStyle=JD_INK;ctx.font='600 11px "Hiragino Kaku Gothic ProN",sans-serif';ctx.textBaseline='middle';ctx.textAlign='left';
+    meta.data.forEach((el,i)=>ctx.fillText(fmt(ds.data[i],i), el.x+6, el.y));
+    ctx.restore();
+  }};
+}
+function hbarOpts(maxV){
+  return {indexAxis:'y',responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{}}},
+    scales:{x:{suggestedMax:maxV*1.28,grid:{color:JD_GRID},ticks:{color:JD_SUB,font:{size:11}},title:{display:true,text:'kg',color:JD_SUB,font:{size:11}}},
+            y:{grid:{display:false},ticks:{color:JD_INK,font:{size:12}}}}};
+}
+function buildJDashboard(){
+  if(!JIS||!JIS.records.length) return;
+  document.getElementById('j-dash').classList.remove('hide');
+  const R=JIS.records;
+  // 品目集計
+  const items={};
+  R.forEach(r=>{const it=items[r.call]=items[r.call]||{jp:r.jp,kg:0,amt:0,nos:new Set(),farms:{}};
+    it.kg+=r.qty; it.amt+=r.amount; it.nos.add(r.no);
+    it.farms[r.farm]=(it.farms[r.farm]||0)+r.qty;});
+  const arr=Object.keys(items).map(c=>({call:c,...items[c],cnt:items[c].nos.size})).sort((a,b)=>b.kg-a.kg);
+  const totKg=arr.reduce((s,x)=>s+x.kg,0), totAmt=arr.reduce((s,x)=>s+x.amt,0);
+  // 1) 品目別 横棒
+  new Chart(document.getElementById('jd-item'),{type:'bar',
+    data:{labels:arr.map(x=>x.call),datasets:[{data:arr.map(x=>q1(x.kg)),backgroundColor:JD_GREEN,borderRadius:4,maxBarThickness:16,categoryPercentage:.72}]},
+    options:hbarOpts(arr[0].kg),
+    plugins:[endLabelPlugin((v,i)=>q1(v)+'kg・'+Math.round(arr[i].kg/totKg*100)+'%')]});
+  // 2) 圃場別 横棒
+  const farms={};R.forEach(r=>{farms[r.farm]=(farms[r.farm]||0)+r.qty;});
+  const farr=Object.entries(farms).map(([f,kg])=>({f,kg})).sort((a,b)=>b.kg-a.kg);
+  new Chart(document.getElementById('jd-farm'),{type:'bar',
+    data:{labels:farr.map(x=>x.f),datasets:[{data:farr.map(x=>q1(x.kg)),backgroundColor:JD_GREEN,borderRadius:4,maxBarThickness:16,categoryPercentage:.72}]},
+    options:hbarOpts(farr[0].kg),
+    plugins:[endLabelPlugin((v,i)=>q1(v)+'kg・'+Math.round(farr[i].kg/totKg*100)+'%')]});
+  // 3) 累計推移（全体＋上位3品目）
+  const dates=[...new Set(R.map(r=>r.date))].sort();
+  const dl=dates.map(d=>{const m=d.match(/-(\d{2})-(\d{2})/);return +m[1]+'/'+ +m[2];});
+  function cum(filter){let s=0;return dates.map(d=>{s+=R.filter(r=>r.date===d&&(!filter||r.call===filter)).reduce((a,r)=>a+r.qty,0);return q1(s);});}
+  const top3=arr.slice(0,3).map(x=>x.call);
+  const dsets=[{label:'全体',data:cum(null),borderColor:JD_CAT[0],borderWidth:2.5,pointRadius:0,pointHoverRadius:4,tension:0}]
+    .concat(top3.map((c,i)=>({label:c,data:cum(c),borderColor:JD_CAT[i+1],borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:0})));
+  new Chart(document.getElementById('jd-cum'),{type:'line',
+    data:{labels:dl,datasets:dsets},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{position:'bottom',labels:{color:JD_INK,font:{size:11},boxWidth:14,boxHeight:3}}},
+      scales:{x:{grid:{display:false},ticks:{color:JD_SUB,font:{size:11}}},
+              y:{grid:{color:JD_GRID},ticks:{color:JD_SUB,font:{size:11}},title:{display:true,text:'累計kg',color:JD_SUB,font:{size:11}}}}}});
+  // 4) データボード
+  let h='<thead><tr><th>品目</th><th>累計納品量</th><th>構成比</th><th>売上(税抜)</th><th>売上構成比</th><th>納品回数</th><th>平均単価</th><th>圃場内訳</th></tr></thead><tbody>';
+  arr.forEach((x,i)=>{
+    const share=x.kg/totKg*100, ashare=totAmt?x.amt/totAmt*100:0;
+    const avg=x.kg?Math.round(x.amt/x.kg):0;
+    const chips=Object.entries(x.farms).sort((a,b)=>b[1]-a[1]).map(([f,kg])=>'<span class="fc">'+esc(f)+' '+q1(kg)+'kg</span>').join('');
+    h+='<tr><td><span class="rank">'+(i+1)+'</span><b>'+esc(x.call)+'</b> <span class="muted" style="font-size:11px">'+esc(x.jp)+'</span></td>'
+      +'<td><b>'+q1(x.kg)+' kg</b></td>'
+      +'<td class="share"><span class="sharebar"><span class="track"><i style="width:'+Math.min(100,Math.round(share))+'%"></i></span>'+(Math.round(share*10)/10)+'%</span></td>'
+      +'<td>'+yen(x.amt)+'</td><td>'+(Math.round(ashare*10)/10)+'%</td><td>'+x.cnt+'回</td>'
+      +'<td>'+(avg?yen(avg)+'/kg':'–')+'</td><td><div class="fchips">'+chips+'</div></td></tr>';
+  });
+  document.getElementById('jd-board').innerHTML=h+'</tbody>';
 }
 document.querySelectorAll('#j-mode button').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('#j-mode button').forEach(x=>x.classList.remove('active'));
