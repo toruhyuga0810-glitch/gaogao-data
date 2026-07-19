@@ -91,6 +91,10 @@
     [/^データ更新: /,'อัปเดตข้อมูล: '],[/^受信 /,'รับเมื่อ '],[/ ／ 希望納品 /,' / วันที่ต้องการรับ '],[/ ／ 担当 /,' / ผู้ติดต่อ '],
   ];
   var lang=localStorage.getItem(LK)||'ja';
+  // 使い方ガイドは言語別ページに切替（本文が長文のため辞書でなく専用ページ）
+  var _p=location.pathname;
+  if(lang==='th' && /(^|\/)manual\.html$/.test(_p)){ location.replace('manual-th.html'); }
+  if(lang!=='th' && /(^|\/)manual-th\.html$/.test(_p)){ location.replace('manual.html'); }
   function tr(s){
     var t=s.trim();
     if(!t) return null;

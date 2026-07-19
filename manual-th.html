@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>คู่มือการใช้งาน | GAOGAO Farm พอร์ทัลสั่งซื้อ</title>
+<link rel="icon" type="image/png" href="img/favicon.png?v=3">
+<link rel="stylesheet" href="assets/app.css?v=33">
+<style>
+  .toc{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .toc a{display:block;background:rgba(255,255,255,.82);border:1px solid var(--line);border-radius:10px;padding:12px 14px;text-decoration:none;color:var(--green-d);font-size:13px;font-weight:600}
+  .toc a:hover{background:var(--accent)}
+  section{background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin-bottom:22px}
+  section h2{font-size:19px;border-left:5px solid var(--green);padding-left:12px;margin:34px 0 14px}
+  section h3{font-size:15px;margin:20px 0 8px}
+  .step{display:flex;gap:12px;margin:12px 0;align-items:flex-start}
+  .step .no{flex:none;width:28px;height:28px;border-radius:50%;background:var(--green);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;margin-top:2px}
+  .step .tx{font-size:14px;line-height:1.8}
+  .step .tx b{color:var(--green-d)}
+  .uix{display:inline-block;vertical-align:middle;margin:0 3px}
+  .btn-sample{display:inline-block;border:1px solid var(--green);background:var(--green);color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700}
+  .btn-sample.ghost{background:#fff;color:var(--green-d)}
+  .note-box{background:var(--accent);border-radius:12px;padding:14px 16px;font-size:13px;line-height:1.8;color:var(--green-d);margin:12px 0}
+  .warn-box{background:#f5efe1;border-radius:12px;padding:14px 16px;font-size:13px;line-height:1.8;color:#8a6a3a;margin:12px 0}
+  table.man{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border-radius:10px;overflow:hidden}
+  table.man th,table.man td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  table.man th{background:#fafbfa;color:var(--sub);white-space:nowrap}
+  .flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;font-weight:600;margin:10px 0}
+  .flow .fbox{background:#fff;border:1px solid var(--line);border-radius:9px;padding:8px 13px}
+  .flow .farr{color:var(--sub)}
+  .badge.b-ok{background:var(--okbg);color:var(--ok)}
+  .badge.b-soon{background:var(--soonbg);color:var(--soon)}
+  .badge.b-warn{background:var(--warnbg);color:var(--warn)}
+  .cat{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700}
+  .cat.生育状況{background:#eaeee0;color:#55663d}
+  .cat.生育遅延{background:#f5efe1;color:#8a6a3a}
+  .cat.天候{background:#e8eef4;color:#4a6e94}
+  .cat.病害虫{background:#f3eae5;color:#8c5544}
+  .cat.その他{background:#f0f1ef;color:#5f5e5a}
+  .qa dt{font-weight:700;font-size:14px;margin-top:16px;color:var(--green-d)}
+  .qa dd{margin:6px 0 0;font-size:13.5px;line-height:1.8;color:var(--ink)}
+  .top-link{position:fixed;right:18px;bottom:18px;background:var(--green);color:#fff;border-radius:999px;padding:10px 16px;font-size:13px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(31,90,56,.3)}
+  @media print{ header,nav,.top-link,.toc{display:none} body{background:#fff} }
+  @media(max-width:700px){ table.man{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch} }
+</style>
+</head>
+<body>
+<svg style="position:absolute;width:0;height:0" aria-hidden="true"><filter id="glass-distortion" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox"><feTurbulence type="fractalNoise" baseFrequency="0.001 0.005" numOctaves="1" seed="17" result="turbulence"/><feComponentTransfer in="turbulence" result="mapped"><feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5"/><feFuncG type="gamma" amplitude="0" exponent="1" offset="0"/><feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5"/></feComponentTransfer><feGaussianBlur in="turbulence" stdDeviation="3" result="softMap"/><feSpecularLighting in="softMap" surfaceScale="5" specularConstant="1" specularExponent="100" lighting-color="white" result="specLight"><fePointLight x="-200" y="-200" z="300"/></feSpecularLighting><feComposite in="specLight" operator="in" in2="SourceGraphic" result="specularSaturated"/><feDisplacementMap in="SourceGraphic" in2="softMap" scale="120" xChannelSelector="R" yChannelSelector="G"/></filter><filter id="goo"><feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/><feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter></svg>
+<header><div class="wrap">
+  <h1><img src="img/logo-h.png" alt="GAOGAO Farm" class="logotype"><span class="h1sub">พอร์ทัลสั่งซื้อ</span></h1>
+  <div class="lead">คู่มือการใช้งาน — ตั้งแต่สั่งซื้อจนถึงส่งมอบ อ่านหน้านี้หน้าเดียวเข้าใจครบ</div>
+  <nav class="tabs">
+    <a href="index.html"><span>หน้าแรก</span></a>
+    <a href="hatchu.html"><span>สั่งซื้อสินค้า</span></a>
+    <a href="order-confirm.html"><span>ตรวจสอบออเดอร์</span></a>
+    <a href="jisseki.html"><span>ประวัติการจัดส่ง</span></a>
+    <span class="navsp"></span>
+    <a class="sub" href="keiziban.html"><span>กระดานข่าว</span></a>
+    <a class="sub" href="photos.html"><span>สภาพแปลงปลูก</span></a>
+    <a class="sub adm" href="admin.html"><span>อนุมัติ (แอดมิน)</span></a>
+  </nav>
+</div></header>
+
+<div class="wrap" id="top">
+
+  <div class="card">
+    <div class="muted" style="margin-bottom:10px">สารบัญ (คลิกเพื่อไปยังหัวข้อ)</div>
+    <div class="toc">
+      <a href="#about">1. เว็บไซต์นี้ทำอะไรได้บ้าง</a>
+      <a href="#order">2. วิธีสั่งซื้อ</a>
+      <a href="#after">3. ขั้นตอนหลังสั่งซื้อ</a>
+      <a href="#confirm">4. ตรวจสอบ แก้ไข และยกเลิกออเดอร์</a>
+      <a href="#board">5. วิธีดูและโพสต์กระดานข่าว</a>
+      <a href="#jisseki">6. วิธีดูประวัติการจัดส่ง</a>
+      <a href="#admin">7. สำหรับ GAOGAO: วิธีอนุมัติออเดอร์</a>
+      <a href="#faq">8. คำถามที่พบบ่อย</a>
+    </div>
+  </div>
+
+  <div class="card" style="background:var(--accent);border-color:transparent">
+    <div style="font-weight:700;font-size:15px;color:var(--green-d);margin-bottom:10px">ใช้พอร์ทัลนี้แล้ว ชีวิตง่ายขึ้นแบบนี้</div>
+    <table class="man" style="background:transparent">
+      <tr><th style="background:transparent">แบบเดิม</th><th style="background:transparent">แบบใหม่</th></tr>
+      <tr><td>ต้องพิมพ์อีเมลเลือกผู้รับเองทุกครั้งเพื่อสั่งของ</td><td><b>แค่ใส่ตะกร้าแล้วกดสั่ง</b> ระบบเตรียมอีเมลพร้อมผู้รับและเนื้อหาให้อัตโนมัติ (สั่งได้ 24 ชม.)</td></tr>
+      <tr><td>ต้องโทร/อีเมลถามว่า "ตอนนี้มีอะไรขายบ้าง"</td><td><b>เห็นสถานะผลผลิตและราคาล่าสุดได้ตลอดเวลา</b> (อัปเดตอัตโนมัติทุกวัน)</td></tr>
+      <tr><td>ไม่แน่ใจว่าสั่งสำเร็จหรือยัง อนุมัติหรือยัง</td><td><b>เช็กสถานะออเดอร์ (รอยืนยัน/อนุมัติแล้ว/จัดส่งแล้ว) ได้ตลอด</b> และมีบันทึกเก็บไว้</td></tr>
+      <tr><td>ไม่รู้สภาพแปลงผักเป็นอย่างไร</td><td><b>ข่าวการเติบโต สภาพอากาศ และความล่าช้าส่งตรงถึงกระดานข่าว</b></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:700;font-size:15px;color:var(--green-d);margin-bottom:10px">ค้นหาจากสิ่งที่อยากทำ</div>
+    <table class="man">
+      <tr><th>อยากทำอะไร</th><th>เปิดหน้าไหน</th><th>รายละเอียด</th></tr>
+      <tr><td>สั่งซื้อผัก</td><td>สั่งซื้อสินค้า</td><td><a href="#order">ไปบทที่ 2</a></td></tr>
+      <tr><td>อยากรู้ว่าตอนนี้สั่งอะไรได้บ้าง</td><td>หน้าแรก (สินค้าที่สั่งได้วันนี้)</td><td><a href="#order">ไปข้อ 2-1</a></td></tr>
+      <tr><td>แก้จำนวนหรือยกเลิกออเดอร์</td><td>ตรวจสอบออเดอร์</td><td><a href="#confirm">ไปบทที่ 4</a></td></tr>
+      <tr><td>เช็กว่าออเดอร์ได้รับอนุมัติหรือยัง</td><td>ตรวจสอบออเดอร์ (หรืออีเมล)</td><td><a href="#after">ไปบทที่ 3</a></td></tr>
+      <tr><td>อยากรู้สภาพแปลงและอากาศ</td><td>กระดานข่าว</td><td><a href="#board">ไปบทที่ 5</a></td></tr>
+      <tr><td>อยากดูรูปแปลงผัก</td><td>สภาพแปลงปลูก</td><td><a href="#board">ไปบทที่ 5</a></td></tr>
+      <tr><td>สรุปยอดสั่งซื้อและมูลค่าย้อนหลัง</td><td>ประวัติการจัดส่ง</td><td><a href="#jisseki">ไปบทที่ 6</a></td></tr>
+      <tr><td>(GAOGAO) อนุมัติออเดอร์</td><td>อนุมัติ (แอดมิน)</td><td><a href="#admin">ไปบทที่ 7</a></td></tr>
+    </table>
+  </div>
+
+  <section id="about">
+    <h2>1. เว็บไซต์นี้ทำอะไรได้บ้าง</h2>
+    <p style="font-size:14px;line-height:1.9">GAOGAO Farm พอร์ทัลสั่งซื้อ รวม<b>การดูแผนผลผลิต การสั่งซื้อ การจัดการออเดอร์ และข้อมูลการเพาะปลูกผักไทย</b>ไว้ในที่เดียว ข้อมูลเชื่อมกับ Google สเปรดชีตจึงเป็นข้อมูลล่าสุดเสมอ</p>
+    <table class="man">
+      <tr><th>หน้า</th><th>ทำอะไรได้</th><th>สำหรับใคร</th></tr>
+      <tr><td><b>หน้าแรก</b></td><td>หน้าทางเข้า แสดงสินค้าที่สั่งได้วันนี้และประกาศล่าสุด</td><td>ทุกคน</td></tr>
+      <tr><td><b>สั่งซื้อสินค้า</b></td><td>ดูแผนผลผลิตรายปีและราคาแต่ละแปลง สั่งซื้อผ่านตะกร้า</td><td>QOF / SRBC</td></tr>
+      <tr><td><b>ตรวจสอบออเดอร์</b></td><td>เช็กสถานะออเดอร์ แก้จำนวนหรือยกเลิกได้ระหว่างรอยืนยัน</td><td>QOF / SRBC</td></tr>
+      <tr><td><b>ประวัติการจัดส่ง</b></td><td>สรุปตามสินค้า บริษัท รายเดือน พร้อมกราฟและส่งออก CSV</td><td>ทุกคน</td></tr>
+      <tr><td><b>กระดานข่าว</b></td><td>อ่านประกาศการเติบโต ความล่าช้า สภาพอากาศ โรคและศัตรูพืช</td><td>ทุกคน</td></tr>
+      <tr><td><b>สภาพแปลงปลูก</b></td><td>ดูรูปแปลงผักแยกตามวันที่และแปลง</td><td>ทุกคน</td></tr>
+      <tr><td><b>อนุมัติ (แอดมิน)</b></td><td>อนุมัติออเดอร์ ปรับจำนวน ใส่ราคา (มีรหัสผ่าน)</td><td>เฉพาะ GAOGAO</td></tr>
+    </table>
+  </section>
+
+  <section id="order">
+    <h2>2. วิธีสั่งซื้อ</h2>
+
+    <h3>2-1. วิธีอ่านตารางผลผลิต</h3>
+    <p style="font-size:14px;line-height:1.8">ตารางในหน้า "สั่งซื้อสินค้า" แสดง<b>ปริมาณผลผลิตรายเดือน (kg)</b> ของแต่ละสินค้า</p>
+    <table class="man">
+      <tr><th>สัญลักษณ์</th><th>ความหมาย</th></tr>
+      <tr><td><b>ตัวเลข</b> (เช่น 30)</td><td>ปริมาณผลผลิตโดยประมาณของเดือนนั้น (kg) สลับเป็น "รายสัปดาห์" ได้</td></tr>
+      <tr><td><b>◯</b></td><td>ช่วงต้นฤดู/รอยต่อฤดู ปริมาณน้อยหรือไม่แน่นอน</td></tr>
+      <tr><td><b>– (ว่าง)</b></td><td>ไม่มีผลผลิต</td></tr>
+      <tr><td><span class="badge b-ok uix">พร้อมส่ง</span></td><td>สั่งได้ตอนนี้ (ช่องสั่งซื้อและปุ่มตะกร้าจะแสดงขึ้น)</td></tr>
+      <tr><td><span class="badge b-soon uix">ส่งได้สัปดาห์หน้า!</span> <span class="badge b-warn uix">เริ่มประมาณวันที่ ◯</span></td><td>ยังสั่งไม่ได้ เมื่อถึงวันเริ่มส่งจะเปลี่ยนเป็น "พร้อมส่ง" อัตโนมัติ</td></tr>
+    </table>
+    <div class="note-box">เมนู<b>เรียงลำดับ</b>ด้านขวาบนของตาราง เลือกได้ว่า "สั่งได้ก่อน / เฉพาะที่สั่งได้ / ตามลำดับชีต / เรียงตามชื่อ" คอลัมน์ชื่อสินค้า (ซ้าย) และช่องสั่งซื้อ (ขวา) ตรึงไว้เสมอ เลื่อนดูเดือนได้โดยไม่หลง</div>
+
+    <h3>2-2. ใส่ตะกร้าแล้วสั่งซื้อ</h3>
+    <div class="step"><div class="no">1</div><div class="tx">เปิดหน้า<b>"สั่งซื้อสินค้า"</b> กรอกจำนวนในช่อง<b>สั่ง (kg)</b> ของสินค้าที่ต้องการ (ขั้นละ 1kg)</div></div>
+    <div class="step"><div class="no">2</div><div class="tx">กด<span class="btn-sample ghost uix">＋ ใส่ตะกร้า</span> สินค้าจะเข้าตะกร้าด้านขวาล่าง</div></div>
+    <div class="step"><div class="no">3</div><div class="tx">ใส่ครบทุกรายการแล้ว กดปุ่ม<span class="btn-sample uix">ตะกร้า</span>ด้านขวาล่างเพื่อเปิดตะกร้า</div></div>
+    <div class="step"><div class="no">4</div><div class="tx">เลือก<b>บริษัท</b> (QOF / SRBC) และ<b>ผู้ติดต่อ</b> ใส่<b>วันที่ต้องการรับ</b> (หมายเหตุใส่หรือไม่ก็ได้)</div></div>
+    <div class="step"><div class="no">5</div><div class="tx">กด<span class="btn-sample uix">สั่งซื้อตามนี้</span> <b>ออเดอร์จะถูกส่งทันที</b> (GAOGAO ได้รับแจ้งเตือน ณ จุดนี้)</div></div>
+    <div class="step"><div class="no">6</div><div class="tx">จากนั้น<b>ร่างอีเมลยืนยันการสั่งซื้อ</b>จะเปิดขึ้นอัตโนมัติ ผู้รับ (To/CC) และเนื้อหากรอกให้แล้ว <b>กดส่งได้เลย</b> (เป็นหลักฐานการสั่งซื้อแบบเดิม)</div></div>
+    <div class="warn-box">แม้ไม่ส่งอีเมล ออเดอร์ก็สมบูรณ์แล้ว แต่<b>แนะนำให้ส่งเพื่อเก็บบันทึกตามวิธีเดิม</b></div>
+  </section>
+
+  <section id="after">
+    <h2>3. ขั้นตอนหลังสั่งซื้อ</h2>
+    <div class="flow">
+      <span class="fbox">ส่งออเดอร์</span><span class="farr">→</span>
+      <span class="fbox"><span class="badge s-受付">รอยืนยัน</span></span><span class="farr">→</span>
+      <span class="fbox">GAOGAO ตรวจสอบ</span><span class="farr">→</span>
+      <span class="fbox"><span class="badge s-承認済み">อนุมัติแล้ว</span> + อีเมลแจ้งจำนวนที่ส่งได้</span><span class="farr">→</span>
+      <span class="fbox"><span class="badge s-納品済み">จัดส่งแล้ว</span></span>
+    </div>
+    <div class="step"><div class="no">1</div><div class="tx">หลังสั่ง สถานะจะเป็น<span class="badge s-受付 uix">รอยืนยัน</span> ระหว่างนี้แก้จำนวนหรือยกเลิกได้</div></div>
+    <div class="step"><div class="no">2</div><div class="tx">เมื่อ GAOGAO ตรวจสต็อกและการเก็บเกี่ยวแล้วอนุมัติ จะมี<b>อีเมล "แจ้งจำนวนที่ส่งมอบได้"</b> ส่งถึงอัตโนมัติ หากมีของขาด จำนวนที่ปรับแล้วจะระบุในอีเมล</div></div>
+    <div class="step"><div class="no">3</div><div class="tx">มีข้อสงสัย <b>ตอบกลับอีเมลฉบับนั้นได้เลย</b> (ส่งถึงอีเมลธุรกิจของ GAOGAO)</div></div>
+  </section>
+
+  <section id="confirm">
+    <h2>4. ตรวจสอบ แก้ไข และยกเลิกออเดอร์</h2>
+    <div class="step"><div class="no">1</div><div class="tx">เปิดหน้า<b>"ตรวจสอบออเดอร์"</b> แล้ว<b>เลือกบริษัท</b></div></div>
+    <div class="step"><div class="no">2</div><div class="tx">ระบบแสดงออเดอร์ทั้งหมดพร้อมสถานะ (รอยืนยัน/อนุมัติแล้ว/จัดส่งแล้ว)</div></div>
+    <div class="step"><div class="no">3</div><div class="tx">ออเดอร์สถานะ<span class="badge s-受付 uix">รอยืนยัน</span> สามารถ<b>แก้จำนวน</b> (แก้แล้วกด "บันทึกจำนวนใหม่") หรือ<b>ยกเลิก</b>ได้</div></div>
+    <div class="warn-box">หลังสถานะเป็น<span class="badge s-承認済み uix">อนุมัติแล้ว</span> จะแก้จากหน้าเว็บไม่ได้ ขออภัย กรุณา<b>ติดต่อทางอีเมล</b></div>
+  </section>
+
+  <section id="board">
+    <h2>5. วิธีดูและโพสต์กระดานข่าว</h2>
+    <h3>วิธีดู (ทุกคน)</h3>
+    <p style="font-size:14px;line-height:1.8">หน้า "กระดานข่าว" แสดงประกาศจากแปลงปลูก เรื่อง<b>การเติบโต สภาพอากาศ ความล่าช้า โรคและศัตรูพืช</b> เรียงจากใหม่ไปเก่า กรองตามหมวดได้ หน้าแรกก็แสดง 3 รายการล่าสุด</p>
+    <p>
+      <span class="cat 生育状況 uix">การเติบโต</span>
+      <span class="cat 生育遅延 uix">การเติบโตล่าช้า</span>
+      <span class="cat 天候 uix">สภาพอากาศ</span>
+      <span class="cat 病害虫 uix">โรคและศัตรูพืช</span>
+      <span class="cat その他 uix">อื่น ๆ</span>
+    </p>
+    <h3>สภาพแปลงปลูก (รูปภาพ・ทุกคน)</h3>
+    <p style="font-size:14px;line-height:1.8">หน้า<b>"สภาพแปลงปลูก"</b> ดู<b>ภาพปัจจุบันของแปลงผัก</b>แยกตามวันที่และแปลงได้ คลิกที่รูปเพื่อขยาย</p>
+    <h3>วิธีโพสต์ (GAOGAO และสมาชิกแปลง)</h3>
+    <div class="step"><div class="no">1</div><div class="tx">โพสต์ประกาศในช่อง Discord <b>"＜掲示板＞天候・生育エラー・遅延"</b> (ขึ้นเว็บอัตโนมัติภายในราว 10 นาที)</div></div>
+    <div class="step"><div class="no">2</div><div class="tx">ใส่<b>คำหมวดไว้ต้นข้อความ</b>เพื่อให้ระบบแยกสี เช่น <b>「天候：台風接近のため今週の収穫は前倒しします」</b></div></div>
+    <div class="step"><div class="no">3</div><div class="tx">รูปภาพให้โพสต์ในช่อง <b>"圃場別生育状況-写真共有"</b> จะขึ้นหน้า "สภาพแปลงปลูก" ภายในราว 30 นาที <b>เขียนชื่อแปลงในข้อความ (เช่น 第1圃場, Tsuchiura) ระบบจะจัดกลุ่มตามแปลงให้อัตโนมัติ</b></div></div>
+    <div class="note-box">คำหมวดมี 4 คำ: 「生育状況：」「生育遅延：」「天候：」「病害虫：」 โพสต์ที่ไม่ใส่คำหมวดจะเป็น "อื่น ๆ" (สีเทา) กรุณา 1 โพสต์ 1 เรื่อง และงดตอบกลับ/คุยเล่นในช่องนี้</div>
+  </section>
+
+  <section id="jisseki">
+    <h2>6. วิธีดูประวัติการจัดส่ง</h2>
+    <div class="step"><div class="no">1</div><div class="tx">หน้า<b>"ประวัติการจัดส่ง"</b> แสดงสรุปออเดอร์ (จำนวนออเดอร์ ปริมาณรวม มูลค่าโดยประมาณ จำนวนสินค้า)</div></div>
+    <div class="step"><div class="no">2</div><div class="tx">กรองตาม<b>บริษัทและสถานะ</b>ได้ กราฟมี 3 แบบ: ตามสินค้า ตามบริษัท และแนวโน้มรายเดือน</div></div>
+    <div class="step"><div class="no">3</div><div class="tx">กด<span class="btn-sample uix">ส่งออก CSV</span> เพื่อดาวน์โหลดรายละเอียด (เปิดด้วย Excel ได้)</div></div>
+    <div class="note-box">มูลค่าโดยประมาณคำนวณจากราคาที่ใส่ตอนอนุมัติ (ถ้ายังไม่ใส่ ใช้ราคาอ้างอิงจากตารางราคา)</div>
+  </section>
+
+  <section id="admin">
+    <h2>7. สำหรับ GAOGAO: วิธีอนุมัติออเดอร์</h2>
+    <div class="step"><div class="no">1</div><div class="tx">เมื่อมีออเดอร์เข้า จะมีแจ้งเตือนอัตโนมัติทาง<b>อีเมล (ธุรกิจ) และ Discord "発注・受注-通知"</b></div></div>
+    <div class="step"><div class="no">2</div><div class="tx">เปิดหน้า<b>"อนุมัติ (แอดมิน)"</b> แล้วใส่รหัสผ่าน (ใส่ครั้งเดียว เครื่องเดิมจะเปิดอัตโนมัติครั้งต่อไป)</div></div>
+    <div class="step"><div class="no">3</div><div class="tx">ตรวจรายการ "รอยืนยัน (ต้องดำเนินการ)" <b>ส่งได้ครบก็ผ่านเลย</b> <b>ถ้ามีของขาดให้แก้จำนวน</b> (ใส่ 0 = ลบรายการนั้น)</div></div>
+    <div class="step"><div class="no">4</div><div class="tx">ราคา<b>ใส่หรือไม่ก็ได้</b> (ใส่ทีหลังเมื่อรู้ต้นทุนได้ ถ้าใส่จะแสดงในอีเมลอนุมัติและยอดขาย)</div></div>
+    <div class="step"><div class="no">5</div><div class="tx">กด<span class="btn-sample uix">อนุมัติตามนี้ (ส่งอีเมลถึงลูกค้า)</span> <b>อีเมลแจ้งจำนวนที่ส่งมอบได้จะส่งถึงลูกค้าอัตโนมัติ</b></div></div>
+    <div class="step"><div class="no">6</div><div class="tx">ส่งของเสร็จแล้วกด<span class="btn-sample ghost uix">ทำเครื่องหมายจัดส่งแล้ว</span> (บันทึกลงประวัติ)</div></div>
+    <div class="warn-box">รหัสผ่านใช้ภายในบริษัทเท่านั้น กดปุ่ม "ล็อก" ในหน้าจอเพื่อล็อกใหม่ได้ทุกเมื่อ</div>
+  </section>
+
+  <section id="faq">
+    <h2>8. คำถามที่พบบ่อย</h2>
+    <dl class="qa">
+      <dt>Q. ข้อมูลดูเก่าไม่อัปเดต</dt>
+      <dd>A. กดปุ่ม "↻ รีเฟรช" ในแต่ละหน้า หรือโหลดหน้าใหม่ หลังแก้สเปรดชีต อาจใช้เวลา 2-3 นาทีกว่าจะแสดงผล</dd>
+      <dt>Q. อยากสั่งแต่บางสินค้าไม่มีปุ่มให้กด</dt>
+      <dd>A. สินค้านั้นยังไม่ถึงวันเริ่มส่ง (จะมีสถานะ "ส่งได้สัปดาห์หน้า!" ฯลฯ) เมื่อถึงวันเริ่มส่งจะสั่งได้อัตโนมัติ</dd>
+      <dt>Q. สั่งไปแล้วอยากแก้จำนวน/ยกเลิก</dt>
+      <dd>A. ระหว่างสถานะ "รอยืนยัน" แก้หรือยกเลิกได้จากหน้า "ตรวจสอบออเดอร์" หลัง "อนุมัติแล้ว" กรุณาติดต่อทางอีเมล</dd>
+      <dt>Q. ไม่ได้รับอีเมล</dt>
+      <dd>A. เช็กโฟลเดอร์สแปม ถ้าเจอ กด "ไม่ใช่สแปม" ครั้งต่อไปจะเข้ากล่องจดหมายปกติ</dd>
+      <dt>Q. ราคาสรุปเมื่อไร?</dt>
+      <dd>A. ตอนสั่งเป็นการขอจำนวนเท่านั้น ราคาและมูลค่าจะยืนยันตอน GAOGAO อนุมัติ (หรือภายหลัง) เพราะราคาต่างกันตามแปลง (แหล่งผลิต)</dd>
+      <dt>Q. ใช้บนมือถือได้ไหม?</dt>
+      <dd>A. ได้ ตารางสั่งซื้อตรึงคอลัมน์ชื่อสินค้าและช่องสั่งไว้ ตัวเลขรายเดือนเลื่อนดูด้านข้างได้</dd>
+    </dl>
+  </section>
+
+  <div class="card" style="text-align:center">
+    <div style="font-size:14px;line-height:1.9">มีข้อสงสัยอื่น ๆ ติดต่อ GAOGAO (คุณฮิวงะ) ทางอีเมล<br>
+    <b>toruhyuga@thaisupermarket99.com</b></div>
+  </div>
+
+</div>
+<a class="top-link" href="#top">↑ กลับสารบัญ</a>
+<footer>GAOGAO Farm พอร์ทัลสั่งซื้อ คู่มือการใช้งาน / อัปเดตล่าสุด กรกฎาคม 2026</footer>
+<script src="assets/nav-liquid.js"></script>
+<script src="assets/i18n.js?v=3"></script>
+</body>
+</html>
