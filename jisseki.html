@@ -67,6 +67,8 @@
       <div><select id="j-item"><option value="">全品目</option></select></div>
       <div><select id="j-month"><option value="">全期間</option></select></div>
       <div style="flex:1"></div>
+      <button class="btn ghost sm" id="j-reload">↻ 更新</button>
+      <button class="btn sm" id="j-csv">CSV書き出し</button>
       <span class="muted" id="j-upd" style="font-size:11px"></span>
     </div>
   </div>
@@ -111,13 +113,17 @@ async function loadJisseki(){
     const res=await fetch('data/jisseki.json?t='+Date.now(),{cache:'no-store'});
     if(!res.ok) throw new Error('no data');
     JIS=await res.json();
+    const sel=document.getElementById('j-item'), msel=document.getElementById('j-month');
+    const pf=sel.value, pmf=msel.value;   // 再読込時は選択を保持
+    sel.length=1; msel.length=1;
     const items=[...new Set(JIS.records.map(r=>r.call))];
-    const sel=document.getElementById('j-item');
     items.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
     const months=[...new Set(JIS.records.map(r=>String(r.date).slice(0,7)))].sort();
-    const msel=document.getElementById('j-month');
     months.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=(+m.slice(0,4))+'年'+(+m.slice(5,7))+'月';msel.appendChild(o);});
+    if(items.includes(pf)) sel.value=pf;
+    if(months.includes(pmf)) msel.value=pmf;
     document.getElementById('j-upd').textContent='データ更新: '+(JIS.updated||'');
+    JDKEY=null;   // 再読込後はダッシュボードを必ず再構築
     renderJisseki();
   }catch(e){
     document.getElementById('j-view').innerHTML='<div class="card state">納品実績データはまだありません。</div>';
@@ -302,6 +308,24 @@ document.querySelectorAll('#j-mode button').forEach(b=>b.addEventListener('click
 }));
 document.getElementById('j-item').addEventListener('change',renderJisseki);
 document.getElementById('j-month').addEventListener('change',renderJisseki);
+// CSV書き出し（表示中の絞り込みを反映・金額列なし）
+function buildJissekiCSV(){
+  const f=document.getElementById('j-item').value;
+  const mf=document.getElementById('j-month').value;
+  const recs=JIS.records.filter(r=>(!mf||String(r.date).slice(0,7)===mf)&&(!f||r.call===f));
+  const head=['納品日','納品書番号','会社','呼称','日本名','数量(kg)','圃場'];
+  const lines=[head.join(',')];
+  recs.forEach(r=>lines.push([r.date,r.no,r.customer,r.call,r.jp,r.qty,r.farm]
+    .map(x=>'"'+String(x==null?'':x).replace(/"/g,'""')+'"').join(',')));
+  return lines.join('\n');
+}
+document.getElementById('j-csv').addEventListener('click',()=>{
+  if(!JIS){ toast('データ読み込み中です'); return; }
+  const blob=new Blob(['﻿'+buildJissekiCSV()],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='gaogao_納品実績_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+});
+document.getElementById('j-reload').addEventListener('click',loadJisseki);
 loadJisseki();
 </script>
 <script src="assets/nav-liquid.js"></script>
