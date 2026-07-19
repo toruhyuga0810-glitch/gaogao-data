@@ -60,10 +60,6 @@
   <h2 style="margin-top:0">納品実績（納品書ベース・確定）</h2>
   <div class="card">
     <div class="row">
-      <div class="seg" id="j-mode">
-        <button class="active" data-m="date">日付順</button>
-        <button data-m="item">品目別</button>
-      </div>
       <div><select id="j-item"><option value="">全品目</option></select></div>
       <div><select id="j-month"><option value="">全期間</option></select></div>
       <div style="flex:1"></div>
@@ -93,7 +89,13 @@
       <div class="scroll"><table id="jd-board" class="jboard"></table></div>
       <div class="muted" style="margin-top:8px">構成比は累計納品量に対する割合。</div>
     </div>
-    <h2>納品書ごとの明細</h2>
+  </div>
+  <div class="row" style="align-items:center;gap:14px;margin-top:26px;flex-wrap:wrap">
+    <h2 style="margin:0">納品書ごとの明細</h2>
+    <div class="seg" id="j-mode">
+      <button class="active" data-m="date">日付順</button>
+      <button data-m="item">品目別</button>
+    </div>
   </div>
   <div id="j-view"><div class="card state">読み込み中…</div></div>
 
