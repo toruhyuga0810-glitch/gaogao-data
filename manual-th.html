@@ -98,7 +98,7 @@
       <tr><td>เช็กว่าออเดอร์ได้รับอนุมัติหรือยัง</td><td>ตรวจสอบออเดอร์ (หรืออีเมล)</td><td><a href="#after">ไปบทที่ 3</a></td></tr>
       <tr><td>อยากรู้สภาพแปลงและอากาศ</td><td>กระดานข่าว</td><td><a href="#board">ไปบทที่ 5</a></td></tr>
       <tr><td>อยากดูรูปแปลงผัก</td><td>สภาพแปลงปลูก</td><td><a href="#board">ไปบทที่ 5</a></td></tr>
-      <tr><td>สรุปยอดสั่งซื้อและมูลค่าย้อนหลัง</td><td>ประวัติการจัดส่ง</td><td><a href="#jisseki">ไปบทที่ 6</a></td></tr>
+      <tr><td>สรุปปริมาณสั่งซื้อและการจัดส่งย้อนหลัง</td><td>ประวัติการจัดส่ง</td><td><a href="#jisseki">ไปบทที่ 6</a></td></tr>
       <tr><td>(GAOGAO) อนุมัติออเดอร์</td><td>อนุมัติ (แอดมิน)</td><td><a href="#admin">ไปบทที่ 7</a></td></tr>
     </table>
   </div>
@@ -187,10 +187,10 @@
 
   <section id="jisseki">
     <h2>6. วิธีดูประวัติการจัดส่ง</h2>
-    <div class="step"><div class="no">1</div><div class="tx">หน้า<b>"ประวัติการจัดส่ง"</b> แสดงสรุปออเดอร์ (จำนวนออเดอร์ ปริมาณรวม มูลค่าโดยประมาณ จำนวนสินค้า)</div></div>
+    <div class="step"><div class="no">1</div><div class="tx">หน้า<b>"ประวัติการจัดส่ง"</b> แสดงสรุปออเดอร์ (จำนวนออเดอร์ ปริมาณรวม จำนวนสินค้า)</div></div>
     <div class="step"><div class="no">2</div><div class="tx">กรองตาม<b>บริษัทและสถานะ</b>ได้ กราฟมี 3 แบบ: ตามสินค้า ตามบริษัท และแนวโน้มรายเดือน</div></div>
     <div class="step"><div class="no">3</div><div class="tx">กด<span class="btn-sample uix">ส่งออก CSV</span> เพื่อดาวน์โหลดรายละเอียด (เปิดด้วย Excel ได้)</div></div>
-    <div class="note-box">มูลค่าโดยประมาณคำนวณจากราคาที่ใส่ตอนอนุมัติ (ถ้ายังไม่ใส่ ใช้ราคาอ้างอิงจากตารางราคา)</div>
+    <div class="note-box">เลือกดูตามเดือนและกราฟ "ปริมาณจัดส่งรายเดือน" เพื่อดูปริมาณของแต่ละช่วงเวลาได้</div>
   </section>
 
   <section id="admin">
@@ -198,7 +198,7 @@
     <div class="step"><div class="no">1</div><div class="tx">เมื่อมีออเดอร์เข้า จะมีแจ้งเตือนอัตโนมัติทาง<b>อีเมล (ธุรกิจ) และ Discord "発注・受注-通知"</b></div></div>
     <div class="step"><div class="no">2</div><div class="tx">เปิดหน้า<b>"อนุมัติ (แอดมิน)"</b> แล้วใส่รหัสผ่าน (ใส่ครั้งเดียว เครื่องเดิมจะเปิดอัตโนมัติครั้งต่อไป)</div></div>
     <div class="step"><div class="no">3</div><div class="tx">ตรวจรายการ "รอยืนยัน (ต้องดำเนินการ)" <b>ถ้าส่งได้ครบตามที่สั่ง ไม่ต้องแก้อะไร</b> <b>ถ้ามีของขาดให้แก้จำนวน</b> (ใส่ 0 = ลบรายการนั้น)</div></div>
-    <div class="step"><div class="no">4</div><div class="tx">ราคา<b>ใส่หรือไม่ก็ได้</b> (ใส่ภายหลังเมื่อยืนยันแหล่งซื้อแล้วก็ได้ ถ้าใส่จะแสดงในอีเมลอนุมัติและยอดขาย)</div></div>
+    <div class="step"><div class="no">4</div><div class="tx">ราคา<b>ใส่หรือไม่ก็ได้</b> (ใส่ภายหลังเมื่อยืนยันแหล่งซื้อแล้วก็ได้ ถ้าใส่จะแสดงในอีเมลอนุมัติ)</div></div>
     <div class="step"><div class="no">5</div><div class="tx">กด<span class="btn-sample uix">อนุมัติตามนี้ (ส่งอีเมลถึงลูกค้า)</span> <b>อีเมลแจ้งจำนวนที่ส่งมอบได้จะส่งถึงลูกค้าอัตโนมัติ</b></div></div>
     <div class="step"><div class="no">6</div><div class="tx">ส่งของเสร็จแล้วกด<span class="btn-sample ghost uix">ทำเครื่องหมายจัดส่งแล้ว</span> (บันทึกลงประวัติ)</div></div>
     <div class="warn-box">รหัสผ่านใช้ภายในบริษัทเท่านั้น กดปุ่ม "ล็อก" ในหน้าจอเพื่อล็อกใหม่ได้ทุกเมื่อ</div>
@@ -231,6 +231,6 @@
 <a class="top-link" href="#top">↑ กลับสารบัญ</a>
 <footer>GAOGAO Farm พอร์ทัลสั่งซื้อ คู่มือการใช้งาน / อัปเดตล่าสุด กรกฎาคม 2026</footer>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=4"></script>
+<script src="assets/i18n.js?v=5"></script>
 </body>
 </html>

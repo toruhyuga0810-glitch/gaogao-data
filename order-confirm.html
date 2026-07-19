@@ -117,7 +117,7 @@ async function init(){
     const items=await loadOrderItems(); ORDERS=groupOrders(items);
     const sel=document.getElementById('f-company');
     const companies=[...new Set([...CONFIG.COMPANIES, ...ORDERS.map(o=>o.company).filter(Boolean)])];
-    sel.length=1; companies.forEach(c=>{const op=document.createElement('option');op.textContent=c;sel.appendChild(op);});
+    sel.length=1; companies.forEach(c=>{const op=document.createElement('option');op.value=c;op.textContent=c;sel.appendChild(op);});
     render();
   }catch(e){ document.getElementById('state').innerHTML='⚠️ 取得失敗：'+esc(e.message); }
 }
@@ -126,6 +126,6 @@ document.getElementById('reload').onclick=init;
 init();
 </script>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=4"></script>
+<script src="assets/i18n.js?v=5"></script>
 </body>
 </html>

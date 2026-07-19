@@ -98,7 +98,7 @@
       <tr><td>注文が承認されたか確認したい</td><td>注文確認（またはメール）</td><td><a href="#after">3章へ</a></td></tr>
       <tr><td>畑・天候の状況を知りたい</td><td>掲示板</td><td><a href="#board">5章へ</a></td></tr>
       <tr><td>畑の写真を見たい</td><td>圃場生育状況</td><td><a href="#board">5章へ</a></td></tr>
-      <tr><td>過去の注文量・金額を集計したい</td><td>納品実績</td><td><a href="#jisseki">6章へ</a></td></tr>
+      <tr><td>過去の注文量・納品量を集計したい</td><td>納品実績</td><td><a href="#jisseki">6章へ</a></td></tr>
       <tr><td>（GAOGAO）注文を承認したい</td><td>承認(管理)</td><td><a href="#admin">7章へ</a></td></tr>
     </table>
   </div>
@@ -187,10 +187,10 @@
 
   <section id="jisseki">
     <h2>6. 納品実績の見かた</h2>
-    <div class="step"><div class="no">1</div><div class="tx"><b>「納品実績」ページ</b>で、注文の集計が見られます（注文件数・総数量・推定金額・品目数）</div></div>
+    <div class="step"><div class="no">1</div><div class="tx"><b>「納品実績」ページ</b>で、注文の集計が見られます（注文件数・総数量・品目数）</div></div>
     <div class="step"><div class="no">2</div><div class="tx"><b>会社・ステータス</b>で絞り込みできます。グラフは品目別・会社別・月別推移の3種類</div></div>
     <div class="step"><div class="no">3</div><div class="tx"><span class="btn-sample uix">CSV書き出し</span>で明細をダウンロードできます（Excel等で開けます）</div></div>
-    <div class="note-box">推定金額は、承認時に入力された単価（未入力の場合は価格表の参考値）で計算されます。</div>
+    <div class="note-box">月の絞り込みと「月別納品量」グラフで、時期ごとの納品量も確認できます。</div>
   </section>
 
   <section id="admin">
@@ -198,7 +198,7 @@
     <div class="step"><div class="no">1</div><div class="tx">注文が入ると<b>メール（事業用）とDiscord「発注・受注-通知」</b>に自動通知が届きます</div></div>
     <div class="step"><div class="no">2</div><div class="tx"><b>「承認(管理)」ページ</b>を開き、パスワードを入力します（一度入力すると同じ端末では次回から自動で開きます）</div></div>
     <div class="step"><div class="no">3</div><div class="tx">「受付（要対応）」の注文内容を確認します。<b>全量納品できる場合はそのまま</b>、<b>欠品がある場合は数量を修正</b>します（0にするとその品目は削除）</div></div>
-    <div class="step"><div class="no">4</div><div class="tx">単価は<b>任意</b>です（仕入れ先確定後の入力でOK。入力すると承認メールと実績金額に反映）</div></div>
+    <div class="step"><div class="no">4</div><div class="tx">単価は<b>任意</b>です（仕入れ先確定後の入力でOK。入力すると承認メールに反映）</div></div>
     <div class="step"><div class="no">5</div><div class="tx"><span class="btn-sample uix">この内容で承認（顧客へメール）</span>を押すと、<b>納品可能数のご連絡メールがお客様へ自動送信</b>されます</div></div>
     <div class="step"><div class="no">6</div><div class="tx">納品が完了したら<span class="btn-sample ghost uix">納品済みにする</span>を押します（実績に反映）</div></div>
     <div class="warn-box">パスワードは社内のみで共有してください。画面の「ロック」ボタンでいつでも再ロックできます。</div>
@@ -231,6 +231,6 @@
 <a class="top-link" href="#top">↑ 目次へ</a>
 <footer>GAOGAO 発注ポータル 使い方ガイド ／ 最終更新 2026年7月</footer>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=4"></script>
+<script src="assets/i18n.js?v=5"></script>
 </body>
 </html>
