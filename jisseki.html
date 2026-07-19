@@ -11,6 +11,21 @@
   .chartbox{position:relative;height:300px}
   @media(max-width:760px){ .charts{grid-template-columns:1fr} }
   .filters select{min-width:130px}
+  /* 納品実績（納品書ベース）の階層表示 */
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .seg button{border:0;background:#fff;padding:9px 14px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
+  .seg button.active{background:var(--accent);color:var(--green-d)}
+  .jd-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-weight:700;font-size:14px;color:var(--green-d);border-left:4px solid var(--green);padding-left:10px;margin:18px 0 8px}
+  .jd-head .sub{font-weight:600;color:var(--sub);font-size:12px}
+  .jrow{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+  .jrow:last-child{border-bottom:0}
+  .jname b{font-size:14px}
+  .jname .jp{color:var(--sub);font-size:11px;margin-left:6px}
+  .fchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
+  .fc{background:var(--okbg);color:var(--ok);border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700}
+  .jnum{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .jnum b{font-size:14px}
+  .jnum .amt{color:var(--sub);font-size:11px;display:block}
 </style>
 </head>
 <body>
@@ -31,6 +46,27 @@
 </div></header>
 
 <div class="wrap">
+  <h2 style="margin-top:0">納品実績（納品書ベース・確定）</h2>
+  <div class="card">
+    <div class="row">
+      <div class="seg" id="j-mode">
+        <button class="active" data-m="date">日付順</button>
+        <button data-m="item">品目別</button>
+      </div>
+      <div><select id="j-item"><option value="">全品目</option></select></div>
+      <div style="flex:1"></div>
+      <span class="muted" id="j-upd" style="font-size:11px"></span>
+    </div>
+  </div>
+  <div class="grid metrics" style="margin-bottom:16px" id="j-metrics">
+    <div class="metric"><div class="k">総納品量</div><div class="v" id="jm-qty">–</div></div>
+    <div class="metric"><div class="k">納品回数</div><div class="v" id="jm-cnt">–</div></div>
+    <div class="metric"><div class="k">商品売上(税抜)</div><div class="v" id="jm-val">–</div></div>
+    <div class="metric"><div class="k">送料・雑費</div><div class="v" id="jm-ship">–</div></div>
+  </div>
+  <div id="j-view"><div class="card state">読み込み中…</div></div>
+
+  <h2>注文データの集計（ポータル経由）</h2>
   <div class="card">
     <div class="row filters">
       <div><div class="muted">会社</div><select id="f-company"><option value="">すべて</option></select></div>
@@ -194,6 +230,90 @@ async function init(){
 document.getElementById('reload').onclick=init;
 document.getElementById('csv').onclick=exportCSV;
 init();
+
+// ===== 納品実績（納品書ベース・data/jisseki.json） =====
+let JIS=null, JMODE='date';
+const q1=n=>Math.round(n*10)/10;
+function jfmt(d){const m=String(d).match(/(\d{4})-(\d{2})-(\d{2})/);if(!m)return d;const dt=new Date(+m[1],+m[2]-1,+m[3]);return `${+m[2]}/${+m[3]}（${'日月火水木金土'[dt.getDay()]}）`;}
+async function loadJisseki(){
+  try{
+    const res=await fetch('data/jisseki.json?t='+Date.now(),{cache:'no-store'});
+    if(!res.ok) throw new Error('no data');
+    JIS=await res.json();
+    const items=[...new Set(JIS.records.map(r=>r.call))];
+    const sel=document.getElementById('j-item');
+    items.forEach(c=>{const o=document.createElement('option');o.textContent=c;sel.appendChild(o);});
+    document.getElementById('j-upd').textContent='データ更新: '+(JIS.updated||'');
+    renderJisseki();
+  }catch(e){
+    document.getElementById('j-view').innerHTML='<div class="card state">納品実績データはまだありません。</div>';
+    document.getElementById('j-metrics').classList.add('hide');
+  }
+}
+function renderJisseki(){
+  if(!JIS) return;
+  const f=document.getElementById('j-item').value;
+  const recs=JIS.records.filter(r=>!f||r.call===f);
+  const all=JIS.records;
+  document.getElementById('jm-qty').textContent=q1(all.reduce((s,r)=>s+r.qty,0)).toLocaleString()+' kg';
+  document.getElementById('jm-cnt').textContent=[...new Set(all.map(r=>r.no))].length+' 回';
+  document.getElementById('jm-val').textContent=yen(all.reduce((s,r)=>s+r.amount,0)+(JIS.adjustments||[]).reduce((s,a)=>s+a.amount,0));
+  document.getElementById('jm-ship').textContent=yen((JIS.shipping||[]).reduce((s,r)=>s+r.amount,0));
+  const v=document.getElementById('j-view');
+  if(!recs.length){v.innerHTML='<div class="card state">該当データがありません。</div>';return;}
+  let h='';
+  if(JMODE==='date'){
+    const byDate=new Map();
+    recs.forEach(r=>{const k=r.date;if(!byDate.has(k))byDate.set(k,[]);byDate.get(k).push(r);});
+    [...byDate.keys()].sort().reverse().forEach(d=>{
+      const rows=byDate.get(d);
+      const qty=rows.reduce((s,r)=>s+r.qty,0), amt=rows.reduce((s,r)=>s+r.amount,0);
+      const nos=[...new Set(rows.map(r=>r.no))].filter(Boolean).join('・');
+      const byItem=new Map();
+      rows.forEach(r=>{if(!byItem.has(r.call))byItem.set(r.call,{jp:r.jp,qty:0,amount:0,farms:new Map()});
+        const it=byItem.get(r.call);it.qty+=r.qty;it.amount+=r.amount;
+        it.farms.set(r.farm,(it.farms.get(r.farm)||0)+r.qty);});
+      h+='<div class="jd-head">'+jfmt(d)+'<span class="sub">'+esc(nos)+'　計 '+q1(qty)+'kg ／ '+yen(amt)+'</span></div><div class="card">';
+      [...byItem.entries()].forEach(([call,it])=>{
+        h+='<div class="jrow"><div class="jname"><b>'+esc(call)+'</b><span class="jp">'+esc(it.jp)+'</span>'
+          +'<div class="fchips">'+[...it.farms.entries()].map(([fm,q])=>'<span class="fc">'+esc(fm)+' '+q1(q)+'kg</span>').join('')+'</div></div>'
+          +'<div class="jnum"><b>'+q1(it.qty)+'kg</b><span class="amt">'+yen(it.amount)+'</span></div></div>';
+      });
+      if(!f){
+        (JIS.adjustments||[]).filter(a=>a.date===d).forEach(a=>{
+          h+='<div class="jrow"><div class="jname"><span class="jp">'+esc(a.label)+'（'+esc(a.farm)+'）</span></div>'
+            +'<div class="jnum"><b>'+yen(a.amount)+'</b></div></div>';
+        });
+      }
+      h+='</div>';
+    });
+  } else {
+    const byItem=new Map();
+    recs.forEach(r=>{if(!byItem.has(r.call))byItem.set(r.call,{jp:r.jp,qty:0,amount:0,farms:new Map(),dates:new Map()});
+      const it=byItem.get(r.call);it.qty+=r.qty;it.amount+=r.amount;
+      it.farms.set(r.farm,(it.farms.get(r.farm)||0)+r.qty);
+      if(!it.dates.has(r.date))it.dates.set(r.date,new Map());
+      it.dates.get(r.date).set(r.farm,(it.dates.get(r.date).get(r.farm)||0)+r.qty);});
+    [...byItem.entries()].sort((a,b)=>b[1].qty-a[1].qty).forEach(([call,it])=>{
+      h+='<div class="jd-head">'+esc(call)+'<span class="sub">'+esc(it.jp)+'　計 '+q1(it.qty)+'kg ／ '+yen(it.amount)+'</span></div><div class="card">';
+      h+='<div class="fchips" style="margin-bottom:8px">'+[...it.farms.entries()].map(([fm,q])=>'<span class="fc">'+esc(fm)+' '+q1(q)+'kg</span>').join('')+'</div>';
+      [...it.dates.keys()].sort().reverse().forEach(d=>{
+        const fm=it.dates.get(d);const tq=[...fm.values()].reduce((s,q)=>s+q,0);
+        h+='<div class="jrow"><div class="jname">'+jfmt(d)
+          +'<div class="fchips">'+[...fm.entries()].map(([f2,q])=>'<span class="fc">'+esc(f2)+' '+q1(q)+'kg</span>').join('')+'</div></div>'
+          +'<div class="jnum"><b>'+q1(tq)+'kg</b></div></div>';
+      });
+      h+='</div>';
+    });
+  }
+  v.innerHTML=h;
+}
+document.querySelectorAll('#j-mode button').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#j-mode button').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');JMODE=b.dataset.m;renderJisseki();
+}));
+document.getElementById('j-item').addEventListener('change',renderJisseki);
+loadJisseki();
 </script>
 <script src="assets/nav-liquid.js"></script>
 </body>
