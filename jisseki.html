@@ -80,7 +80,10 @@
       <div class="card"><h2 style="margin-top:0">品目別 累計納品量・構成比</h2><div class="chartbox"><canvas id="jd-item"></canvas></div></div>
       <div class="card"><h2 style="margin-top:0">圃場別 累計納品量・構成比</h2><div class="chartbox"><canvas id="jd-farm"></canvas></div></div>
     </div>
-    <div class="card"><h2 style="margin-top:0">累計納品量の推移（全体と上位3品目）</h2><div class="chartbox"><canvas id="jd-cum"></canvas></div></div>
+    <div class="charts">
+      <div class="card"><h2 style="margin-top:0">品目構成比（累計納品量）</h2><div class="chartbox"><canvas id="jd-pie"></canvas></div></div>
+      <div class="card"><h2 style="margin-top:0">累計納品量の推移（全体と上位3品目）</h2><div class="chartbox"><canvas id="jd-cum"></canvas></div></div>
+    </div>
     <div class="card"><h2 style="margin-top:0">品目データボード</h2>
       <div class="scroll"><table id="jd-board" class="jboard"></table></div>
       <div class="muted" style="margin-top:8px">平均単価＝累計売上 ÷ 累計kg（重量加重）。構成比は累計納品量に対する割合。</div>
@@ -371,6 +374,21 @@ function buildJDashboard(){
     data:{labels:farr.map(x=>x.f),datasets:[{data:farr.map(x=>q1(x.kg)),backgroundColor:JD_GREEN,borderRadius:4,maxBarThickness:16,categoryPercentage:.72}]},
     options:hbarOpts(farr[0].kg),
     plugins:[endLabelPlugin((v,i)=>q1(v)+'kg・'+Math.round(farr[i].kg/totKg*100)+'%')]});
+  // 2.5) 品目構成比ドーナツ（上位5＋その他、検証済みソフトパレット）
+  const JD_PIE=['#4f9c72','#5f8ec9','#bd8138','#9c82d1','#c9758f'];
+  const top5=arr.slice(0,5), rest=arr.slice(5);
+  const pieLabels=top5.map(x=>x.call).concat(rest.length?['その他（'+rest.length+'品目）']:[]);
+  const pieData=top5.map(x=>q1(x.kg)).concat(rest.length?[q1(rest.reduce((s,x)=>s+x.kg,0))]:[]);
+  const pieColors=JD_PIE.slice(0,top5.length).concat(rest.length?['#9aa39d']:[]);
+  new Chart(document.getElementById('jd-pie'),{type:'doughnut',
+    data:{labels:pieLabels,datasets:[{data:pieData,backgroundColor:pieColors,borderColor:'#ffffff',borderWidth:2,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',
+      plugins:{legend:{position:'right',labels:{color:JD_INK,font:{size:12},boxWidth:14,boxHeight:14,borderRadius:4,useBorderRadius:true,
+        generateLabels(c){const d=c.data;const tot=d.datasets[0].data.reduce((s,v)=>s+v,0);
+          return d.labels.map((l,i)=>({text:l+'　'+Math.round(d.datasets[0].data[i]/tot*100)+'%',
+            fillStyle:d.datasets[0].backgroundColor[i],strokeStyle:'transparent',index:i}));}}},
+        tooltip:{callbacks:{label(ctx){const tot=ctx.dataset.data.reduce((s,v)=>s+v,0);
+          return ' '+ctx.parsed+'kg（'+Math.round(ctx.parsed/tot*1000)/10+'%）';}}}}}});
   // 3) 累計推移（全体＋上位3品目）
   const dates=[...new Set(R.map(r=>r.date))].sort();
   const dl=dates.map(d=>{const m=d.match(/-(\d{2})-(\d{2})/);return +m[1]+'/'+ +m[2];});
@@ -406,5 +424,6 @@ document.getElementById('j-item').addEventListener('change',renderJisseki);
 loadJisseki();
 </script>
 <script src="assets/nav-liquid.js"></script>
+<script src="assets/i18n.js"></script>
 </body>
 </html>
