@@ -274,7 +274,6 @@ async function loadJisseki(){
     months.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=(+m.slice(0,4))+'年'+(+m.slice(5,7))+'月';msel.appendChild(o);});
     document.getElementById('j-upd').textContent='データ更新: '+(JIS.updated||'');
     renderJisseki();
-    buildJDashboard();
   }catch(e){
     document.getElementById('j-view').innerHTML='<div class="card state">納品実績データはまだありません。</div>';
     document.getElementById('j-metrics').classList.add('hide');
@@ -284,12 +283,12 @@ function renderJisseki(){
   if(!JIS) return;
   const f=document.getElementById('j-item').value;
   const mf=document.getElementById('j-month').value;
-  const base=JIS.records.filter(r=>!mf||String(r.date).slice(0,7)===mf);
-  const recs=base.filter(r=>!f||r.call===f);
-  document.getElementById('jm-qty').textContent=q1(base.reduce((s,r)=>s+r.qty,0)).toLocaleString()+' kg';
-  document.getElementById('jm-cnt').textContent=[...new Set(base.map(r=>r.no))].length+' 回';
-  document.getElementById('jm-items').textContent=[...new Set(base.map(r=>r.call))].length;
-  document.getElementById('jm-farms').textContent=[...new Set(base.map(r=>r.farm))].filter(x=>x&&x!=='(圃場記載なし)').length;
+  const recs=JIS.records.filter(r=>(!mf||String(r.date).slice(0,7)===mf)&&(!f||r.call===f));
+  document.getElementById('jm-qty').textContent=q1(recs.reduce((s,r)=>s+r.qty,0)).toLocaleString()+' kg';
+  document.getElementById('jm-cnt').textContent=[...new Set(recs.map(r=>r.no))].length+' 回';
+  document.getElementById('jm-items').textContent=[...new Set(recs.map(r=>r.call))].length;
+  document.getElementById('jm-farms').textContent=[...new Set(recs.map(r=>r.farm))].filter(x=>x&&x!=='(圃場記載なし)').length;
+  buildJDashboard();
   const v=document.getElementById('j-view');
   if(!recs.length){v.innerHTML='<div class="card state">該当データがありません。</div>';return;}
   let h='';
@@ -359,10 +358,20 @@ function hbarOpts(maxV){
     scales:{x:{suggestedMax:maxV*1.28,grid:{color:JD_GRID},ticks:{color:JD_SUB,font:{size:11}},title:{display:true,text:'kg',color:JD_SUB,font:{size:11}}},
             y:{grid:{display:false},ticks:{color:JD_INK,font:{size:12}}}}};
 }
+let JCH={}, JDKEY=null;
+function jdestroy(){ for(const k in JCH){ try{JCH[k].destroy();}catch(e){} } JCH={}; }
 function buildJDashboard(){
   if(!JIS||!JIS.records.length) return;
-  document.getElementById('j-dash').classList.remove('hide');
-  const R=JIS.records;
+  const f=document.getElementById('j-item').value;
+  const mf=document.getElementById('j-month').value;
+  const key=f+'|'+mf;
+  if(key===JDKEY) return;
+  JDKEY=key;
+  const R=JIS.records.filter(r=>(!f||r.call===f)&&(!mf||String(r.date).slice(0,7)===mf));
+  jdestroy();
+  const dash=document.getElementById('j-dash');
+  if(!R.length){ dash.classList.add('hide'); return; }
+  dash.classList.remove('hide');
   // 品目集計
   const items={};
   R.forEach(r=>{const it=items[r.call]=items[r.call]||{jp:r.jp,kg:0,nos:new Set(),farms:{}};
@@ -371,14 +380,14 @@ function buildJDashboard(){
   const arr=Object.keys(items).map(c=>({call:c,...items[c],cnt:items[c].nos.size})).sort((a,b)=>b.kg-a.kg);
   const totKg=arr.reduce((s,x)=>s+x.kg,0);
   // 1) 品目別 横棒
-  new Chart(document.getElementById('jd-item'),{type:'bar',
+  JCH.item=new Chart(document.getElementById('jd-item'),{type:'bar',
     data:{labels:arr.map(x=>jlab(x.call)),datasets:[{data:arr.map(x=>q1(x.kg)),backgroundColor:JD_GREEN,borderRadius:4,maxBarThickness:16,categoryPercentage:.72}]},
     options:hbarOpts(arr[0].kg),
     plugins:[endLabelPlugin((v,i)=>q1(v)+'kg・'+Math.round(arr[i].kg/totKg*100)+'%')]});
   // 2) 圃場別 横棒
   const farms={};R.forEach(r=>{farms[r.farm]=(farms[r.farm]||0)+r.qty;});
-  const farr=Object.entries(farms).map(([f,kg])=>({f,kg})).sort((a,b)=>b.kg-a.kg);
-  new Chart(document.getElementById('jd-farm'),{type:'bar',
+  const farr=Object.entries(farms).map(([fm,kg])=>({f:fm,kg})).sort((a,b)=>b.kg-a.kg);
+  JCH.farm=new Chart(document.getElementById('jd-farm'),{type:'bar',
     data:{labels:farr.map(x=>jlab(x.f)),datasets:[{data:farr.map(x=>q1(x.kg)),backgroundColor:JD_GREEN,borderRadius:4,maxBarThickness:16,categoryPercentage:.72}]},
     options:hbarOpts(farr[0].kg),
     plugins:[endLabelPlugin((v,i)=>q1(v)+'kg・'+Math.round(farr[i].kg/totKg*100)+'%')]});
@@ -388,7 +397,7 @@ function buildJDashboard(){
   const pieLabels=top5.map(x=>jlab(x.call)).concat(rest.length?[(JTH?'อื่น ๆ ('+rest.length+')':'その他（'+rest.length+'品目）')]:[]);
   const pieData=top5.map(x=>q1(x.kg)).concat(rest.length?[q1(rest.reduce((s,x)=>s+x.kg,0))]:[]);
   const pieColors=JD_PIE.slice(0,top5.length).concat(rest.length?['#9aa39d']:[]);
-  new Chart(document.getElementById('jd-pie'),{type:'doughnut',
+  JCH.pie=new Chart(document.getElementById('jd-pie'),{type:'doughnut',
     data:{labels:pieLabels,datasets:[{data:pieData,backgroundColor:pieColors,borderColor:'#ffffff',borderWidth:2,hoverOffset:6}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:'58%',
       plugins:{legend:{position:'right',labels:{color:JD_INK,font:{size:12},boxWidth:14,boxHeight:14,borderRadius:4,useBorderRadius:true,
@@ -401,26 +410,31 @@ function buildJDashboard(){
   const dates=[...new Set(R.map(r=>r.date))].sort();
   const dl=dates.map(d=>{const m=d.match(/-(\d{2})-(\d{2})/);return +m[1]+'/'+ +m[2];});
   function cum(filter){let s=0;return dates.map(d=>{s+=R.filter(r=>r.date===d&&(!filter||r.call===filter)).reduce((a,r)=>a+r.qty,0);return q1(s);});}
-  const top3=arr.slice(0,3).map(x=>x.call);
-  const dsets=[{label:(JTH?'ทั้งหมด':'全体'),data:cum(null),borderColor:JD_CAT[0],borderWidth:2.5,pointRadius:0,pointHoverRadius:4,tension:0}]
+  const top3=f?[]:arr.slice(0,3).map(x=>x.call);
+  const dsets=[{label:(f? jlab(f) : (JTH?'ทั้งหมด':'全体')),data:cum(null),borderColor:JD_CAT[0],borderWidth:2.5,pointRadius:0,pointHoverRadius:4,tension:0}]
     .concat(top3.map((c,i)=>({label:jlab(c),data:cum(c),borderColor:JD_CAT[i+1],borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:0})));
-  new Chart(document.getElementById('jd-cum'),{type:'line',
+  JCH.cum=new Chart(document.getElementById('jd-cum'),{type:'line',
     data:{labels:dl,datasets:dsets},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
       plugins:{legend:{position:'bottom',labels:{color:JD_INK,font:{size:11},boxWidth:14,boxHeight:3}}},
       scales:{x:{grid:{display:false},ticks:{color:JD_SUB,font:{size:11}}},
               y:{grid:{color:JD_GRID},ticks:{color:JD_SUB,font:{size:11}},title:{display:true,text:(JTH?'kg สะสม':'累計kg'),color:JD_SUB,font:{size:11}}}}}});
   // 3.5) 月別納品量（上位4品目＋その他の積み上げ）
-  const months=[...new Set(R.map(r=>String(r.date).slice(0,7)))].sort();
+  // 月の比較が本体なので常に全月表示。品目フィルタのみ反映し、月選択時は該当月を強調
+  const RM=JIS.records.filter(r=>!f||r.call===f);
+  const months=[...new Set(RM.map(r=>String(r.date).slice(0,7)))].sort();
   const top4=arr.slice(0,4).map(x=>x.call);
   const MPAL=['#4f9c72','#5f8ec9','#bd8138','#9c82d1'];
-  function mkg(m,filter){ return q1(R.filter(r=>String(r.date).slice(0,7)===m && (filter==null? !top4.includes(r.call) : r.call===filter)).reduce((s,r)=>s+r.qty,0)); }
-  const mdsets=top4.map((c,i)=>({label:jlab(c),data:months.map(m=>mkg(m,c)),backgroundColor:MPAL[i],borderColor:'#ffffff',borderWidth:1.5,maxBarThickness:56}))
-    .concat([{label:(JTH?'อื่น ๆ':'その他'),data:months.map(m=>mkg(m,null)),backgroundColor:'#9aa39d',borderColor:'#ffffff',borderWidth:1.5,maxBarThickness:56}]);
-  new Chart(document.getElementById('jd-month'),{type:'bar',
+  function mkg(m,filter){ return q1(RM.filter(r=>String(r.date).slice(0,7)===m && (filter==null? !top4.includes(r.call) : r.call===filter)).reduce((s,r)=>s+r.qty,0)); }
+  const hl=c=> mf? months.map(m=>m===mf? c : c+'40') : c;
+  const mdsets=top4.map((c,i)=>({label:jlab(c),data:months.map(m=>mkg(m,c)),backgroundColor:hl(MPAL[i]),fullColor:MPAL[i],borderColor:'#ffffff',borderWidth:1.5,maxBarThickness:56}))
+    .concat([{label:(JTH?'อื่น ๆ':'その他'),data:months.map(m=>mkg(m,null)),backgroundColor:hl('#9aa39d'),fullColor:'#9aa39d',borderColor:'#ffffff',borderWidth:1.5,maxBarThickness:56}])
+    .filter(ds=>ds.data.some(v=>v>0));
+  JCH.month=new Chart(document.getElementById('jd-month'),{type:'bar',
     data:{labels:months.map(jmon),datasets:mdsets},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom',labels:{color:JD_INK,font:{size:11},boxWidth:14,boxHeight:14,borderRadius:4,useBorderRadius:true}},
+      plugins:{legend:{position:'bottom',labels:{color:JD_INK,font:{size:11},boxWidth:14,boxHeight:14,borderRadius:4,useBorderRadius:true,
+        generateLabels(c){return c.data.datasets.map(function(d,i){return {text:d.label,fillStyle:d.fullColor,strokeStyle:'transparent',datasetIndex:i};});}}},
         tooltip:{callbacks:{label(ctx){return ' '+ctx.dataset.label+': '+ctx.parsed.y+'kg';}}}},
       scales:{x:{stacked:true,grid:{display:false},ticks:{color:JD_INK,font:{size:12}}},
               y:{stacked:true,grid:{color:JD_GRID},ticks:{color:JD_SUB,font:{size:11}},title:{display:true,text:'kg',color:JD_SUB,font:{size:11}}}}}});
