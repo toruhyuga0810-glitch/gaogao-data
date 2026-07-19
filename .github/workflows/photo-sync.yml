@@ -51,8 +51,9 @@ jobs:
           FARMS = [
               ('第1圃場', ['第1圃場','第１圃場','Yasato','yasato','YASATO','八郷','中村']),
               ('第2圃場', ['第2圃場','第２圃場','Hokota','hokota','HOKOTA','鉾田','トゥアン']),
-              ('第3圃場', ['第3圃場','第３圃場','Tsuchiura','tsuchiura','TSUCHIURA','土浦']),
+              ('第3圃場', ['第3圃場','第３圃場','Tsuchiura','tsuchiura','TSUCHIURA','土浦','ペン']),
               ('第4圃場', ['第4圃場','第４圃場','Okinawa','okinawa','OKINAWA','沖縄','マルセイ']),
+              ('第5圃場', ['第5圃場','第５圃場','Edosaki','edosaki','EDOSAKI','江戸崎','パーン']),
           ]
           items = json.load(open('photos/index.new'))
           items = [i for i in items if os.path.exists(i['src'])]
