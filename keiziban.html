@@ -73,19 +73,20 @@ async function loadBoard(){
   if(hi<0) return [];
   const head=rows[hi].map(s=>String(s).trim());
   const col=names=>{ for(const n of names){ const i=head.indexOf(n); if(i>=0) return i; } return -1; };
-  const ci={ when:col(['日時','投稿日時','日付','timestamp']), cat:col(['分類','カテゴリ','種別']), body:col(['本文','内容','メッセージ']), who:col(['投稿者','名前','author','ユーザー']) };
+  const ci={ when:col(['日時','投稿日時','日付','timestamp']), cat:col(['分類','カテゴリ','種別']), body:col(['本文','内容','メッセージ']), bodyTh:col(['本文TH','本文タイ語','本文（タイ語）','bodyTh']), who:col(['投稿者','名前','author','ユーザー']) };
   const out=[];
   for(let i=hi+1;i<rows.length;i++){
     const r=rows[i]; const body=ci.body>=0?String(r[ci.body]||'').trim():'';
     if(!body) continue;
     let cat=ci.cat>=0?String(r[ci.cat]||'').trim():''; if(!CATS.includes(cat)) cat=cat||'その他';
-    out.push({ when:ci.when>=0?String(r[ci.when]||'').trim():'', cat, body, who:ci.who>=0?String(r[ci.who]||'').trim():'' });
+    out.push({ when:ci.when>=0?String(r[ci.when]||'').trim():'', cat, body, bodyTh:ci.bodyTh>=0?String(r[ci.bodyTh]||'').trim():'', who:ci.who>=0?String(r[ci.who]||'').trim():'' });
   }
   // 新しい順（日時が取れれば降順）
   out.sort((a,b)=> (a.when<b.when?1:-1));
   return out;
 }
 function render(){
+  const LANG=(localStorage.getItem('gaogao_lang')||'ja');
   const f=document.getElementById('f-cat').value;
   const list=POSTS.filter(p=>!f||p.cat===f);
   const feed=document.getElementById('feed'), state=document.getElementById('state');
@@ -99,9 +100,12 @@ function render(){
   state.classList.add('hide');
   feed.innerHTML=list.map(p=>{
     const cat=CATS.includes(p.cat)?p.cat:'その他';
+    const bodyText=(LANG==='th' && p.bodyTh)? p.bodyTh : p.body;
+    const mtNote=(LANG==='th' && p.bodyTh)? '<div class="who" style="opacity:.7">แปลอัตโนมัติ</div>' : '';
     return `<div class="post c-${cat}">
       <div class="top"><span class="cat ${cat}">${esc(cat)}</span><span class="when">${esc(fmtDate(p.when)||p.when)}</span></div>
-      <div class="body">${esc(p.body).replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>')}</div>
+      <div class="body">${esc(bodyText).replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>')}</div>
+      ${mtNote}
       ${p.who?`<div class="who">— ${esc(p.who)}</div>`:''}
     </div>`;
   }).join('');
