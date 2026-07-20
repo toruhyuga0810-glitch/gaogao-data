@@ -194,6 +194,9 @@ function renderJisseki(){
   v.innerHTML=h;
 }
 // ---- ダッシュボード（累計・構成比） ----
+// iOS Safariはグリフを持たないフォント指定だとcanvasのタイ語計測が壊れ、軸ラベルが切り詰められる。
+// システムフォント（タイ語対応）を明示して回避する。
+if(window.Chart){ Chart.defaults.font.family="system-ui,-apple-system,'Hiragino Kaku Gothic ProN','Thonburi',sans-serif"; }
 const JD_GREEN='#2f8a5f', JD_CAT=['#2f8a5f','#3f7cbd','#bd7f33','#9179d6'], JD_INK='#3e4a42', JD_GRID='#e6e9e4', JD_SUB='#6b756e';
 // canvas内ラベルはDOM置換が効かないため、タイ語モード時のみ辞書で変換
 const JTH=(localStorage.getItem('gaogao_lang')==='th');
@@ -213,7 +216,8 @@ function hbarOpts(maxV){
   return {indexAxis:'y',responsive:true,maintainAspectRatio:false,
     plugins:{legend:{display:false},tooltip:{callbacks:{}}},
     scales:{x:{suggestedMax:maxV*M,grid:{color:JD_GRID},ticks:{color:JD_SUB,font:{size:11}},title:{display:true,text:'kg',color:JD_SUB,font:{size:11}}},
-            y:{grid:{display:false},ticks:{color:JD_INK,font:{size:12}}}}};
+            y:{grid:{display:false},ticks:{color:JD_INK,font:{size:12}},
+               afterFit(sc){ if(window.innerWidth<480){ sc.width=Math.max(sc.width,100); } }}}};
 }
 let JCH={}, JDKEY=null;
 function jdestroy(){ for(const k in JCH){ try{JCH[k].destroy();}catch(e){} } JCH={}; }
