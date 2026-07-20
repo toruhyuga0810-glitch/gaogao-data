@@ -39,6 +39,14 @@
   .jboard td .rank{display:inline-block;width:20px;color:var(--sub);font-size:11px}
   .scrollnote{display:none}
   @media(max-width:640px){ .scrollnote{display:block} }
+  /* HTML横棒（canvasはiOSでタイ語ラベルが切れるためHTML描画） */
+  .hbarbox{padding:6px 2px 2px}
+  .hbar{display:grid;gap:13px}
+  .hb-row{display:grid;grid-template-columns:minmax(72px,38%) 1fr auto;gap:10px;align-items:center}
+  .hb-l{font-size:12px;color:var(--ink);text-align:right;line-height:1.35;overflow-wrap:anywhere}
+  .hb-t{height:12px;background:#eceeea;border-radius:99px;overflow:hidden}
+  .hb-t i{display:block;height:100%;background:#2f8a5f;border-radius:99px}
+  .hb-v{font-size:11px;font-weight:600;color:#3e4a42;font-variant-numeric:tabular-nums;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -78,8 +86,8 @@
   </div>
   <div id="j-dash" class="hide">
     <div class="charts">
-      <div class="card"><h2 style="margin-top:0">品目別 累計納品量・構成比</h2><div class="chartbox"><canvas id="jd-item"></canvas></div></div>
-      <div class="card"><h2 style="margin-top:0">圃場別 累計納品量・構成比</h2><div class="chartbox"><canvas id="jd-farm"></canvas></div></div>
+      <div class="card"><h2 style="margin-top:0">品目別 累計納品量・構成比</h2><div id="jd-item" class="hbarbox"></div></div>
+      <div class="card"><h2 style="margin-top:0">圃場別 累計納品量・構成比</h2><div id="jd-farm" class="hbarbox"></div></div>
     </div>
     <div class="charts">
       <div class="card"><h2 style="margin-top:0">品目構成比（累計納品量）</h2><div class="chartbox"><canvas id="jd-pie"></canvas></div></div>
@@ -203,22 +211,6 @@ const JTH=(localStorage.getItem('gaogao_lang')==='th');
 const JTHM=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
 function jlab(s){ if(!JTH) return s; if(window.ggTr){const t=window.ggTr(s); if(t!=null) return t;} return s; }
 function jmon(m){ const mm=+String(m).slice(5,7); return JTH? JTHM[mm-1] : mm+'月'; }
-function endLabelPlugin(fmt){
-  return {id:'endLabel',afterDatasetsDraw(c){
-    const ds=c.data.datasets[0], meta=c.getDatasetMeta(0), ctx=c.ctx;
-    ctx.save();ctx.fillStyle=JD_INK;ctx.font='600 11px "Hiragino Kaku Gothic ProN",sans-serif';ctx.textBaseline='middle';ctx.textAlign='left';
-    meta.data.forEach((el,i)=>ctx.fillText(fmt(ds.data[i],i), el.x+6, el.y));
-    ctx.restore();
-  }};
-}
-function hbarOpts(maxV){
-  const M=(window.innerWidth<480)?1.65:1.28;
-  return {indexAxis:'y',responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{display:false},tooltip:{callbacks:{}}},
-    scales:{x:{suggestedMax:maxV*M,grid:{color:JD_GRID},ticks:{color:JD_SUB,font:{size:11}},title:{display:true,text:'kg',color:JD_SUB,font:{size:11}}},
-            y:{grid:{display:false},ticks:{color:JD_INK,font:{size:12}},
-               afterFit(sc){ if(window.innerWidth<480){ sc.width=Math.max(sc.width,100); } }}}};
-}
 let JCH={}, JDKEY=null;
 function jdestroy(){ for(const k in JCH){ try{JCH[k].destroy();}catch(e){} } JCH={}; }
 function buildJDashboard(){
@@ -240,18 +232,19 @@ function buildJDashboard(){
     it.farms[r.farm]=(it.farms[r.farm]||0)+r.qty;});
   const arr=Object.keys(items).map(c=>({call:c,...items[c],cnt:items[c].nos.size})).sort((a,b)=>b.kg-a.kg);
   const totKg=arr.reduce((s,x)=>s+x.kg,0);
-  // 1) 品目別 横棒
-  JCH.item=new Chart(document.getElementById('jd-item'),{type:'bar',
-    data:{labels:arr.map(x=>jlab(x.call)),datasets:[{data:arr.map(x=>q1(x.kg)),backgroundColor:JD_GREEN,borderRadius:4,maxBarThickness:16,categoryPercentage:.72}]},
-    options:hbarOpts(arr[0].kg),
-    plugins:[endLabelPlugin((v,i)=>q1(v)+'kg・'+Math.round(arr[i].kg/totKg*100)+'%')]});
-  // 2) 圃場別 横棒
+  // 1) 品目別 横棒（HTML描画）
+  function hbarHTML(rows){
+    const mx=rows[0].kg;
+    return '<div class="hbar">'+rows.map(r=>
+      '<div class="hb-row"><span class="hb-l">'+esc(r.label)+'</span>'
+      +'<span class="hb-t"><i style="width:'+Math.max(2,Math.round(r.kg/mx*100))+'%"></i></span>'
+      +'<span class="hb-v">'+q1(r.kg)+'kg・'+Math.round(r.kg/totKg*100)+'%</span></div>').join('')+'</div>';
+  }
+  document.getElementById('jd-item').innerHTML=hbarHTML(arr.map(x=>({label:jlab(x.call),kg:x.kg})));
+  // 2) 圃場別 横棒（HTML描画）
   const farms={};R.forEach(r=>{farms[r.farm]=(farms[r.farm]||0)+r.qty;});
   const farr=Object.entries(farms).map(([fm,kg])=>({f:fm,kg})).sort((a,b)=>b.kg-a.kg);
-  JCH.farm=new Chart(document.getElementById('jd-farm'),{type:'bar',
-    data:{labels:farr.map(x=>jlab(window.innerWidth<480? String(x.f).split('・')[0] : x.f)),datasets:[{data:farr.map(x=>q1(x.kg)),backgroundColor:JD_GREEN,borderRadius:4,maxBarThickness:16,categoryPercentage:.72}]},
-    options:hbarOpts(farr[0].kg),
-    plugins:[endLabelPlugin((v,i)=>q1(v)+'kg・'+Math.round(farr[i].kg/totKg*100)+'%')]});
+  document.getElementById('jd-farm').innerHTML=hbarHTML(farr.map(x=>({label:jlab(x.f),kg:x.kg})));
   // 2.5) 品目構成比ドーナツ（上位5＋その他、検証済みソフトパレット）
   const JD_PIE=['#4f9c72','#5f8ec9','#bd8138','#9c82d1','#c9758f'];
   const top5=arr.slice(0,5), rest=arr.slice(5);

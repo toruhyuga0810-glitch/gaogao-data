@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thai canvas 診断</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:16px;font-size:14px}
+canvas{border:1px solid #ccc;display:block;margin:6px 0}
+.case{margin-bottom:18px}
+code{background:#f0f0f0;padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<h2>Thai canvas 診断（このページのスクショを1枚ください）</h2>
+<div>HTML表示（基準）: <b>กะเพรา โหระพา คะน้า ผักชีฝรั่ง แปลง 3</b></div>
+<div id="out"></div>
+<div class="case"><div>Chart.js 横棒（既定フォント）</div><div style="height:150px;max-width:360px"><canvas id="c-chart"></canvas></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const TXT='กะเพรา โหระพา คะน้า';
+const FONTS=[
+  "12px 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif",
+  "12px system-ui,-apple-system,'Hiragino Kaku Gothic ProN','Thonburi',sans-serif",
+  "12px Thonburi",
+  "12px sans-serif",
+];
+const out=document.getElementById('out');
+FONTS.forEach((f,i)=>{
+  const div=document.createElement('div'); div.className='case';
+  const c=document.createElement('canvas'); c.width=680; c.height=40; c.style.width='340px'; c.style.height='20px';
+  const ctx=c.getContext('2d'); ctx.scale(2,2);
+  ctx.font=f;
+  const m=Math.round(ctx.measureText(TXT).width);
+  ctx.fillStyle='#111';
+  ctx.fillText(TXT,4,15);
+  const lab=document.createElement('div');
+  lab.innerHTML='font '+(i+1)+': <code>'+f.slice(0,52)+'…</code> measureText=<b>'+m+'px</b> / ctx.font採用値=<code>'+ctx.font.slice(0,40)+'</code>';
+  div.appendChild(lab); div.appendChild(c); out.appendChild(div);
+});
+// textAlign right 版
+{
+  const div=document.createElement('div'); div.className='case';
+  const c=document.createElement('canvas'); c.width=680; c.height=40; c.style.width='340px'; c.style.height='20px';
+  const ctx=c.getContext('2d'); ctx.scale(2,2);
+  ctx.font="12px sans-serif"; ctx.textAlign='right'; ctx.fillStyle='#111';
+  ctx.fillText('กะเพรา',330,15);
+  div.innerHTML='<div>textAlign=right（右端に กะเพรา）</div>';
+  div.appendChild(c); out.appendChild(div);
+}
+// Chart.js ミニ横棒
+new Chart(document.getElementById('c-chart'),{type:'bar',
+  data:{labels:['กะเพรา','โหระพา','คะน้า'],datasets:[{data:[10,7,3],backgroundColor:'#2f8a5f',maxBarThickness:14}]},
+  options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+</script>
+</body>
+</html>
