@@ -80,7 +80,7 @@ input,select,textarea{font-family:inherit;font-size:14px;padding:9px 11px;border
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .state{padding:40px 16px;text-align:center;color:var(--sub);font-size:14px;line-height:1.8}
 .qy{width:70px;text-align:right}
-footer{text-align:center;color:var(--sub);font-size:11px;margin-top:26px}
+footer{text-align:center;color:var(--sub);font-size:11px;margin-top:26px;padding:0 16px}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2a23;color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;z-index:90;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
 @media(max-width:600px){ h1{font-size:18px} th,td{padding:8px 8px} }

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GAOGAO 掲示板（生育・天候情報）</title>
 <link rel="icon" type="image/png" href="img/favicon.png?v=3">
-<link rel="stylesheet" href="assets/app.css?v=33">
+<link rel="stylesheet" href="assets/app.css?v=34">
 <style>
   .feed{display:grid;gap:12px}
   .post{background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:14px;padding:14px 16px;border-left:5px solid var(--line)}
@@ -101,7 +101,7 @@ function render(){
     const cat=CATS.includes(p.cat)?p.cat:'その他';
     return `<div class="post c-${cat}">
       <div class="top"><span class="cat ${cat}">${esc(cat)}</span><span class="when">${esc(fmtDate(p.when)||p.when)}</span></div>
-      <div class="body">${esc(p.body)}</div>
+      <div class="body">${esc(p.body).replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>')}</div>
       ${p.who?`<div class="who">— ${esc(p.who)}</div>`:''}
     </div>`;
   }).join('');
@@ -119,6 +119,6 @@ document.getElementById('reload').onclick=init;
 init();
 </script>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=6"></script>
+<script src="assets/i18n.js?v=7"></script>
 </body>
 </html>

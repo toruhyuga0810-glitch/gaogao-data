@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GAOGAO 圃場生育状況</title>
 <link rel="icon" type="image/png" href="img/favicon.png?v=3">
-<link rel="stylesheet" href="assets/app.css?v=33">
+<link rel="stylesheet" href="assets/app.css?v=34">
 <style>
   .chipsbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .fchip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 15px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
@@ -23,7 +23,7 @@
   .ph{position:relative;border-radius:12px;overflow:hidden;cursor:pointer;background:#e8ece8;aspect-ratio:1;border:0;padding:0}
   .ph img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .15s}
   .ph:hover img{transform:scale(1.04)}
-  .lightbox{position:fixed;inset:0;background:rgba(12,18,14,.9);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+  .lightbox{position:fixed;inset:0;background:rgba(10,14,11,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
   .lightbox img{max-width:94vw;max-height:78vh;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5)}
   .lb-meta{color:#fff;font-size:13px;margin-top:12px;text-align:center;line-height:1.7;max-width:700px;white-space:pre-wrap}
   .lb-close{position:absolute;top:14px;right:18px;background:rgba(255,255,255,.15);border:0;color:#fff;font-size:22px;width:40px;height:40px;border-radius:50%;cursor:pointer}
@@ -189,6 +189,6 @@ document.getElementById('lightbox').addEventListener('touchend',e=>{
 })();
 </script>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=6"></script>
+<script src="assets/i18n.js?v=7"></script>
 </body>
 </html>

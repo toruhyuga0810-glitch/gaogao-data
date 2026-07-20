@@ -178,6 +178,10 @@
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2a23;color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;z-index:90;opacity:0;transition:opacity .2s;pointer-events:none}
   .toast.show{opacity:1}
   @media(max-width:600px){ h1{font-size:18px} th,td{padding:8px 8px} }
+  /* スマホ: 右下固定カートボタンとフッター・トーストの重なり回避 */
+  @media(max-width:640px){ footer{margin-bottom:76px} .toast{bottom:96px} }
+  .scrollnote{display:none}
+  @media(max-width:640px){ .scrollnote{display:block} }
 </style>
 </head>
 <body>
@@ -248,7 +252,7 @@
 
   <div id="view-schedule">
     <div class="toolbar">
-      <div class="searchbox"><input class="search" id="q1" placeholder="品目を検索（呼称・日本名・タイ語）"><button class="clr" id="clr1" aria-label="検索をクリア">×</button></div>
+      <div class="searchbox"><input class="search" id="q1" placeholder="品目を検索（タイ語も可）"><button class="clr" id="clr1" aria-label="検索をクリア">×</button></div>
       <select id="sortmode" class="sortsel">
         <option value="shippable-first">発注可能を上に</option>
         <option value="shippable-only">発注可能のみ</option>
@@ -261,7 +265,8 @@
       </div>
     </div>
     <div class="card"><div class="scroll"><table id="sched"></table></div>
-      <div class="state hide" id="sched-state"></div></div>
+      <div class="state hide" id="sched-state"></div>
+      <div class="muted scrollnote" style="margin-top:8px;font-size:11px">※ 表は横にスクロールできます</div></div>
     <div class="legend">◯ ＝ 歩止まり（収穫の立ち上がり・端境期。数量は僅少または不安定）　／　空欄 ＝ 供給なし　／　数値の単位は kg。<br>
     発注は「発注(kg)」に数量(1kg単位)を入れて「＋ カートに追加」を押すと右下のカートに入ります。<br>
     出荷ステータス: <span class="badge b-ok">出荷可能</span> 開始済 ／ <span class="badge b-soon">来週出荷できます！</span> 7日以内 ／ <span class="badge b-soon">再来週から</span> 14日以内 ／ <span class="badge b-warn">◯月◯日頃から</span> それ以降</div>
@@ -547,15 +552,16 @@ function addFromRow(btn){
   let q=Math.round(parseFloat(inp.value)||0);
   if(q<=0){
     if(cart[call]){ delete cart[call]; saveCart(); updateFab(); inp.value=''; inp.classList.remove('has');
-      btn.classList.remove('added'); btn.innerHTML=addBtnHTML(false); toast(jp+' をカートから削除しました'); }
+      btn.classList.remove('added'); btn.innerHTML=addBtnHTML(false); toast(TRN(jp)+' をカートから削除しました'); }
     else { toast('数量（kg）を入力してください'); inp.focus(); }
     return;
   }
   inp.value=q; inp.classList.add('has');
   setQty(call, jp, q);
   btn.classList.add('added'); btn.innerHTML=addBtnHTML(true);
-  toast(call+' '+q+'kg をカートに追加');
+  toast(TRN(call)+' '+q+'kg をカートに追加');
 }
+function TRN(s){ return (window.ggTr && window.ggTr(s)) || s; }
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
 
 function fmtJpDate(s){ if(!s) return ''; const d=new Date(s+'T00:00:00'); if(isNaN(d)) return s; const w='日月火水木金土'[d.getDay()]; return `${d.getMonth()+1}月${d.getDate()}日(${w})`; }
@@ -693,6 +699,6 @@ $('overlay').onclick=closeCart;
 load();
 </script>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=6"></script>
+<script src="assets/i18n.js?v=7"></script>
 </body>
 </html>

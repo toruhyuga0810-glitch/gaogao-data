@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GAOGAO 納品実績</title>
 <link rel="icon" type="image/png" href="img/favicon.png?v=3">
-<link rel="stylesheet" href="assets/app.css?v=33">
+<link rel="stylesheet" href="assets/app.css?v=34">
 <style>
   .charts{display:grid;gap:16px;grid-template-columns:1fr 1fr}
   .chartbox{position:relative;height:300px}
@@ -35,8 +35,10 @@
   .sharebar{display:inline-flex;align-items:center;gap:8px;width:100%;justify-content:flex-end}
   .sharebar .track{flex:0 0 90px;height:8px;border-radius:99px;background:#eceeea;overflow:hidden}
   .sharebar .track i{display:block;height:100%;border-radius:99px;background:#2f8a5f}
-  .jboard .fchips{margin-top:0;justify-content:flex-end}
+  .jboard .fchips{margin-top:0;justify-content:flex-end;flex-wrap:nowrap}
   .jboard td .rank{display:inline-block;width:20px;color:var(--sub);font-size:11px}
+  .scrollnote{display:none}
+  @media(max-width:640px){ .scrollnote{display:block} }
 </style>
 </head>
 <body>
@@ -87,6 +89,7 @@
       <div class="muted" style="margin-top:8px">月ごとの納品量と品目の内訳。立ち上がり時期・月の消費量の目安になります。</div></div>
     <div class="card"><h2 style="margin-top:0">品目データボード</h2>
       <div class="scroll"><table id="jd-board" class="jboard"></table></div>
+      <div class="muted scrollnote" style="margin-top:8px">※ 表は横にスクロールできます</div>
       <div class="muted" style="margin-top:8px">構成比は累計納品量に対する割合。</div>
     </div>
   </div>
@@ -206,9 +209,10 @@ function endLabelPlugin(fmt){
   }};
 }
 function hbarOpts(maxV){
+  const M=(window.innerWidth<480)?1.65:1.28;
   return {indexAxis:'y',responsive:true,maintainAspectRatio:false,
     plugins:{legend:{display:false},tooltip:{callbacks:{}}},
-    scales:{x:{suggestedMax:maxV*1.28,grid:{color:JD_GRID},ticks:{color:JD_SUB,font:{size:11}},title:{display:true,text:'kg',color:JD_SUB,font:{size:11}}},
+    scales:{x:{suggestedMax:maxV*M,grid:{color:JD_GRID},ticks:{color:JD_SUB,font:{size:11}},title:{display:true,text:'kg',color:JD_SUB,font:{size:11}}},
             y:{grid:{display:false},ticks:{color:JD_INK,font:{size:12}}}}};
 }
 let JCH={}, JDKEY=null;
@@ -241,7 +245,7 @@ function buildJDashboard(){
   const farms={};R.forEach(r=>{farms[r.farm]=(farms[r.farm]||0)+r.qty;});
   const farr=Object.entries(farms).map(([fm,kg])=>({f:fm,kg})).sort((a,b)=>b.kg-a.kg);
   JCH.farm=new Chart(document.getElementById('jd-farm'),{type:'bar',
-    data:{labels:farr.map(x=>jlab(x.f)),datasets:[{data:farr.map(x=>q1(x.kg)),backgroundColor:JD_GREEN,borderRadius:4,maxBarThickness:16,categoryPercentage:.72}]},
+    data:{labels:farr.map(x=>jlab(window.innerWidth<480? String(x.f).split('・')[0] : x.f)),datasets:[{data:farr.map(x=>q1(x.kg)),backgroundColor:JD_GREEN,borderRadius:4,maxBarThickness:16,categoryPercentage:.72}]},
     options:hbarOpts(farr[0].kg),
     plugins:[endLabelPlugin((v,i)=>q1(v)+'kg・'+Math.round(farr[i].kg/totKg*100)+'%')]});
   // 2.5) 品目構成比ドーナツ（上位5＋その他、検証済みソフトパレット）
@@ -331,6 +335,6 @@ document.getElementById('j-reload').addEventListener('click',loadJisseki);
 loadJisseki();
 </script>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=6"></script>
+<script src="assets/i18n.js?v=7"></script>
 </body>
 </html>

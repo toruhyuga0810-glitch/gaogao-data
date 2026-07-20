@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>使い方ガイド | GAOGAO 発注ポータル</title>
 <link rel="icon" type="image/png" href="img/favicon.png?v=3">
-<link rel="stylesheet" href="assets/app.css?v=33">
+<link rel="stylesheet" href="assets/app.css?v=34">
 <style>
   .toc{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
   .toc a{display:block;background:rgba(255,255,255,.82);border:1px solid var(--line);border-radius:10px;padding:12px 14px;text-decoration:none;color:var(--green-d);font-size:13px;font-weight:600}
@@ -39,9 +39,9 @@
   .cat.その他{background:#f0f1ef;color:#5f5e5a}
   .qa dt{font-weight:700;font-size:14px;margin-top:16px;color:var(--green-d)}
   .qa dd{margin:6px 0 0;font-size:13.5px;line-height:1.8;color:var(--ink)}
-  .top-link{position:fixed;right:18px;bottom:18px;background:var(--green);color:#fff;border-radius:999px;padding:10px 16px;font-size:13px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(31,90,56,.3)}
+  .top-link{position:fixed;right:18px;bottom:18px;z-index:60;background:var(--green);color:#fff;border-radius:999px;padding:10px 16px;font-size:13px;font-weight:700;text-decoration:none;box-shadow:0 4px 14px rgba(31,90,56,.3)}
   @media print{ header,nav,.top-link,.toc{display:none} body{background:#fff} }
-  @media(max-width:700px){ table.man{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch} }
+  @media(max-width:700px){ table.man{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch} table.man th,table.man td{white-space:normal;min-width:96px} }
 </style>
 </head>
 <body>
@@ -232,6 +232,6 @@
 <a class="top-link" href="#top">↑ 目次へ</a>
 <footer>GAOGAO 発注ポータル 使い方ガイド ／ 最終更新 2026年7月</footer>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=6"></script>
+<script src="assets/i18n.js?v=7"></script>
 </body>
 </html>
