@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GAOGAO 承認・受付管理</title>
+<title>GAOGAO管理</title>
 <link rel="icon" type="image/png" href="img/favicon.png?v=3">
 <link rel="stylesheet" href="assets/app.css?v=34">
 <style>
@@ -49,7 +49,7 @@
 <svg style="position:absolute;width:0;height:0" aria-hidden="true"><filter id="glass-distortion" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox"><feTurbulence type="fractalNoise" baseFrequency="0.001 0.005" numOctaves="1" seed="17" result="turbulence"/><feComponentTransfer in="turbulence" result="mapped"><feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5"/><feFuncG type="gamma" amplitude="0" exponent="1" offset="0"/><feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5"/></feComponentTransfer><feGaussianBlur in="turbulence" stdDeviation="3" result="softMap"/><feSpecularLighting in="softMap" surfaceScale="5" specularConstant="1" specularExponent="100" lighting-color="white" result="specLight"><fePointLight x="-200" y="-200" z="300"/></feSpecularLighting><feComposite in="specLight" operator="in" in2="SourceGraphic" result="specularSaturated"/><feDisplacementMap in="SourceGraphic" in2="softMap" scale="120" xChannelSelector="R" yChannelSelector="G"/></filter><filter id="goo"><feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/><feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter></svg>
 <header class="h-admin"><div class="wrap">
   <h1><img src="img/logo-h.png" alt="GAOGAO Farm" class="logotype"><span class="h1sub">発注ポータル</span></h1>
-  <div class="lead">承認・受付管理（GAOGAO用）</div>
+  <div class="lead">GAOGAO管理 ／ 承認・受付・供給・価格の管理（GAOGAO専用）</div>
   <nav class="tabs">
     <a href="index.html"><span>ホーム</span></a>
     <a href="hatchu.html"><span>供給・発注</span></a>
@@ -58,14 +58,14 @@
     <span class="navsp"></span>
     <a class="sub" href="keiziban.html"><span>掲示板</span></a>
     <a class="sub" href="photos.html"><span>圃場生育状況</span></a>
-    <a class="sub adm active" href="admin.html"><span>承認(管理)</span></a>
+    <a class="sub adm active" href="admin.html"><span>GAOGAO管理</span></a>
   </nav>
 </div></header>
 
 <div class="wrap">
   <!-- コンテンツ・ロック（パスワードで中身を解錠。ヘッダーのタブで他ページへ移動できます） -->
   <div id="lockcard" class="card lockcard">
-    <h2>承認・受付管理（GAOGAO専用）</h2>
+    <h2>GAOGAO管理（GAOGAO専用）</h2>
     <div class="muted">このページの内容を見るにはパスワードが必要です。</div>
     <div class="lockrow">
       <input id="gate-pw" type="password" placeholder="パスワード" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
@@ -143,7 +143,7 @@
   </div>
 </div>
 
-<footer>GAOGAO 承認画面 ／ 「注文」タブと連携</footer>
+<footer>GAOGAO管理 ／ 「注文」タブと連携</footer>
 
 <script src="assets/orders.js"></script>
 <script>
@@ -461,6 +461,6 @@ document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
 }));
 </script>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=8"></script>
+<script src="assets/i18n.js?v=9"></script>
 </body>
 </html>
