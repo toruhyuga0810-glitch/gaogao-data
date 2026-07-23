@@ -119,7 +119,7 @@
           <div><div class="muted">日本名 <span style="color:#c0584f">*</span></div><input id="na-jp" class="dIn" style="width:160px" placeholder="例: コリアンダー"></div>
           <div><div class="muted">タイ語名</div><input id="na-th" class="dIn" style="width:130px" placeholder="任意"></div>
           <div><div class="muted">納品開始日</div><input id="na-start" type="date" class="dIn"></div>
-          <div><div class="muted">可能収穫量</div><input id="na-next" class="dIn" style="width:90px" placeholder="任意"></div>
+          <div><div class="muted">予想収穫可能量</div><input id="na-next" class="dIn" style="width:90px" placeholder="任意"></div>
           <button class="btn sm" id="na-add">＋ 品目を追加</button>
         </div>
         <div class="muted" style="margin-top:8px">追加後、月別の数量は下の表に行が増えるので入力して「保存」。価格表にも自動で行が入るので、価格はさらに下の「圃場別 卸価格」で入力できます。</div>
@@ -310,7 +310,7 @@ async function loadSupply(){
 function renderSupply(){
   let h='<thead><tr><th class="nm">品目</th>';
   for(let m=1;m<=12;m++) h+='<th>'+m+'月</th>';
-  h+='<th>納品開始日</th><th>可能収穫量</th><th></th></tr></thead><tbody>';
+  h+='<th>納品開始日</th><th>予想収穫可能量</th><th></th></tr></thead><tbody>';
   SUP.forEach((it,idx)=>{
     h+='<tr data-idx="'+idx+'"><td class="nm"><b>'+esc(it.call)+'</b><div class="muted" style="font-size:10px">'+esc(it.jp)+'</div></td>';
     it.months.forEach((v,m)=>{ h+='<td><input class="mIn" data-m="'+(m+1)+'" value="'+esc(v)+'" placeholder="–"></td>'; });
@@ -461,6 +461,6 @@ document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
 }));
 </script>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=7"></script>
+<script src="assets/i18n.js?v=8"></script>
 </body>
 </html>

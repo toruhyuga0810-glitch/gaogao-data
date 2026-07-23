@@ -420,7 +420,7 @@ function renderSched(){
   list.forEach(({it,st})=>{
     const arr= mode==='weekly' ? it.monthly.map(v=> (typeof v==='number')? Math.round(v/CONFIG.WEEKS_PER_MONTH*10)/10 : v) : it.monthly;
     const shippable = (st.cls==='b-ok');   // 出荷可能のときだけ発注可能
-    const harvest = it.next ? '<div class="availq"><span class="cap">可能収穫量</span><b>'+esc(it.next)+'</b></div>' : '';
+    const harvest = it.next ? '<div class="availq"><span class="cap">予想収穫可能量</span><b>'+esc(it.next)+'</b></div>' : '';
     const cur = cart[it.call] ? cart[it.call].qty : '';
     h+='<tr><td class="name"><div class="jp">'+esc(it.call)+'</div><div class="sub">'+esc(it.jp)+'</div><div class="th">'+esc(it.th||'')+'</div></td>';
     arr.forEach((v,i)=>{ h+='<td class="mon'+(i===nowMonth?' now':'')+'">'+cell(v)+'</td>'; });
@@ -699,6 +699,6 @@ $('overlay').onclick=closeCart;
 load();
 </script>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=7"></script>
+<script src="assets/i18n.js?v=8"></script>
 </body>
 </html>
