@@ -19,8 +19,15 @@ jobs:
           set -e
           pip install --quiet pillow
           mkdir -p photos
-          curl -s -H "Authorization: Bot $BOT_TOKEN" -H "User-Agent: DiscordBot (https://gaogao, 1.0)" \
-            "https://discord.com/api/v10/channels/$CHANNEL_ID/messages?limit=50" -o messages.json
+          HTTP=$(curl -s -w "%{http_code}" -H "Authorization: Bot $BOT_TOKEN" -H "User-Agent: DiscordBot (https://gaogao, 1.0)" \
+            "https://discord.com/api/v10/channels/$CHANNEL_ID/messages?limit=50" -o messages.json)
+          echo "Discord HTTP status: $HTTP"
+          if [ "$HTTP" != "200" ] || ! jq -e 'type == "array"' messages.json >/dev/null 2>&1; then
+            echo "⚠️ Discord APIが正常なメッセージ配列を返しませんでした。実際の応答（先頭600字）:"
+            head -c 600 messages.json; echo ""
+            echo "→ 原因の目安: 401=Botトークン失効/無効, 403=権限不足, 404=チャンネルID誤り/Bot未参加, 429=レート制限。今回は安全にスキップして終了します。"
+            exit 0
+          fi
           # 画像添付を新しい順に最大MAX_PHOTOS件抽出
           jq --argjson max "$MAX_PHOTOS" '[ .[] | . as $m | ($m.attachments // [])[] as $a
               | select((($a.content_type // "") | startswith("image/")))
