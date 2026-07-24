@@ -91,7 +91,7 @@
     </div>
     <div class="charts">
       <div class="card"><h2 style="margin-top:0">品目構成比（累計納品量）</h2><div class="chartbox"><canvas id="jd-pie"></canvas></div></div>
-      <div class="card"><h2 style="margin-top:0">累計納品量の推移（全体と上位3品目）</h2><div class="chartbox"><canvas id="jd-cum"></canvas></div></div>
+      <div class="card"><h2 style="margin-top:0">1回ごとの納品量（棒）と累計（線）</h2><div class="chartbox"><canvas id="jd-cum"></canvas></div></div>
     </div>
     <div class="card"><h2 style="margin-top:0">月別納品量（品目内訳）</h2><div class="chartbox"><canvas id="jd-month"></canvas></div>
       <div class="muted" style="margin-top:8px">月ごとの納品量と品目の内訳。立ち上がり時期・月の消費量の目安になります。</div></div>
@@ -260,19 +260,22 @@ function buildJDashboard(){
             fillStyle:d.datasets[0].backgroundColor[i],strokeStyle:'transparent',index:i}));}}},
         tooltip:{callbacks:{label(ctx){const tot=ctx.dataset.data.reduce((s,v)=>s+v,0);
           return ' '+ctx.parsed+'kg（'+Math.round(ctx.parsed/tot*1000)/10+'%）';}}}}}});
-  // 3) 累計推移（全体＋上位3品目）
+  // 3) 1回ごとの納品量（棒）＋累計（線）を同一kg軸に重ねる（2軸は使わない）
   const dates=[...new Set(R.map(r=>r.date))].sort();
   const dl=dates.map(d=>{const m=d.match(/-(\d{2})-(\d{2})/);return +m[1]+'/'+ +m[2];});
-  function cum(filter){let s=0;return dates.map(d=>{s+=R.filter(r=>r.date===d&&(!filter||r.call===filter)).reduce((a,r)=>a+r.qty,0);return q1(s);});}
-  const top3=f?[]:arr.slice(0,3).map(x=>x.call);
-  const dsets=[{label:(f? jlab(f) : (JTH?'ทั้งหมด':'全体')),data:cum(null),borderColor:JD_CAT[0],borderWidth:2.5,pointRadius:0,pointHoverRadius:4,tension:0}]
-    .concat(top3.map((c,i)=>({label:jlab(c),data:cum(c),borderColor:JD_CAT[i+1],borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:0})));
-  JCH.cum=new Chart(document.getElementById('jd-cum'),{type:'line',
-    data:{labels:dl,datasets:dsets},
+  const perDay=dates.map(d=>q1(R.filter(r=>r.date===d).reduce((a,r)=>a+r.qty,0)));  // その日の納品量
+  let cs=0; const cumAll=dates.map((d,i)=>{cs+=perDay[i];return q1(cs);});           // 累計
+  const L_EACH=(JTH?'ต่อครั้ง':'1回ごと'), L_CUM=(JTH?'สะสม':'累計');
+  JCH.cum=new Chart(document.getElementById('jd-cum'),{
+    data:{labels:dl,datasets:[
+      {type:'bar', label:L_EACH, data:perDay, backgroundColor:'#a9cebb', borderColor:'#ffffff', borderWidth:1, maxBarThickness:34, categoryPercentage:.8, order:2},
+      {type:'line',label:L_CUM,  data:cumAll, borderColor:JD_GREEN, borderWidth:2.5, pointRadius:0, pointHoverRadius:4, tension:0, order:1}
+    ]},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-      plugins:{legend:{position:'bottom',labels:{color:JD_INK,font:{size:11},boxWidth:14,boxHeight:3}}},
+      plugins:{legend:{position:'bottom',labels:{color:JD_INK,font:{size:11},boxWidth:14,boxHeight:14,borderRadius:4,useBorderRadius:true}},
+        tooltip:{callbacks:{label(ctx){return ' '+ctx.dataset.label+': '+ctx.parsed.y+'kg';}}}},
       scales:{x:{grid:{display:false},ticks:{color:JD_SUB,font:{size:11}}},
-              y:{grid:{color:JD_GRID},ticks:{color:JD_SUB,font:{size:11}},title:{display:true,text:(JTH?'kg สะสม':'累計kg'),color:JD_SUB,font:{size:11}}}}}});
+              y:{beginAtZero:true,grid:{color:JD_GRID},ticks:{color:JD_SUB,font:{size:11}},title:{display:true,text:'kg',color:JD_SUB,font:{size:11}}}}}});
   // 3.5) 月別納品量（上位4品目＋その他の積み上げ）
   // 月の比較が本体なので常に全月表示。品目フィルタのみ反映し、月選択時は該当月を強調
   const RM=JIS.records.filter(r=>!f||r.call===f);
@@ -332,6 +335,6 @@ document.getElementById('j-reload').addEventListener('click',loadJisseki);
 loadJisseki();
 </script>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=9"></script>
+<script src="assets/i18n.js?v=10"></script>
 </body>
 </html>
