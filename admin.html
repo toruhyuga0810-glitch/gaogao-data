@@ -212,7 +212,7 @@ function render(){
         <span class="bulk-actions">
           <select class="bulk-farm" data-id="${esc(o.id)}"><option value="">圃場をまとめて選ぶ…</option>${PFARMS.map(f=>`<option value="${esc(f)}">${esc(farmLabel(f))}</option>`).join('')}</select>
           <button type="button" class="btn xs ghost bulk-stock" data-id="${esc(o.id)}">欠品にする</button>
-          <button type="button" class="btn xs ghost bulk-restore" data-id="${esc(o.id)}">戻す</button>
+          <button type="button" class="btn xs ghost bulk-restore" data-id="${esc(o.id)}">リセット</button>
         </span>
       </div>
       <div class="scroll"><table>
@@ -274,7 +274,7 @@ function render(){
   el.querySelectorAll('.bulk-restore').forEach(b=>b.addEventListener('click',()=>{
     const o=ORDERS.find(x=>x.id===b.dataset.id); if(!o)return;
     let n=0; o.items.forEach(it=>{ if(it.sel!==false && it.excluded){ it.excluded=false; n++; }});
-    if(n) toast(`${n}品目を戻しました`); render();
+    if(n) toast(`${n}品目をリセットしました`); render();
   }));
   // 数量・単価の変更で小計/合計をその場で再計算（欠品調整の確認用）
   el.querySelectorAll('.qty-in,.price-in').forEach(inp=>inp.addEventListener('change',e=>{
