@@ -18,11 +18,12 @@
   th.chk,td.chk{width:34px;text-align:center;padding-left:4px;padding-right:4px}
   .di-chk{width:16px;height:16px;accent-color:var(--green);cursor:pointer}
   .farm-sel{font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;max-width:160px}
-  .bulk-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 4px 12px}
-  .bulk-bar .bchk{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;cursor:pointer}
-  .bulk-bar .bchk input{width:16px;height:16px;accent-color:var(--green)}
-  .bulk-bar .bulk-lbl{font-size:12px;color:var(--sub);margin-left:4px}
-  .bulk-bar .bulk-farm{font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:#fff}
+  .bulk-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:9px 12px;margin:2px 0 8px;background:#fafbfa;border:1px solid var(--line);border-radius:10px}
+  .bulk-bar .bulk-lbl{font-size:12px;color:var(--sub)}
+  .bulk-bar .sel-count{color:var(--green-d);font-size:14px}
+  .bulk-bar .bulk-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-left:auto}
+  .bulk-bar .bulk-farm{font-size:12px;padding:5px 9px;border:1px solid var(--line);border-radius:7px;background:#fff}
+  th.chk .chk-all{width:16px;height:16px;accent-color:var(--green);cursor:pointer;vertical-align:middle}
   .btn.xs{padding:5px 10px;font-size:12px;border-radius:8px}
   tr.excluded{opacity:.5}
   tr.excluded td b{text-decoration:line-through;text-decoration-color:var(--sub)}
@@ -204,14 +205,15 @@ function render(){
       </div>
       <div class="ob">
       <div class="bulk-bar">
-        <label class="bchk"><input type="checkbox" class="chk-all" data-id="${esc(o.id)}" ${o.items.every(it=>it.sel!==false)?'checked':''}> 全選択</label>
-        <span class="bulk-lbl">選択した品目を：</span>
-        <select class="bulk-farm" data-id="${esc(o.id)}"><option value="">圃場を一括…</option>${PFARMS.map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join('')}</select>
-        <button type="button" class="btn xs ghost bulk-stock" data-id="${esc(o.id)}">欠品にする</button>
-        <button type="button" class="btn xs ghost bulk-restore" data-id="${esc(o.id)}">戻す</button>
+        <span class="bulk-lbl">選択した <b class="sel-count" data-id="${esc(o.id)}">${o.items.filter(it=>it.sel!==false).length}</b> 件を</span>
+        <span class="bulk-actions">
+          <select class="bulk-farm" data-id="${esc(o.id)}"><option value="">圃場をまとめて選ぶ…</option>${PFARMS.map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join('')}</select>
+          <button type="button" class="btn xs ghost bulk-stock" data-id="${esc(o.id)}">欠品にする</button>
+          <button type="button" class="btn xs ghost bulk-restore" data-id="${esc(o.id)}">戻す</button>
+        </span>
       </div>
       <div class="scroll"><table>
-        <thead><tr><th class="chk">✓</th><th>品目</th><th class="num">数量</th><th>圃場</th><th class="num">単価</th><th class="num">小計</th></tr></thead>
+        <thead><tr><th class="chk"><input type="checkbox" class="chk-all" data-id="${esc(o.id)}" ${o.items.every(it=>it.sel!==false)?'checked':''} title="全選択"></th><th>品目</th><th class="num">数量</th><th>圃場</th><th class="num">単価</th><th class="num">小計</th></tr></thead>
         <tbody>${rows}</tbody>
         <tfoot><tr><th colspan="5" class="num">合計(税抜)${hasAll?'':'（一部単価未設定）'}</th><th class="num">${yen(sub)}</th></tr></tfoot>
       </table></div>
@@ -239,6 +241,9 @@ function render(){
   el.querySelectorAll('.di-chk').forEach(c=>c.addEventListener('change',e=>{
     const t=e.target; const o=ORDERS.find(x=>x.id===t.dataset.id); if(!o)return;
     const it=o.items.find(x=>x.call===t.dataset.call); if(it) it.sel=t.checked;
+    const idsel=`[data-id="${CSS.escape(t.dataset.id)}"]`;
+    const cnt=el.querySelector(`.sel-count${idsel}`); if(cnt) cnt.textContent=o.items.filter(x=>x.sel!==false).length;
+    const all=el.querySelector(`.chk-all${idsel}`); if(all) all.checked=o.items.every(x=>x.sel!==false);
   }));
   // 全選択トグル
   el.querySelectorAll('.chk-all').forEach(c=>c.addEventListener('change',e=>{
