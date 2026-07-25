@@ -41,6 +41,18 @@
   tr.excluded{opacity:.5}
   tr.excluded td b{text-decoration:line-through;text-decoration-color:var(--sub)}
   .stock-tag{display:inline-block;font-size:10px;font-weight:700;color:#a8452e;background:#f6e3dd;border-radius:5px;padding:1px 6px;vertical-align:middle}
+  .mail-panel{margin:0 16px 14px;padding:12px 14px;background:#fafbfa;border:1px solid var(--line);border-radius:10px}
+  .mail-panel .mp-title{font-weight:700;color:var(--green-d);font-size:13px;margin-bottom:8px}
+  .mp-inputs{display:flex;flex-wrap:wrap;gap:8px 12px;margin-bottom:8px}
+  .mp-field{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--sub)}
+  .mp-field:first-child{flex:1;min-width:260px}
+  .mp-field input{font-size:13px}
+  .mp-area{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+  .mp-note{font-size:11.5px;color:var(--sub);margin-bottom:8px}
+  .mp-subj{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--sub);margin-bottom:8px}
+  .mp-subj input{font-size:13px;font-weight:600;color:var(--ink)}
+  .mp-body{width:100%;font-family:inherit;font-size:13px;line-height:1.7;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);resize:vertical}
+  .mp-send{margin-top:8px}
   .draft-result{margin:0 16px 14px;padding:12px 14px;background:var(--accent);border:1px solid var(--green);border-radius:10px}
   .draft-result .dr-title{font-weight:700;color:var(--green-d)}
   .draft-result .dr-note{font-size:12px;color:var(--sub);margin:4px 0 8px}
@@ -252,6 +264,22 @@ function render(){
         <button class="btn warn" data-act="キャンセル">キャンセル</button>
         <button class="btn draft-btn" data-draft="1">納品書ドラフトを${o.draftNumber?'更新':'作成'}</button>
       </div>
+      ${o.draftNumber?`
+      <div class="mail-panel">
+        <div class="mp-title">納品メール <span class="muted">（freeeでURL共有 → 貼付 → 送信）</span></div>
+        <div class="mp-inputs">
+          <label class="mp-field"><span>納品書URL</span><input class="mp-url" data-id="${esc(o.id)}" placeholder="https://invoice.secure.freee.co.jp/ivex/dl/…"></label>
+          <label class="mp-field"><span>有効期限</span><input class="mp-exp" data-id="${esc(o.id)}" placeholder="2026-09-22 16:59:37"></label>
+          <label class="mp-field"><span>佐川追跡番号</span><input class="mp-track" data-id="${esc(o.id)}" placeholder="454146650241"></label>
+        </div>
+        <button type="button" class="btn ghost mp-preview" data-id="${esc(o.id)}">プレビュー作成</button>
+        <div class="mp-area hide">
+          <div class="mp-note">送信先：スパイスロード（尾上・秋葉・松本）＋QOF（CC）。内容を確認し、必要なら直接編集して送信してください。</div>
+          <label class="mp-subj"><span>件名</span><input class="mp-subject" data-id="${esc(o.id)}"></label>
+          <textarea class="mp-body" data-id="${esc(o.id)}" rows="15"></textarea>
+          <button type="button" class="btn mp-send" data-id="${esc(o.id)}">この内容で送信</button>
+        </div>
+      </div>`:''}
       ${editable?'<div class="muted" style="padding:0 16px 12px">※ 欠品時は数量を変更してから承認してください。承認すると納品可能数が顧客へメール送信されます。単価は空欄でもOK（仕入れ先確定後に入力可）。</div>':''}</div>`;
   });
   el.innerHTML=h;
@@ -322,6 +350,34 @@ function render(){
     const o=ORDERS.find(x=>x.id===e.target.dataset.id); if(!o) return;
     if(e.target.checked) o.shipMode=e.target.value;
   }));
+  // 納品メール：プレビュー作成
+  el.querySelectorAll('.mp-preview').forEach(b=>b.addEventListener('click',()=>{
+    const o=ORDERS.find(x=>x.id===b.dataset.id); if(!o)return;
+    const panel=b.closest('.mail-panel');
+    const url=panel.querySelector('.mp-url').value.trim();
+    if(!url){ toast('納品書URLを貼ってください'); return; }
+    const m=buildDeliveryMail(o, url, panel.querySelector('.mp-exp').value.trim(), panel.querySelector('.mp-track').value.trim());
+    panel.querySelector('.mp-subject').value=m.subject;
+    panel.querySelector('.mp-body').value=m.body;
+    panel.querySelector('.mp-area').classList.remove('hide');
+  }));
+  // 納品メール：送信
+  el.querySelectorAll('.mp-send').forEach(b=>b.addEventListener('click',async()=>{
+    const o=ORDERS.find(x=>x.id===b.dataset.id); if(!o)return;
+    const panel=b.closest('.mail-panel');
+    const subject=panel.querySelector('.mp-subject').value.trim();
+    const body=panel.querySelector('.mp-body').value;
+    if(!subject||!body){ toast('件名・本文を確認してください'); return; }
+    if(!confirm('納品メールを送信します。\n送信先：スパイスロード（尾上・秋葉・松本）＋QOF（CC）\n件名：'+subject+'\n\nよろしいですか？')) return;
+    const label=b.textContent; b.disabled=true; b.textContent='送信中…';
+    const r=await postAction({action:'sendDeliveryMail', token:ADMIN_TOKEN_VAL, orderId:o.id, subject, body});
+    b.disabled=false; b.textContent=label;
+    if(r.ok===false && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続'); }
+    else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（sendDeliveryMail対応の再デプロイが必要）'); }
+    else if(r.ok){ toast('✅ 納品メールを送信しました'); }
+    else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); localStorage.removeItem('gaogao_admin_token'); location.reload(); }
+    else { toast('送信失敗: '+((r&&r.error)||'')); }
+  }));
 }
 
 let ADMIN_TOKEN_VAL='';
@@ -380,9 +436,28 @@ async function makeDraft(btn){
   btn.disabled=false; btn.textContent=label;
   if(r.ok===false && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続'); }
   else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（createDraft対応の再デプロイが必要）'); }
-  else if(r.ok){ o.draftNumber=r.number; const bb=order.querySelector('.draft-btn'); if(bb) bb.textContent='納品書ドラフトを更新'; showDraftResult(order, r); toast(`✅ freee下書きを${r.mode==='更新'?'更新':'作成'}しました：${r.number||''}`); }
+  else if(r.ok){ o.draftNumber=r.number; o.draftSubject=r.subject; render();
+    const od=document.querySelector(`.order[data-id="${CSS.escape(o.id)}"]`); if(od) showDraftResult(od, r);
+    toast(`✅ freee下書きを${r.mode==='更新'?'更新':'作成'}しました：${r.number||''}`); }
   else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); localStorage.removeItem('gaogao_admin_token'); location.reload(); }
   else { toast('作成失敗: '+((r&&r.error)||'')); }
+}
+
+// 納品日を「7月28日（火）」形式に
+function fmtDeliveryDate(d){
+  if(!d) return '';
+  const m=String(d).match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+  if(!m) return String(d);
+  const dt=new Date(+m[1],+m[2]-1,+m[3]); if(isNaN(dt.getTime())) return String(d);
+  return `${+m[2]}月${+m[3]}日（${'日月火水木金土'[dt.getDay()]}）`;
+}
+// 納品メールの件名・本文を生成（NotionのOperationテンプレ準拠。差し込み＝#N・納品日・URL・有効期限・佐川番号）
+function buildDeliveryMail(o, url, exp, track){
+  const sm=String(o.draftSubject||'').match(/[#＃]\s*(\d+)/); const n=sm?sm[1]:'';
+  const noubi=fmtDeliveryDate(o.deliveryDate);
+  const subject=`[GAOGAO納品書＃${n}]タイ野菜${noubi}納品分`;
+  const body=`株式会社スパイスロード\n購買部　尾上 裕美 様\n経理部　秋葉 正志 様\n\nいつも大変お世話になっております。\n\nTHAI SUPERMARKET 99 / GAOGAOの日向でございます。\n\n平素は弊社に格別のお引き立てを賜り、誠にありがとうございます。\nこの度、＃${n}タイ野菜${noubi}納品分の納品書をメールにてお送りいたします。\n\n納品書URL：\n${url}\n有効期限：${exp}\n\n佐川追跡番号：${track}\nhttps://www.sagawa-exp.co.jp/howto-search/\n\nお手数をおかけいたしますが、内容をご確認いただきますようお願い申し上げます。\n\nご不明な点・不備等がございましたら、本メールへのご返信にてお気軽にお申し付けください。\n\n何卒よろしくお願い申し上げます。`;
+  return {subject, body};
 }
 
 // 作成結果パネル（freee詳細ページへのリンク＝ここでURL共有を1クリック発行）
@@ -400,10 +475,10 @@ async function loadDraftLinks(){
     const hi=rows.findIndex(r=>r.some(c=>String(c).trim()==='注文番号'));
     if(hi<0) return {};
     const head=rows[hi].map(s=>String(s).trim());
-    const iId=head.indexOf('注文番号'), iNum=head.indexOf('番号'), iFid=head.indexOf('freee_id'), iSt=head.indexOf('状態');
+    const iId=head.indexOf('注文番号'), iNum=head.indexOf('番号'), iFid=head.indexOf('freee_id'), iSt=head.indexOf('状態'), iSub=head.indexOf('件名');
     const map={};
     for(let i=hi+1;i<rows.length;i++){ const r=rows[i]||[]; const oid=String(r[iId]||'').trim();
-      if(oid) map[oid]={number:iNum>=0?String(r[iNum]||'').trim():'', id:iFid>=0?String(r[iFid]||'').trim():'', status:iSt>=0?String(r[iSt]||'').trim():''}; }
+      if(oid) map[oid]={number:iNum>=0?String(r[iNum]||'').trim():'', id:iFid>=0?String(r[iFid]||'').trim():'', status:iSt>=0?String(r[iSt]||'').trim():'', subject:iSub>=0?String(r[iSub]||'').trim():''}; }
     return map;
   }catch(e){ return {}; }
 }
@@ -416,7 +491,7 @@ async function init(){
   try{
     const items=await loadOrderItems(); ORDERS=groupOrders(items);
     ORDERS.forEach(o=>o._orig=o.items.map(it=>({call:it.call, price:(it.price??null)})));  // 元の単価を記録（リセット用）
-    try{ const links=await loadDraftLinks(); ORDERS.forEach(o=>{ if(links[o.id]) o.draftNumber=links[o.id].number; }); }catch(e){}  // 既存ドラフトがあればボタンを「更新」に
+    try{ const links=await loadDraftLinks(); ORDERS.forEach(o=>{ const l=links[o.id]; if(l){ o.draftNumber=l.number; o.draftSubject=l.subject; } }); }catch(e){}  // 既存ドラフトがあればボタンを「更新」に＋件名#N復元
     const sel=document.getElementById('f-company'); [...new Set(ORDERS.map(o=>o.company).filter(Boolean))].forEach(c=>{const op=document.createElement('option');op.textContent=c;sel.appendChild(op);});
     if(!priceLoaded) await loadPrices();   // 圃場セレクト＆自動単価のため価格表を先読み（PRICES/PFARMS）
     if(ORDERS.length===0){ document.getElementById('state').innerHTML='まだ注文がありません。<br><span class="muted">カートから注文が入るとここに表示されます（Apps Script接続後）。</span>'; return; }
