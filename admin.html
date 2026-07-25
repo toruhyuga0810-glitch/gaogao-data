@@ -24,6 +24,13 @@
   .bulk-bar .bulk-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-left:auto}
   .bulk-bar .bulk-farm{font-size:12px;padding:5px 9px;border:1px solid var(--line);border-radius:7px;background:#fff}
   th.chk .chk-all{width:16px;height:16px;accent-color:var(--green);cursor:pointer;vertical-align:middle}
+  .ship-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:10px 12px;margin-top:8px;background:#fafbfa;border:1px solid var(--line);border-radius:10px}
+  .ship-bar .ship-lbl{font-size:13px;font-weight:600;color:var(--green-d)}
+  .ship-cell{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--sub)}
+  .ship-cell .ss-l{min-width:52px;text-align:right}
+  .ship-cell .ship-in{width:48px;text-align:right;padding:4px 6px;border:1px solid var(--line);border-radius:6px}
+  .ship-cell .ss-u{color:var(--sub)}
+  .ship-hint{font-size:11px;color:var(--sub);margin-left:auto}
   .btn.xs{padding:5px 10px;font-size:12px;border-radius:8px}
   tr.excluded{opacity:.5}
   tr.excluded td b{text-decoration:line-through;text-decoration-color:var(--sub)}
@@ -168,6 +175,8 @@ const yen=n=>(n==null||n==='')?'–':'¥'+Math.round(n).toLocaleString();
 // 圃場番号→エリア名（表示用。値は「第N圃場」のまま）。jisseki/GASのFREEE_FARM_AREAと同期
 const FARM_AREA={1:'八郷',2:'鉾田',3:'土浦',4:'沖縄',5:'江戸崎',6:'牛久'};
 function farmLabel(f){ const m=String(f).match(/第(\d+)圃場/); const a=m?FARM_AREA[+m[1]]:''; return a?`${f}・${a}`:f; }
+// 配送サイズ（v=GASのFREEE_SORYOと一致させる値／l=画面表示）。箱数を入れた分だけ納品書に載る
+const SHIP_SIZES=[{v:'60サイズ',l:'60'},{v:'80サイズ',l:'80'},{v:'100サイズ',l:'100'},{v:'140サイズ（20kg）',l:'140/20kg'},{v:'140サイズ（30kg）',l:'140/30kg'}];
 
 function statusBadge(s){ return `<span class="badge s-${esc(s)}">${esc(s)}</span>`; }
 function render(){
@@ -220,6 +229,11 @@ function render(){
         <tbody>${rows}</tbody>
         <tfoot><tr><th colspan="5" class="num">合計(税抜)${hasAll?'':'（一部単価未設定）'}</th><th class="num">${yen(sub)}</th></tr></tfoot>
       </table></div>
+      <div class="ship-bar">
+        <span class="ship-lbl">🚚 配送（クール）</span>
+        ${SHIP_SIZES.map(s=>`<label class="ship-cell"><span class="ss-l">${s.l}</span><input type="number" class="ship-in" min="0" step="1" value="${(o.ship&&o.ship[s.v])||''}" data-id="${esc(o.id)}" data-size="${esc(s.v)}" placeholder="0"><span class="ss-u">箱</span></label>`).join('')}
+        <span class="ship-hint">箱数を入れた分だけ納品書に載ります</span>
+      </div>
       ${o.note?`<div class="muted" style="margin-top:8px">備考: ${esc(o.note)}</div>`:''}</div>
       <div class="oactions">
         <button class="btn" data-act="承認済み">この内容で承認（顧客へメール）</button>
@@ -286,6 +300,12 @@ function render(){
     else it.price=(t.value===''?null:parseFloat(t.value));
     render();
   }));
+  // 配送：サイズごとの箱数（入れた分だけドラフトに載る）
+  el.querySelectorAll('.ship-in').forEach(inp=>inp.addEventListener('change',e=>{
+    const t=e.target; const o=ORDERS.find(x=>x.id===t.dataset.id); if(!o) return;
+    if(!o.ship) o.ship={};
+    o.ship[t.dataset.size]=Math.max(0,parseInt(t.value)||0);
+  }));
 }
 
 let ADMIN_TOKEN_VAL='';
@@ -333,11 +353,13 @@ async function makeDraft(btn){
   if(missing.length){ toast('圃場が未選択の品目があります: '+missing.map(x=>x.call).join('・')); return; }
   const noPrice=items.filter(it=>it.price==null||it.price==='');
   if(noPrice.length){ toast('単価が未設定の品目があります: '+noPrice.map(x=>x.call).join('・')); return; }
-  if(!confirm(`freeeに納品書の下書きを作成します（${items.length}品目＋送料は全サイズ）。\n取引先：${o.company}\n納品日：${o.deliveryDate||'（本日）'}\nよろしいですか？`)) return;
+  const shipping=SHIP_SIZES.filter(s=>o.ship&&o.ship[s.v]>0).map(s=>({size:s.v, boxes:o.ship[s.v]}));
+  const shipTxt=shipping.length?shipping.map(s=>`${s.size}×${s.boxes}箱`).join('・'):'なし';
+  if(!confirm(`freeeに納品書の下書きを作成します。\n取引先：${o.company}\n納品日：${o.deliveryDate||'（本日）'}\n品目：${items.length}件\n配送：${shipTxt}\nよろしいですか？`)) return;
   const label=btn.textContent; btn.disabled=true; btn.textContent='freeeに作成中…';
   const r=await postAction({ action:'createDraft', token:ADMIN_TOKEN_VAL, orderId:id,
     customer:o.company, person:o.person, deliveryDate:o.deliveryDate,
-    items:items.map(it=>({call:it.call, jp:it.jp, farm:it.farm, qty:it.qty, price:it.price})) });
+    items:items.map(it=>({call:it.call, jp:it.jp, farm:it.farm, qty:it.qty, price:it.price})), shipping });
   btn.disabled=false; btn.textContent=label;
   if(r.ok===false && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続'); }
   else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（createDraft対応の再デプロイが必要）'); }
