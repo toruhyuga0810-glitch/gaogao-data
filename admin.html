@@ -250,7 +250,7 @@ function render(){
         <button class="btn" data-act="承認済み">この内容で承認（顧客へメール）</button>
         <button class="btn ghost" data-act="納品済み">納品済みにする</button>
         <button class="btn warn" data-act="キャンセル">キャンセル</button>
-        <button class="btn draft-btn" data-draft="1">納品書ドラフトを作成</button>
+        <button class="btn draft-btn" data-draft="1">納品書ドラフトを${o.draftNumber?'更新':'作成'}</button>
       </div>
       ${editable?'<div class="muted" style="padding:0 16px 12px">※ 欠品時は数量を変更してから承認してください。承認すると納品可能数が顧客へメール送信されます。単価は空欄でもOK（仕入れ先確定後に入力可）。</div>':''}</div>`;
   });
@@ -380,7 +380,7 @@ async function makeDraft(btn){
   btn.disabled=false; btn.textContent=label;
   if(r.ok===false && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続'); }
   else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（createDraft対応の再デプロイが必要）'); }
-  else if(r.ok){ showDraftResult(order, r); toast(`✅ freee下書きを${r.mode==='更新'?'更新':'作成'}しました：${r.number||''}`); }
+  else if(r.ok){ o.draftNumber=r.number; const bb=order.querySelector('.draft-btn'); if(bb) bb.textContent='納品書ドラフトを更新'; showDraftResult(order, r); toast(`✅ freee下書きを${r.mode==='更新'?'更新':'作成'}しました：${r.number||''}`); }
   else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); localStorage.removeItem('gaogao_admin_token'); location.reload(); }
   else { toast('作成失敗: '+((r&&r.error)||'')); }
 }
@@ -393,6 +393,21 @@ function showDraftResult(order, r){
     ${r.report_url?`<a class="btn sm" href="${esc(r.report_url)}" target="_blank" rel="noopener">freeeで開く（確認・URL共有）</a>`:''}`;
 }
 
+// 「納品書リンク」タブ（注文番号→freeeドラフト）を読み、既存ドラフトのある注文を把握
+async function loadDraftLinks(){
+  try{
+    const rows=await fetchSheet('納品書リンク');
+    const hi=rows.findIndex(r=>r.some(c=>String(c).trim()==='注文番号'));
+    if(hi<0) return {};
+    const head=rows[hi].map(s=>String(s).trim());
+    const iId=head.indexOf('注文番号'), iNum=head.indexOf('番号'), iFid=head.indexOf('freee_id'), iSt=head.indexOf('状態');
+    const map={};
+    for(let i=hi+1;i<rows.length;i++){ const r=rows[i]||[]; const oid=String(r[iId]||'').trim();
+      if(oid) map[oid]={number:iNum>=0?String(r[iNum]||'').trim():'', id:iFid>=0?String(r[iFid]||'').trim():'', status:iSt>=0?String(r[iSt]||'').trim():''}; }
+    return map;
+  }catch(e){ return {}; }
+}
+
 async function init(){
   document.getElementById('conn').innerHTML = CONFIG.ORDER_WEBAPP_URL
     ? '✅ Apps Script接続済み：承認・単価がスプレッドシートに保存されます。'
@@ -401,6 +416,7 @@ async function init(){
   try{
     const items=await loadOrderItems(); ORDERS=groupOrders(items);
     ORDERS.forEach(o=>o._orig=o.items.map(it=>({call:it.call, price:(it.price??null)})));  // 元の単価を記録（リセット用）
+    try{ const links=await loadDraftLinks(); ORDERS.forEach(o=>{ if(links[o.id]) o.draftNumber=links[o.id].number; }); }catch(e){}  // 既存ドラフトがあればボタンを「更新」に
     const sel=document.getElementById('f-company'); [...new Set(ORDERS.map(o=>o.company).filter(Boolean))].forEach(c=>{const op=document.createElement('option');op.textContent=c;sel.appendChild(op);});
     if(!priceLoaded) await loadPrices();   // 圃場セレクト＆自動単価のため価格表を先読み（PRICES/PFARMS）
     if(ORDERS.length===0){ document.getElementById('state').innerHTML='まだ注文がありません。<br><span class="muted">カートから注文が入るとここに表示されます（Apps Script接続後）。</span>'; return; }
