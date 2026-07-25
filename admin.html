@@ -26,6 +26,9 @@
   th.chk .chk-all{width:16px;height:16px;accent-color:var(--green);cursor:pointer;vertical-align:middle}
   .ship-bar{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:10px 12px;margin-top:8px;background:#fafbfa;border:1px solid var(--line);border-radius:10px}
   .ship-bar .ship-lbl{font-size:13px;font-weight:600;color:var(--green-d)}
+  .ship-mode{display:inline-flex;gap:10px;font-size:12px;padding-right:4px;border-right:1px solid var(--line);margin-right:2px}
+  .ship-mode label{display:inline-flex;align-items:center;gap:3px;cursor:pointer}
+  .ship-mode input{accent-color:var(--green)}
   .ship-cell{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--sub)}
   .ship-cell .ss-l{min-width:52px;text-align:right}
   .ship-cell .ship-in{width:48px;text-align:right;padding:4px 6px;border:1px solid var(--line);border-radius:6px}
@@ -230,7 +233,11 @@ function render(){
         <tfoot><tr><th colspan="5" class="num">合計(税抜)${hasAll?'':'（一部単価未設定）'}</th><th class="num">${yen(sub)}</th></tr></tfoot>
       </table></div>
       <div class="ship-bar">
-        <span class="ship-lbl">🚚 配送（クール）</span>
+        <span class="ship-lbl">🚚 配送</span>
+        <span class="ship-mode">
+          <label><input type="radio" name="shipmode-${esc(o.id)}" class="ship-mode-in" data-id="${esc(o.id)}" value="cool" ${(o.shipMode||'cool')==='cool'?'checked':''}> クール</label>
+          <label><input type="radio" name="shipmode-${esc(o.id)}" class="ship-mode-in" data-id="${esc(o.id)}" value="normal" ${o.shipMode==='normal'?'checked':''}> 常温</label>
+        </span>
         ${SHIP_SIZES.map(s=>`<label class="ship-cell"><span class="ss-l">${s.l}</span><input type="number" class="ship-in" min="0" step="1" value="${(o.ship&&o.ship[s.v])||''}" data-id="${esc(o.id)}" data-size="${esc(s.v)}" placeholder="0"><span class="ss-u">箱</span></label>`).join('')}
         <span class="ship-hint">箱数を入れた分だけ納品書に載ります</span>
       </div>
@@ -306,6 +313,11 @@ function render(){
     if(!o.ship) o.ship={};
     o.ship[t.dataset.size]=Math.max(0,parseInt(t.value)||0);
   }));
+  // 配送：クール/常温の切替
+  el.querySelectorAll('.ship-mode-in').forEach(r=>r.addEventListener('change',e=>{
+    const o=ORDERS.find(x=>x.id===e.target.dataset.id); if(!o) return;
+    if(e.target.checked) o.shipMode=e.target.value;
+  }));
 }
 
 let ADMIN_TOKEN_VAL='';
@@ -353,13 +365,14 @@ async function makeDraft(btn){
   if(missing.length){ toast('圃場が未選択の品目があります: '+missing.map(x=>x.call).join('・')); return; }
   const noPrice=items.filter(it=>it.price==null||it.price==='');
   if(noPrice.length){ toast('単価が未設定の品目があります: '+noPrice.map(x=>x.call).join('・')); return; }
+  const shipMode=o.shipMode||'cool';
   const shipping=SHIP_SIZES.filter(s=>o.ship&&o.ship[s.v]>0).map(s=>({size:s.v, boxes:o.ship[s.v]}));
-  const shipTxt=shipping.length?shipping.map(s=>`${s.size}×${s.boxes}箱`).join('・'):'なし';
+  const shipTxt=shipping.length?`${shipMode==='normal'?'常温':'クール'}／`+shipping.map(s=>`${s.size}×${s.boxes}箱`).join('・'):'なし';
   if(!confirm(`freeeに納品書の下書きを作成します。\n取引先：${o.company}\n納品日：${o.deliveryDate||'（本日）'}\n品目：${items.length}件\n配送：${shipTxt}\nよろしいですか？`)) return;
   const label=btn.textContent; btn.disabled=true; btn.textContent='freeeに作成中…';
   const r=await postAction({ action:'createDraft', token:ADMIN_TOKEN_VAL, orderId:id,
     customer:o.company, person:o.person, deliveryDate:o.deliveryDate,
-    items:items.map(it=>({call:it.call, jp:it.jp, farm:it.farm, qty:it.qty, price:it.price})), shipping });
+    items:items.map(it=>({call:it.call, jp:it.jp, farm:it.farm, qty:it.qty, price:it.price})), shipping, shipMode });
   btn.disabled=false; btn.textContent=label;
   if(r.ok===false && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続'); }
   else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（createDraft対応の再デプロイが必要）'); }
