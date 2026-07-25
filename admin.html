@@ -273,8 +273,8 @@ function render(){
   }));
   el.querySelectorAll('.bulk-restore').forEach(b=>b.addEventListener('click',()=>{
     const o=ORDERS.find(x=>x.id===b.dataset.id); if(!o)return;
-    let n=0; o.items.forEach(it=>{ if(it.sel!==false && it.excluded){ it.excluded=false; n++; }});
-    if(n) toast(`${n}品目をリセットしました`); render();
+    let n=0; o.items.forEach(it=>{ if(it.excluded){ it.excluded=false; n++; }});  // 選択に関係なく欠品を全解除
+    toast(n?`欠品${n}品目をリセットしました`:'リセットする欠品はありません'); render();
   }));
   // 数量・単価の変更で小計/合計をその場で再計算（欠品調整の確認用）
   el.querySelectorAll('.qty-in,.price-in').forEach(inp=>inp.addEventListener('change',e=>{
