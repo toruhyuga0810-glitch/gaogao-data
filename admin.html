@@ -52,6 +52,11 @@
   .mp-subj{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--sub);margin-bottom:8px}
   .mp-subj input{font-size:13px;font-weight:600;color:var(--ink)}
   .mp-body{width:100%;font-family:inherit;font-size:13px;line-height:1.7;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);resize:vertical}
+  .mp-mode{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:10px 0 4px;font-size:12px;color:var(--sub)}
+  .mp-mode .mp-mode-l{font-weight:700;color:var(--ink)}
+  .mp-mode label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+  .mp-mode input{accent-color:var(--green)}
+  .mp-mode .mp-live{color:#a8452e;font-weight:700}
   .mp-send{margin-top:8px}
   .draft-result{margin:0 16px 14px;padding:12px 14px;background:var(--accent);border:1px solid var(--green);border-radius:10px}
   .draft-result .dr-title{font-weight:700;color:var(--green-d)}
@@ -274,9 +279,15 @@ function render(){
         </div>
         <button type="button" class="btn ghost mp-preview" data-id="${esc(o.id)}">プレビュー作成</button>
         <div class="mp-area hide">
-          <div class="mp-note">送信先：スパイスロード（尾上・秋葉・松本）＋QOF（CC）。内容を確認し、必要なら直接編集して送信してください。</div>
+          <div class="mp-note">内容を確認し、必要なら直接編集してください。下で送信先（テスト／本番）を選んで送信します。</div>
           <label class="mp-subj"><span>件名</span><input class="mp-subject" data-id="${esc(o.id)}"></label>
           <textarea class="mp-body" data-id="${esc(o.id)}" rows="15"></textarea>
+          <div class="mp-mode">
+            <span class="mp-mode-l">送信先</span>
+            <label><input type="radio" name="mailmode-${esc(o.id)}" class="mp-mode-in" value="self" checked> 自社のみ（テスト）</label>
+            <label><input type="radio" name="mailmode-${esc(o.id)}" class="mp-mode-in" value="matsumoto"> 松本さん＋自社（テスト）</label>
+            <label class="mp-live"><input type="radio" name="mailmode-${esc(o.id)}" class="mp-mode-in" value="live"> 本番（全社）</label>
+          </div>
           <button type="button" class="btn mp-send" data-id="${esc(o.id)}">この内容で送信</button>
         </div>
       </div>`:''}
@@ -368,13 +379,15 @@ function render(){
     const subject=panel.querySelector('.mp-subject').value.trim();
     const body=panel.querySelector('.mp-body').value;
     if(!subject||!body){ toast('件名・本文を確認してください'); return; }
-    if(!confirm('納品メールを送信します。\n送信先：スパイスロード（尾上・秋葉・松本）＋QOF（CC）\n件名：'+subject+'\n\nよろしいですか？')) return;
+    const mode=(panel.querySelector('.mp-mode-in:checked')||{}).value||'self';
+    const modeLabels={self:'自社のみ（テスト）', matsumoto:'松本さん＋自社（テスト）', live:'スパイスロード＋QOF（CC）【本番・全社】'};
+    if(!confirm(`納品メールを送信します。\n送信先：${modeLabels[mode]}\n件名：${subject}\n\nよろしいですか？`)) return;
     const label=b.textContent; b.disabled=true; b.textContent='送信中…';
-    const r=await postAction({action:'sendDeliveryMail', token:ADMIN_TOKEN_VAL, orderId:o.id, subject, body});
+    const r=await postAction({action:'sendDeliveryMail', token:ADMIN_TOKEN_VAL, orderId:o.id, subject, body, mailMode:mode});
     b.disabled=false; b.textContent=label;
     if(r.ok===false && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続'); }
     else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（sendDeliveryMail対応の再デプロイが必要）'); }
-    else if(r.ok){ toast('✅ 納品メールを送信しました'); }
+    else if(r.ok){ toast(`✅ 納品メールを送信しました（${modeLabels[r.mode||mode]}）`); }
     else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); localStorage.removeItem('gaogao_admin_token'); location.reload(); }
     else { toast('送信失敗: '+((r&&r.error)||'')); }
   }));
