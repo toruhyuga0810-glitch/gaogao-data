@@ -15,6 +15,9 @@
   .oactions{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 14px}
   .price-in{width:90px;text-align:right}
   .qty-in{width:64px;text-align:right}
+  th.chk,td.chk{width:34px;text-align:center;padding-left:4px;padding-right:4px}
+  .di-chk{width:16px;height:16px;accent-color:var(--green);cursor:pointer}
+  .farm-sel{font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;max-width:160px}
   td .unit{color:var(--sub);font-size:11px;margin-left:3px}
   .lockcard{text-align:center;padding:40px 26px 32px;max-width:420px;margin:max(24px,12vh) auto 24px}
   .lockcard h2{margin:0 0 6px;font-size:17px}
@@ -166,8 +169,16 @@ function render(){
       const qtyCell = editable
         ? `<input class="qty-in" type="number" min="0" step="1" value="${it.qty}" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><span class="unit">kg</span>`
         : `${it.qty}<span class="unit">kg</span>`;
-      return `<tr><td><b>${esc(it.call)}</b> <span class="muted">${esc(it.jp)}</span></td>
+      const pe=PRICES.find(x=>x.call===it.call);
+      const avail=pe? PFARMS.filter(f=>pe.prices[f]&&pe.prices[f]!==''):[];
+      const farmCell = avail.length
+        ? `<select class="farm-sel" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><option value="">— 圃場 —</option>${avail.map(f=>`<option value="${f}" ${it.farm===f?'selected':''}>${f}（¥${pe.prices[f]}）</option>`).join('')}</select>`
+        : `<span class="muted" style="font-size:11px">価格表になし</span>`;
+      return `<tr>
+        <td class="chk"><input type="checkbox" class="di-chk" data-id="${esc(o.id)}" data-call="${esc(it.call)}" ${it.include!==false?'checked':''}></td>
+        <td><b>${esc(it.call)}</b> <span class="muted">${esc(it.jp)}</span></td>
         <td class="num">${qtyCell}</td>
+        <td>${farmCell}</td>
         <td class="num"><input class="price-in" type="number" min="0" step="10" value="${it.price??''}" data-id="${esc(o.id)}" data-call="${esc(it.call)}" placeholder="単価"></td>
         <td class="num">${p!=null?yen(p*it.qty):'–'}</td></tr>`;
     }).join('');
@@ -178,20 +189,35 @@ function render(){
         <span class="meta">受信 ${esc(fmtDate(o.received))} ／ 希望納品 ${esc(o.deliveryDate||'未定')}</span>
       </div>
       <div class="ob"><div class="scroll"><table>
-        <thead><tr><th>品目</th><th class="num">数量</th><th class="num">単価(税抜・任意)</th><th class="num">小計</th></tr></thead>
+        <thead><tr><th class="chk">✓</th><th>品目</th><th class="num">数量</th><th>圃場</th><th class="num">単価</th><th class="num">小計</th></tr></thead>
         <tbody>${rows}</tbody>
-        <tfoot><tr><th colspan="3" class="num">合計(税抜)${hasAll?'':'（一部単価未設定）'}</th><th class="num">${yen(sub)}</th></tr></tfoot>
+        <tfoot><tr><th colspan="5" class="num">合計(税抜)${hasAll?'':'（一部単価未設定）'}</th><th class="num">${yen(sub)}</th></tr></tfoot>
       </table></div>
       ${o.note?`<div class="muted" style="margin-top:8px">備考: ${esc(o.note)}</div>`:''}</div>
       <div class="oactions">
         <button class="btn" data-act="承認済み">この内容で承認（顧客へメール）</button>
         <button class="btn ghost" data-act="納品済み">納品済みにする</button>
+        <button class="btn ghost" data-draft="1">📝 納品書ドラフト作成</button>
         <button class="btn warn" data-act="キャンセル">キャンセル</button>
       </div>
       ${editable?'<div class="muted" style="padding:0 16px 12px">※ 欠品時は数量を変更してから承認してください。承認すると納品可能数が顧客へメール送信されます。単価は空欄でもOK（仕入れ先確定後に入力可）。</div>':''}</div>`;
   });
   el.innerHTML=h;
-  el.querySelectorAll('.oactions .btn').forEach(b=>b.onclick=()=>act(b));
+  el.querySelectorAll('.oactions .btn[data-act]').forEach(b=>b.onclick=()=>act(b));
+  el.querySelectorAll('.oactions .btn[data-draft]').forEach(b=>b.onclick=()=>makeDraft(b));
+  // 圃場を選ぶと価格表から単価を自動入力（手入力での上書きは可）
+  el.querySelectorAll('.farm-sel').forEach(sel=>sel.addEventListener('change',e=>{
+    const t=e.target; const o=ORDERS.find(x=>x.id===t.dataset.id); if(!o)return;
+    const it=o.items.find(x=>x.call===t.dataset.call); if(!it)return;
+    it.farm=t.value||null;
+    if(it.farm){ const pe=PRICES.find(p=>p.call===it.call); const pv=pe&&pe.prices[it.farm]; if(pv!=null&&pv!=='') it.price=parseFloat(pv); }
+    render();
+  }));
+  // チェック＝納品書に含める品目
+  el.querySelectorAll('.di-chk').forEach(c=>c.addEventListener('change',e=>{
+    const t=e.target; const o=ORDERS.find(x=>x.id===t.dataset.id); if(!o)return;
+    const it=o.items.find(x=>x.call===t.dataset.call); if(it) it.include=t.checked;
+  }));
   // 数量・単価の変更で小計/合計をその場で再計算（欠品調整の確認用）
   el.querySelectorAll('.qty-in,.price-in').forEach(inp=>inp.addEventListener('change',e=>{
     const t=e.target; const o=ORDERS.find(x=>x.id===t.dataset.id); if(!o) return;
@@ -238,6 +264,25 @@ async function act(btn){
   render();
 }
 
+// 納品書ドラフト：チェック済み品目＋圃場割当を保存（ローカルツールがfreee下書きを作る）
+async function makeDraft(btn){
+  const order=btn.closest('.order'); const id=order.dataset.id; const o=ORDERS.find(x=>x.id===id);
+  const items=o.items.filter(it=>it.include!==false);
+  if(!items.length){ toast('納品書に含める品目にチェックを入れてください'); return; }
+  const missing=items.filter(it=>!it.farm);
+  if(missing.length){ toast('圃場が未選択の品目があります: '+missing.map(x=>x.call).join('・')); return; }
+  btn.disabled=true;
+  const r=await postAction({ action:'setDeliveryDraft', token:ADMIN_TOKEN_VAL, orderId:id,
+    customer:o.company, person:o.person, deliveryDate:o.deliveryDate,
+    items:items.map(it=>({call:it.call, jp:it.jp, farm:it.farm, qty:it.qty, price:it.price})) });
+  btn.disabled=false;
+  if(r.ok===false && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続：保存されません'); }
+  else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（setDeliveryDraft対応の再デプロイが必要）'); }
+  else if(r.ok){ toast('✅ 納品ドラフトを保存しました（'+items.length+'品目）。freee下書き作成を実行してください。'); }
+  else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); localStorage.removeItem('gaogao_admin_token'); location.reload(); }
+  else { toast('保存失敗: '+((r&&r.error)||'')); }
+}
+
 async function init(){
   document.getElementById('conn').innerHTML = CONFIG.ORDER_WEBAPP_URL
     ? '✅ Apps Script接続済み：承認・単価がスプレッドシートに保存されます。'
@@ -246,6 +291,7 @@ async function init(){
   try{
     const items=await loadOrderItems(); ORDERS=groupOrders(items);
     const sel=document.getElementById('f-company'); [...new Set(ORDERS.map(o=>o.company).filter(Boolean))].forEach(c=>{const op=document.createElement('option');op.textContent=c;sel.appendChild(op);});
+    if(!priceLoaded) await loadPrices();   // 圃場セレクト＆自動単価のため価格表を先読み（PRICES/PFARMS）
     if(ORDERS.length===0){ document.getElementById('state').innerHTML='まだ注文がありません。<br><span class="muted">カートから注文が入るとここに表示されます（Apps Script接続後）。</span>'; return; }
     render();
   }catch(e){ document.getElementById('state').innerHTML='⚠️ 取得失敗：'+esc(e.message); }
