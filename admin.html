@@ -45,8 +45,9 @@
   .mail-panel .mp-title{font-weight:700;color:var(--green-d);font-size:13px;margin-bottom:8px}
   .mp-inputs{display:flex;flex-wrap:wrap;gap:8px 12px;margin-bottom:8px}
   .mp-field{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--sub)}
-  .mp-field:first-child{flex:1;min-width:260px}
+  .mp-field-url{flex:1;min-width:300px}
   .mp-field input{font-size:13px}
+  .mp-field .mp-url{font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);resize:vertical;line-height:1.5}
   .mp-area{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
   .mp-note{font-size:11.5px;color:var(--sub);margin-bottom:8px}
   .mp-subj{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--sub);margin-bottom:8px}
@@ -273,8 +274,7 @@ function render(){
       <div class="mail-panel">
         <div class="mp-title">納品メール <span class="muted">（freeeでURL共有 → 貼付 → 送信）</span></div>
         <div class="mp-inputs">
-          <label class="mp-field"><span>納品書URL</span><input class="mp-url" data-id="${esc(o.id)}" placeholder="https://invoice.secure.freee.co.jp/ivex/dl/…"></label>
-          <label class="mp-field"><span>有効期限</span><input class="mp-exp" data-id="${esc(o.id)}" placeholder="2026-09-22 16:59:37"></label>
+          <label class="mp-field mp-field-url"><span>納品書URL（freeeの共有内容をそのまま貼付。有効期限も一緒でOK）</span><textarea class="mp-url" data-id="${esc(o.id)}" rows="2" placeholder="https://invoice.secure.freee.co.jp/ivex/dl/…&#10;有効期限：2026-09-22 16:59:37"></textarea></label>
           <label class="mp-field"><span>佐川追跡番号</span><input class="mp-track" data-id="${esc(o.id)}" placeholder="454146650241"></label>
         </div>
         <button type="button" class="btn ghost mp-preview" data-id="${esc(o.id)}">プレビュー作成</button>
@@ -365,9 +365,13 @@ function render(){
   el.querySelectorAll('.mp-preview').forEach(b=>b.addEventListener('click',()=>{
     const o=ORDERS.find(x=>x.id===b.dataset.id); if(!o)return;
     const panel=b.closest('.mail-panel');
-    const url=panel.querySelector('.mp-url').value.trim();
+    const raw=panel.querySelector('.mp-url').value.trim();
+    const um=raw.match(/https?:\/\/\S+/);                 // 貼付内容からURLを抽出
+    const url=um?um[0]:'';
+    const em=raw.match(/有効期限[：:\s]*([^\n\r]+)/);       // 「有効期限：…」を自動抽出
+    const exp=em?em[1].trim():'';
     if(!url){ toast('納品書URLを貼ってください'); return; }
-    const m=buildDeliveryMail(o, url, panel.querySelector('.mp-exp').value.trim(), panel.querySelector('.mp-track').value.trim());
+    const m=buildDeliveryMail(o, url, exp, panel.querySelector('.mp-track').value.trim());
     panel.querySelector('.mp-subject').value=m.subject;
     panel.querySelector('.mp-body').value=m.body;
     panel.querySelector('.mp-area').classList.remove('hide');
