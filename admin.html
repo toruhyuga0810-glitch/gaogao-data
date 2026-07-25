@@ -212,7 +212,7 @@ function render(){
         <span class="bulk-actions">
           <select class="bulk-farm" data-id="${esc(o.id)}"><option value="">圃場をまとめて選ぶ…</option>${PFARMS.map(f=>`<option value="${esc(f)}">${esc(farmLabel(f))}</option>`).join('')}</select>
           <button type="button" class="btn xs ghost bulk-stock" data-id="${esc(o.id)}">欠品にする</button>
-          <button type="button" class="btn xs ghost bulk-restore" data-id="${esc(o.id)}">リセット</button>
+          <button type="button" class="btn xs ghost bulk-restore" data-id="${esc(o.id)}" title="圃場・単価・欠品を初期状態に戻す">リセット</button>
         </span>
       </div>
       <div class="scroll"><table>
@@ -273,8 +273,10 @@ function render(){
   }));
   el.querySelectorAll('.bulk-restore').forEach(b=>b.addEventListener('click',()=>{
     const o=ORDERS.find(x=>x.id===b.dataset.id); if(!o)return;
-    let n=0; o.items.forEach(it=>{ if(it.excluded){ it.excluded=false; n++; }});  // 選択に関係なく欠品を全解除
-    toast(n?`欠品${n}品目をリセットしました`:'リセットする欠品はありません'); render();
+    if(!confirm('この注文の圃場・単価・欠品を初期状態に戻します。よろしいですか？（数量はそのまま）')) return;
+    o.items.forEach(it=>{ const og=(o._orig||[]).find(x=>x.call===it.call);
+      it.farm=null; it.price=og?og.price:null; it.excluded=false; it.sel=true; });  // 圃場・単価・欠品をデフォルトへ
+    toast('圃場・単価・欠品をリセットしました'); render();
   }));
   // 数量・単価の変更で小計/合計をその場で再計算（欠品調整の確認用）
   el.querySelectorAll('.qty-in,.price-in').forEach(inp=>inp.addEventListener('change',e=>{
@@ -359,6 +361,7 @@ async function init(){
   document.getElementById('state').classList.remove('hide'); document.getElementById('state').textContent='読み込み中…';
   try{
     const items=await loadOrderItems(); ORDERS=groupOrders(items);
+    ORDERS.forEach(o=>o._orig=o.items.map(it=>({call:it.call, price:(it.price??null)})));  // 元の単価を記録（リセット用）
     const sel=document.getElementById('f-company'); [...new Set(ORDERS.map(o=>o.company).filter(Boolean))].forEach(c=>{const op=document.createElement('option');op.textContent=c;sel.appendChild(op);});
     if(!priceLoaded) await loadPrices();   // 圃場セレクト＆自動単価のため価格表を先読み（PRICES/PFARMS）
     if(ORDERS.length===0){ document.getElementById('state').innerHTML='まだ注文がありません。<br><span class="muted">カートから注文が入るとここに表示されます（Apps Script接続後）。</span>'; return; }
