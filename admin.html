@@ -18,6 +18,15 @@
   th.chk,td.chk{width:34px;text-align:center;padding-left:4px;padding-right:4px}
   .di-chk{width:16px;height:16px;accent-color:var(--green);cursor:pointer}
   .farm-sel{font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;max-width:160px}
+  .bulk-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 4px 12px}
+  .bulk-bar .bchk{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:600;cursor:pointer}
+  .bulk-bar .bchk input{width:16px;height:16px;accent-color:var(--green)}
+  .bulk-bar .bulk-lbl{font-size:12px;color:var(--sub);margin-left:4px}
+  .bulk-bar .bulk-farm{font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:#fff}
+  .btn.xs{padding:5px 10px;font-size:12px;border-radius:8px}
+  tr.excluded{opacity:.5}
+  tr.excluded td b{text-decoration:line-through;text-decoration-color:var(--sub)}
+  .stock-tag{display:inline-block;font-size:10px;font-weight:700;color:#a8452e;background:#f6e3dd;border-radius:5px;padding:1px 6px;vertical-align:middle}
   .draft-result{margin:0 16px 14px;padding:12px 14px;background:var(--accent);border:1px solid var(--green);border-radius:10px}
   .draft-result .dr-title{font-weight:700;color:var(--green-d)}
   .draft-result .dr-note{font-size:12px;color:var(--sub);margin:4px 0 8px}
@@ -168,7 +177,9 @@ function render(){
     let sub=0, hasAll=true;
     const editable=(o.status==='受付');
     const rows=o.items.map(it=>{
-      const p=it.price; if(p!=null) sub+=p*it.qty; else hasAll=false;
+      const excluded=it.excluded===true;
+      const p=it.price;
+      if(!excluded){ if(p!=null) sub+=p*it.qty; else hasAll=false; }
       const qtyCell = editable
         ? `<input class="qty-in" type="number" min="0" step="1" value="${it.qty}" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><span class="unit">kg</span>`
         : `${it.qty}<span class="unit">kg</span>`;
@@ -177,13 +188,13 @@ function render(){
       const farmCell = avail.length
         ? `<select class="farm-sel" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><option value="">— 圃場 —</option>${avail.map(f=>`<option value="${f}" ${it.farm===f?'selected':''}>${f}（¥${pe.prices[f]}）</option>`).join('')}</select>`
         : `<span class="muted" style="font-size:11px">価格表になし</span>`;
-      return `<tr>
-        <td class="chk"><input type="checkbox" class="di-chk" data-id="${esc(o.id)}" data-call="${esc(it.call)}" ${it.include!==false?'checked':''}></td>
-        <td><b>${esc(it.call)}</b> <span class="muted">${esc(it.jp)}</span></td>
+      return `<tr class="${excluded?'excluded':''}">
+        <td class="chk"><input type="checkbox" class="di-chk" data-id="${esc(o.id)}" data-call="${esc(it.call)}" ${it.sel!==false?'checked':''}></td>
+        <td><b>${esc(it.call)}</b> <span class="muted">${esc(it.jp)}</span>${excluded?' <span class="stock-tag">欠品</span>':''}</td>
         <td class="num">${qtyCell}</td>
         <td>${farmCell}</td>
         <td class="num"><input class="price-in" type="number" min="0" step="10" value="${it.price??''}" data-id="${esc(o.id)}" data-call="${esc(it.call)}" placeholder="単価"></td>
-        <td class="num">${p!=null?yen(p*it.qty):'–'}</td></tr>`;
+        <td class="num">${(!excluded&&p!=null)?yen(p*it.qty):'–'}</td></tr>`;
     }).join('');
     h+=`<div class="order" data-id="${esc(o.id)}">
       <div class="oh">
@@ -191,7 +202,15 @@ function render(){
         <span class="meta">🏢 ${esc(o.company)} ／ 👤 ${esc(o.person)}</span>
         <span class="meta">受信 ${esc(fmtDate(o.received))} ／ 希望納品 ${esc(o.deliveryDate||'未定')}</span>
       </div>
-      <div class="ob"><div class="scroll"><table>
+      <div class="ob">
+      <div class="bulk-bar">
+        <label class="bchk"><input type="checkbox" class="chk-all" data-id="${esc(o.id)}" ${o.items.every(it=>it.sel!==false)?'checked':''}> 全選択</label>
+        <span class="bulk-lbl">選択した品目を：</span>
+        <select class="bulk-farm" data-id="${esc(o.id)}"><option value="">圃場を一括…</option>${PFARMS.map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join('')}</select>
+        <button type="button" class="btn xs ghost bulk-stock" data-id="${esc(o.id)}">欠品にする</button>
+        <button type="button" class="btn xs ghost bulk-restore" data-id="${esc(o.id)}">戻す</button>
+      </div>
+      <div class="scroll"><table>
         <thead><tr><th class="chk">✓</th><th>品目</th><th class="num">数量</th><th>圃場</th><th class="num">単価</th><th class="num">小計</th></tr></thead>
         <tbody>${rows}</tbody>
         <tfoot><tr><th colspan="5" class="num">合計(税抜)${hasAll?'':'（一部単価未設定）'}</th><th class="num">${yen(sub)}</th></tr></tfoot>
@@ -216,10 +235,38 @@ function render(){
     if(it.farm){ const pe=PRICES.find(p=>p.call===it.call); const pv=pe&&pe.prices[it.farm]; if(pv!=null&&pv!=='') it.price=parseFloat(pv); }
     render();
   }));
-  // チェック＝納品書に含める品目
+  // チェック＝一括操作の選択（納品書への含める/除外は「欠品」で制御）
   el.querySelectorAll('.di-chk').forEach(c=>c.addEventListener('change',e=>{
     const t=e.target; const o=ORDERS.find(x=>x.id===t.dataset.id); if(!o)return;
-    const it=o.items.find(x=>x.call===t.dataset.call); if(it) it.include=t.checked;
+    const it=o.items.find(x=>x.call===t.dataset.call); if(it) it.sel=t.checked;
+  }));
+  // 全選択トグル
+  el.querySelectorAll('.chk-all').forEach(c=>c.addEventListener('change',e=>{
+    const o=ORDERS.find(x=>x.id===e.target.dataset.id); if(!o)return;
+    o.items.forEach(it=>it.sel=e.target.checked); render();
+  }));
+  // 選択品目に圃場を一括適用（価格表にある圃場のみ・単価も自動）
+  el.querySelectorAll('.bulk-farm').forEach(sel=>sel.addEventListener('change',e=>{
+    const o=ORDERS.find(x=>x.id===e.target.dataset.id); if(!o)return;
+    const farm=e.target.value; if(!farm) return;
+    let applied=0, skipped=0;
+    o.items.forEach(it=>{ if(it.sel!==false && !it.excluded){
+      const pe=PRICES.find(p=>p.call===it.call); const pv=pe&&pe.prices[farm];
+      if(pv!=null&&pv!==''){ it.farm=farm; it.price=parseFloat(pv); applied++; } else skipped++;
+    }});
+    toast(`圃場「${farm}」を${applied}品目に適用${skipped?`（${skipped}品目は価格表になく対象外）`:''}`);
+    render();
+  }));
+  // 選択品目を欠品（納品書から除外）／戻す
+  el.querySelectorAll('.bulk-stock').forEach(b=>b.addEventListener('click',()=>{
+    const o=ORDERS.find(x=>x.id===b.dataset.id); if(!o)return;
+    let n=0; o.items.forEach(it=>{ if(it.sel!==false && !it.excluded){ it.excluded=true; n++; }});
+    if(n) toast(`${n}品目を欠品（納品書から除外）にしました`); render();
+  }));
+  el.querySelectorAll('.bulk-restore').forEach(b=>b.addEventListener('click',()=>{
+    const o=ORDERS.find(x=>x.id===b.dataset.id); if(!o)return;
+    let n=0; o.items.forEach(it=>{ if(it.sel!==false && it.excluded){ it.excluded=false; n++; }});
+    if(n) toast(`${n}品目を戻しました`); render();
   }));
   // 数量・単価の変更で小計/合計をその場で再計算（欠品調整の確認用）
   el.querySelectorAll('.qty-in,.price-in').forEach(inp=>inp.addEventListener('change',e=>{
@@ -270,8 +317,8 @@ async function act(btn){
 // 納品書ドラフト：チェック済み品目＋圃場割当から、freeeにクラウドで下書き(unsent)を作成
 async function makeDraft(btn){
   const order=btn.closest('.order'); const id=order.dataset.id; const o=ORDERS.find(x=>x.id===id);
-  const items=o.items.filter(it=>it.include!==false);
-  if(!items.length){ toast('納品書に含める品目にチェックを入れてください'); return; }
+  const items=o.items.filter(it=>!it.excluded);
+  if(!items.length){ toast('納品書に含める品目がありません（すべて欠品）'); return; }
   const missing=items.filter(it=>!it.farm);
   if(missing.length){ toast('圃場が未選択の品目があります: '+missing.map(x=>x.call).join('・')); return; }
   const noPrice=items.filter(it=>it.price==null||it.price==='');
