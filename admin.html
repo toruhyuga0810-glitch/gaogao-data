@@ -165,6 +165,9 @@
 <script>
 let ORDERS=[];
 const yen=n=>(n==null||n==='')?'–':'¥'+Math.round(n).toLocaleString();
+// 圃場番号→エリア名（表示用。値は「第N圃場」のまま）。jisseki/GASのFREEE_FARM_AREAと同期
+const FARM_AREA={1:'八郷',2:'鉾田',3:'土浦',4:'沖縄',5:'江戸崎',6:'牛久'};
+function farmLabel(f){ const m=String(f).match(/第(\d+)圃場/); const a=m?FARM_AREA[+m[1]]:''; return a?`${f}・${a}`:f; }
 
 function statusBadge(s){ return `<span class="badge s-${esc(s)}">${esc(s)}</span>`; }
 function render(){
@@ -187,7 +190,7 @@ function render(){
       const pe=PRICES.find(x=>x.call===it.call);
       const avail=pe? PFARMS.filter(f=>pe.prices[f]&&pe.prices[f]!==''):[];
       const farmCell = avail.length
-        ? `<select class="farm-sel" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><option value="">— 圃場 —</option>${avail.map(f=>`<option value="${f}" ${it.farm===f?'selected':''}>${f}（¥${pe.prices[f]}）</option>`).join('')}</select>`
+        ? `<select class="farm-sel" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><option value="">— 圃場 —</option>${avail.map(f=>`<option value="${f}" ${it.farm===f?'selected':''}>${esc(farmLabel(f))}（¥${pe.prices[f]}）</option>`).join('')}</select>`
         : `<span class="muted" style="font-size:11px">価格表になし</span>`;
       return `<tr class="${excluded?'excluded':''}">
         <td class="chk"><input type="checkbox" class="di-chk" data-id="${esc(o.id)}" data-call="${esc(it.call)}" ${it.sel!==false?'checked':''}></td>
@@ -207,7 +210,7 @@ function render(){
       <div class="bulk-bar">
         <span class="bulk-lbl">選択した <b class="sel-count" data-id="${esc(o.id)}">${o.items.filter(it=>it.sel!==false).length}</b> 件を</span>
         <span class="bulk-actions">
-          <select class="bulk-farm" data-id="${esc(o.id)}"><option value="">圃場をまとめて選ぶ…</option>${PFARMS.map(f=>`<option value="${esc(f)}">${esc(f)}</option>`).join('')}</select>
+          <select class="bulk-farm" data-id="${esc(o.id)}"><option value="">圃場をまとめて選ぶ…</option>${PFARMS.map(f=>`<option value="${esc(f)}">${esc(farmLabel(f))}</option>`).join('')}</select>
           <button type="button" class="btn xs ghost bulk-stock" data-id="${esc(o.id)}">欠品にする</button>
           <button type="button" class="btn xs ghost bulk-restore" data-id="${esc(o.id)}">戻す</button>
         </span>
