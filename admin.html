@@ -8,11 +8,14 @@
 <link rel="stylesheet" href="assets/app.css?v=34">
 <style>
   .order{border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);margin-bottom:14px;overflow:hidden}
-  .oh{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:13px 16px;background:#fafbfa;border-bottom:1px solid var(--line)}
-  .oh .id{font-weight:700}
+  .oh{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:13px 16px;background:#fafbfa;border-bottom:1px solid var(--line)}
+  .oh .company{font-weight:700;color:var(--green-d);background:var(--accent);padding:3px 11px;border-radius:8px;font-size:13px}
+  .oh .id{font-weight:600;color:var(--sub);font-size:11.5px;letter-spacing:.3px;margin-left:auto}
   .oh .meta{font-size:12px;color:var(--sub)}
   .ob{padding:8px 16px 14px}
-  .oactions{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 14px}
+  .oactions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 16px 14px;border-top:1px solid var(--line);background:#fcfdfc}
+  .oactions .draft-btn{margin-left:auto;box-shadow:0 1px 4px rgba(62,87,73,.25)}
+  @media(max-width:640px){ .oactions .draft-btn{margin-left:0;width:100%} }
   .price-in{width:90px;text-align:right}
   .qty-in{width:64px;text-align:right}
   th.chk,td.chk{width:34px;text-align:center;padding-left:4px;padding-right:4px}
@@ -214,9 +217,10 @@ function render(){
     }).join('');
     h+=`<div class="order" data-id="${esc(o.id)}">
       <div class="oh">
-        <span class="id">${esc(o.id)}</span> ${statusBadge(o.status)}
-        <span class="meta">🏢 ${esc(o.company)} ／ 👤 ${esc(o.person)}</span>
-        <span class="meta">受信 ${esc(fmtDate(o.received))} ／ 希望納品 ${esc(o.deliveryDate||'未定')}</span>
+        <span class="company">${esc(o.company)}</span>
+        ${statusBadge(o.status)}
+        <span class="meta">担当 ${esc(o.person||'—')}　／　希望納品 ${esc(o.deliveryDate||'未定')}</span>
+        <span class="id">${esc(o.id)}</span>
       </div>
       <div class="ob">
       <div class="bulk-bar">
@@ -233,7 +237,7 @@ function render(){
         <tfoot><tr><th colspan="5" class="num">合計(税抜)${hasAll?'':'（一部単価未設定）'}</th><th class="num">${yen(sub)}</th></tr></tfoot>
       </table></div>
       <div class="ship-bar">
-        <span class="ship-lbl">🚚 配送</span>
+        <span class="ship-lbl">配送</span>
         <span class="ship-mode">
           <label><input type="radio" name="shipmode-${esc(o.id)}" class="ship-mode-in" data-id="${esc(o.id)}" value="cool" ${(o.shipMode||'cool')==='cool'?'checked':''}> クール</label>
           <label><input type="radio" name="shipmode-${esc(o.id)}" class="ship-mode-in" data-id="${esc(o.id)}" value="normal" ${o.shipMode==='normal'?'checked':''}> 常温</label>
@@ -245,8 +249,8 @@ function render(){
       <div class="oactions">
         <button class="btn" data-act="承認済み">この内容で承認（顧客へメール）</button>
         <button class="btn ghost" data-act="納品済み">納品済みにする</button>
-        <button class="btn ghost" data-draft="1">📝 納品書ドラフト作成</button>
         <button class="btn warn" data-act="キャンセル">キャンセル</button>
+        <button class="btn draft-btn" data-draft="1">納品書ドラフトを作成</button>
       </div>
       ${editable?'<div class="muted" style="padding:0 16px 12px">※ 欠品時は数量を変更してから承認してください。承認すると納品可能数が顧客へメール送信されます。単価は空欄でもOK（仕入れ先確定後に入力可）。</div>':''}</div>`;
   });
@@ -368,7 +372,7 @@ async function makeDraft(btn){
   const shipMode=o.shipMode||'cool';
   const shipping=SHIP_SIZES.filter(s=>o.ship&&o.ship[s.v]>0).map(s=>({size:s.v, boxes:o.ship[s.v]}));
   const shipTxt=shipping.length?`${shipMode==='normal'?'常温':'クール'}／`+shipping.map(s=>`${s.size}×${s.boxes}箱`).join('・'):'なし';
-  if(!confirm(`freeeに納品書の下書きを作成します。\n取引先：${o.company}\n納品日：${o.deliveryDate||'（本日）'}\n品目：${items.length}件\n配送：${shipTxt}\nよろしいですか？`)) return;
+  if(!confirm(`freeeに納品書の下書きを作成します（同じ注文の未送付ドラフトがあれば更新）。\n取引先：${o.company}\n納品日：${o.deliveryDate||'（本日）'}\n品目：${items.length}件\n配送：${shipTxt}\nよろしいですか？`)) return;
   const label=btn.textContent; btn.disabled=true; btn.textContent='freeeに作成中…';
   const r=await postAction({ action:'createDraft', token:ADMIN_TOKEN_VAL, orderId:id,
     customer:o.company, person:o.person, deliveryDate:o.deliveryDate,
@@ -376,7 +380,7 @@ async function makeDraft(btn){
   btn.disabled=false; btn.textContent=label;
   if(r.ok===false && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続'); }
   else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（createDraft対応の再デプロイが必要）'); }
-  else if(r.ok){ showDraftResult(order, r); toast('✅ freeeに下書きを作成しました：'+(r.number||'')); }
+  else if(r.ok){ showDraftResult(order, r); toast(`✅ freee下書きを${r.mode==='更新'?'更新':'作成'}しました：${r.number||''}`); }
   else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); localStorage.removeItem('gaogao_admin_token'); location.reload(); }
   else { toast('作成失敗: '+((r&&r.error)||'')); }
 }
@@ -384,8 +388,8 @@ async function makeDraft(btn){
 // 作成結果パネル（freee詳細ページへのリンク＝ここでURL共有を1クリック発行）
 function showDraftResult(order, r){
   let box=order.querySelector('.draft-result'); if(!box){ box=document.createElement('div'); box.className='draft-result'; order.appendChild(box); }
-  box.innerHTML=`<div class="dr-title">✅ freee下書きを作成しました：<b>${esc(r.number||'')}</b></div>
-    <div class="dr-note">この後、freeeで内容を確認 →「URL共有」でメール用リンクを発行してください。</div>
+  box.innerHTML=`<div class="dr-title">✅ freee下書きを${r.mode==='更新'?'更新':'作成'}しました：<b>${esc(r.number||'')}</b></div>
+    <div class="dr-note">この後、freeeで内容を確認 →「URL共有」でメール用リンクを発行してください。${r.mode==='更新'?'（同じ番号のまま内容を更新しました）':''}</div>
     ${r.report_url?`<a class="btn sm" href="${esc(r.report_url)}" target="_blank" rel="noopener">freeeで開く（確認・URL共有）</a>`:''}`;
 }
 
