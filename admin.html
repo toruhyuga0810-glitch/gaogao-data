@@ -18,6 +18,9 @@
   th.chk,td.chk{width:34px;text-align:center;padding-left:4px;padding-right:4px}
   .di-chk{width:16px;height:16px;accent-color:var(--green);cursor:pointer}
   .farm-sel{font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;max-width:160px}
+  .draft-result{margin:0 16px 14px;padding:12px 14px;background:var(--accent);border:1px solid var(--green);border-radius:10px}
+  .draft-result .dr-title{font-weight:700;color:var(--green-d)}
+  .draft-result .dr-note{font-size:12px;color:var(--sub);margin:4px 0 8px}
   td .unit{color:var(--sub);font-size:11px;margin-left:3px}
   .lockcard{text-align:center;padding:40px 26px 32px;max-width:420px;margin:max(24px,12vh) auto 24px}
   .lockcard h2{margin:0 0 6px;font-size:17px}
@@ -264,23 +267,34 @@ async function act(btn){
   render();
 }
 
-// 納品書ドラフト：チェック済み品目＋圃場割当を保存（ローカルツールがfreee下書きを作る）
+// 納品書ドラフト：チェック済み品目＋圃場割当から、freeeにクラウドで下書き(unsent)を作成
 async function makeDraft(btn){
   const order=btn.closest('.order'); const id=order.dataset.id; const o=ORDERS.find(x=>x.id===id);
   const items=o.items.filter(it=>it.include!==false);
   if(!items.length){ toast('納品書に含める品目にチェックを入れてください'); return; }
   const missing=items.filter(it=>!it.farm);
   if(missing.length){ toast('圃場が未選択の品目があります: '+missing.map(x=>x.call).join('・')); return; }
-  btn.disabled=true;
-  const r=await postAction({ action:'setDeliveryDraft', token:ADMIN_TOKEN_VAL, orderId:id,
+  const noPrice=items.filter(it=>it.price==null||it.price==='');
+  if(noPrice.length){ toast('単価が未設定の品目があります: '+noPrice.map(x=>x.call).join('・')); return; }
+  if(!confirm(`freeeに納品書の下書きを作成します（${items.length}品目＋送料は全サイズ）。\n取引先：${o.company}\n納品日：${o.deliveryDate||'（本日）'}\nよろしいですか？`)) return;
+  const label=btn.textContent; btn.disabled=true; btn.textContent='freeeに作成中…';
+  const r=await postAction({ action:'createDraft', token:ADMIN_TOKEN_VAL, orderId:id,
     customer:o.company, person:o.person, deliveryDate:o.deliveryDate,
     items:items.map(it=>({call:it.call, jp:it.jp, farm:it.farm, qty:it.qty, price:it.price})) });
-  btn.disabled=false;
-  if(r.ok===false && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続：保存されません'); }
-  else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（setDeliveryDraft対応の再デプロイが必要）'); }
-  else if(r.ok){ toast('✅ 納品ドラフトを保存しました（'+items.length+'品目）。freee下書き作成を実行してください。'); }
+  btn.disabled=false; btn.textContent=label;
+  if(r.ok===false && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続'); }
+  else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（createDraft対応の再デプロイが必要）'); }
+  else if(r.ok){ showDraftResult(order, r); toast('✅ freeeに下書きを作成しました：'+(r.number||'')); }
   else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); localStorage.removeItem('gaogao_admin_token'); location.reload(); }
-  else { toast('保存失敗: '+((r&&r.error)||'')); }
+  else { toast('作成失敗: '+((r&&r.error)||'')); }
+}
+
+// 作成結果パネル（freee詳細ページへのリンク＝ここでURL共有を1クリック発行）
+function showDraftResult(order, r){
+  let box=order.querySelector('.draft-result'); if(!box){ box=document.createElement('div'); box.className='draft-result'; order.appendChild(box); }
+  box.innerHTML=`<div class="dr-title">✅ freee下書きを作成しました：<b>${esc(r.number||'')}</b></div>
+    <div class="dr-note">この後、freeeで内容を確認 →「URL共有」でメール用リンクを発行してください。</div>
+    ${r.report_url?`<a class="btn sm" href="${esc(r.report_url)}" target="_blank" rel="noopener">freeeで開く（確認・URL共有）</a>`:''}`;
 }
 
 async function init(){
