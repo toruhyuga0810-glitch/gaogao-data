@@ -571,6 +571,36 @@ function renderManual(){
   body.querySelectorAll('.mn-ship').forEach(inp=>inp.addEventListener('change',e=>{ MANUAL.ship[e.target.dataset.size]=Math.max(0,parseInt(e.target.value)||0); }));
   body.querySelectorAll('.mn-shipmode').forEach(r=>r.addEventListener('change',e=>{ if(e.target.checked) MANUAL.shipMode=e.target.value; }));
 }
+// 納品書作成の結果パネルのメール欄を配線（受注側と同じ挙動・単独パネル版）
+function bindManualMail(panel, o){
+  panel.querySelector('.mp-preview').addEventListener('click',()=>{
+    const raw=panel.querySelector('.mp-url').value.trim();
+    const um=raw.match(/https?:\/\/\S+/); const url=um?um[0]:'';
+    const em=raw.match(/有効期限[：:\s]*([^\n\r]+)/); const exp=em?em[1].trim():'';
+    if(!url){ toast('納品書URLを貼ってください'); return; }
+    const m=buildDeliveryMail(o, url, exp, panel.querySelector('.mp-track').value.trim());
+    panel.querySelector('.mp-subject').value=m.subject;
+    panel.querySelector('.mp-body').value=m.body;
+    panel.querySelector('.mp-area').classList.remove('hide');
+  });
+  panel.querySelector('.mp-send').addEventListener('click',async()=>{
+    const subject=panel.querySelector('.mp-subject').value.trim();
+    const body=panel.querySelector('.mp-body').value;
+    if(!subject||!body){ toast('件名・本文を確認してください'); return; }
+    const mode=(panel.querySelector('.mp-mode-in:checked')||{}).value||'self';
+    const modeLabels={self:'自社のみ（テスト）', matsumoto:'松本さん＋自社（テスト）', live:'スパイスロード＋QOF（CC）【本番・全社】'};
+    if(!confirm(`納品メールを送信します。\n送信先：${modeLabels[mode]}\n件名：${subject}\n\nよろしいですか？`)) return;
+    const b=panel.querySelector('.mp-send'); const label=b.textContent; b.disabled=true; b.textContent='送信中…';
+    const r=await postAction({action:'sendDeliveryMail', token:ADMIN_TOKEN_VAL, orderId:o.orderId, subject, body, mailMode:mode});
+    b.disabled=false; b.textContent=label;
+    if(r.ok===false && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続'); }
+    else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（sendDeliveryMail対応の再デプロイが必要）'); }
+    else if(r.ok){ toast(`✅ 納品メールを送信しました（${modeLabels[r.mode||mode]}）`); }
+    else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); localStorage.removeItem('gaogao_admin_token'); location.reload(); }
+    else { toast('送信失敗: '+((r&&r.error)||'')); }
+  });
+}
+
 async function createManual(){
   const btn=document.getElementById('mn-create');
   const customer=document.getElementById('mn-customer').value;
@@ -582,11 +612,39 @@ async function createManual(){
   const shipTxt=shipping.length?`${MANUAL.shipMode==='normal'?'常温':'クール'}／`+shipping.map(s=>`${s.size}×${s.boxes}箱`).join('・'):'なし';
   if(!confirm(`freeeに納品書の下書きを作成します。\n取引先：${customer}\n納品日：${date||'（本日）'}\n品目：${items.length}件\n配送：${shipTxt}\nよろしいですか？`)) return;
   btn.disabled=true; btn.textContent='freeeに作成中…';
-  const r=await postAction({action:'createDraft', token:ADMIN_TOKEN_VAL, orderId:'MANUAL-'+Date.now(),
+  const orderId='MANUAL-'+Date.now();
+  const r=await postAction({action:'createDraft', token:ADMIN_TOKEN_VAL, orderId,
     customer, person:'', deliveryDate:date,
     items:items.map(it=>({call:it.call, jp:it.jp, farm:it.farm, qty:it.qty, price:it.price})), shipping, shipMode:MANUAL.shipMode});
   btn.disabled=false; btn.textContent='納品書を作成';
-  if(r.ok){ document.getElementById('mn-result').innerHTML=`<div class="card draft-result"><div class="dr-title">✅ freee下書きを作成しました：<b>${esc(r.number||'')}</b></div><div class="dr-note">freeeで内容を確認 →「URL共有」でメール用リンクを発行できます。</div>${r.report_url?`<a class="btn sm" href="${esc(r.report_url)}" target="_blank" rel="noopener">freeeで開く</a>`:''}</div>`; toast('✅ 作成しました：'+(r.number||'')); }
+  if(r.ok){
+    document.getElementById('mn-result').innerHTML=`
+      <div class="card draft-result"><div class="dr-title">✅ freee下書きを作成しました：<b>${esc(r.number||'')}</b></div>
+        <div class="dr-note">freeeで内容を確認 →「URL共有」でリンクを発行し、下に貼って納品メールを送れます。</div>
+        ${r.report_url?`<a class="btn sm" href="${esc(r.report_url)}" target="_blank" rel="noopener">freeeで開く（確認・URL共有）</a>`:''}</div>
+      <div class="card mail-panel" id="mn-mail" style="margin:0 0 14px">
+        <div class="mp-title">納品メール <span class="muted">（freeeでURL共有 → 貼付 → 送信）</span></div>
+        <div class="mp-inputs">
+          <label class="mp-field mp-field-url"><span>納品書URL（freeeの共有内容をそのまま貼付。有効期限も一緒でOK）</span><textarea class="mp-url" rows="2" placeholder="https://invoice.secure.freee.co.jp/ivex/dl/…&#10;有効期限：2026-09-22 16:59:37"></textarea></label>
+          <label class="mp-field"><span>佐川追跡番号</span><input class="mp-track" placeholder="454146650241"></label>
+        </div>
+        <button type="button" class="btn ghost mp-preview">プレビュー作成</button>
+        <div class="mp-area hide">
+          <div class="mp-note">内容を確認し、必要なら直接編集してください。下で送信先（テスト／本番）を選んで送信します。</div>
+          <label class="mp-subj"><span>件名</span><input class="mp-subject"></label>
+          <textarea class="mp-body" rows="15"></textarea>
+          <div class="mp-mode">
+            <span class="mp-mode-l">送信先</span>
+            <label><input type="radio" name="mn-mailmode" class="mp-mode-in" value="self" checked> 自社のみ（テスト）</label>
+            <label><input type="radio" name="mn-mailmode" class="mp-mode-in" value="matsumoto"> 松本さん＋自社（テスト）</label>
+            <label class="mp-live"><input type="radio" name="mn-mailmode" class="mp-mode-in" value="live"> 本番（全社）</label>
+          </div>
+          <button type="button" class="btn mp-send">この内容で送信</button>
+        </div>
+      </div>`;
+    bindManualMail(document.getElementById('mn-mail'), {draftSubject:r.subject, deliveryDate:date, orderId});
+    toast('✅ 作成しました：'+(r.number||''));
+  }
   else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（createDraft対応の再デプロイが必要）'); }
   else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); localStorage.removeItem('gaogao_admin_token'); location.reload(); }
   else { toast('作成失敗: '+((r&&r.error)||'')); }
