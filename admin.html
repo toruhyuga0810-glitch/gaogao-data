@@ -26,6 +26,12 @@
   .mn-price{width:90px;text-align:right}
   .mn-del{border:1px solid var(--line);background:#fff;color:var(--sub);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1}
   .mn-del:hover{color:#a8452e;border-color:#e5b8ad}
+  /* 履歴カード内のその場編集 */
+  .hist-editor{margin-top:10px;padding:12px;background:#fff;border:1.5px solid var(--green);border-radius:10px}
+  .he-bar{font-size:12.5px;color:var(--green-d);margin-bottom:10px;display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap}
+  .he-date-w{color:var(--sub);font-size:12px;display:inline-flex;align-items:center;gap:6px}
+  .he-date-w input{padding:5px 8px;font-size:12.5px}
+  .he-actions{display:flex;gap:8px;margin-top:10px;justify-content:flex-end}
   /* 履歴カード内の明細表示 */
   .hl-block{margin-top:10px;padding:10px 12px;background:#fafbfa;border:1px solid var(--line);border-radius:10px}
   .hl-head{font-size:12px;font-weight:700;color:var(--green-d);margin:6px 0 3px}
@@ -196,7 +202,7 @@
 
       <h2 style="font-size:15px;margin:26px 0 10px;padding-top:14px;border-top:1px solid var(--line)">納品履歴</h2>
       <div class="card"><div class="row" style="align-items:center">
-        <div class="muted" style="max-width:760px;line-height:1.8"><b>編集</b>で上のフォームに呼び戻して修正 →「納品書を作成」で<b>上書き</b>。<b>納品書URL・佐川番号</b>は後から入力・保存でき、そのままメール送信もできます。取り消し済みは表示しません。</div>
+        <div class="muted" style="max-width:760px;line-height:1.8"><b>編集</b>を押すと、その場で作成時と同じ画面が開き、修正して<b>上書き保存</b>できます（番号・件名は維持）。<b>納品書URL・佐川番号</b>は後から入力・保存でき、そのままメール送信もできます。取り消し済みは表示しません。</div>
         <div style="flex:1"></div>
         <button class="btn ghost sm" id="hist-reload">↻ 再読込</button>
       </div></div>
@@ -567,12 +573,14 @@ async function loadDraftLinks(){
 
 /* ===== 納品書作成（受注なしで1から作る。価格表・配送・createDraftを再利用） ===== */
 let MANUAL={ rows:[{}], freeRows:[], ship:{}, shipMode:'cool' };
-function renderManual(){
-  const body=document.getElementById('mn-body'); if(!body) return;
+function renderManual(){ const b=document.getElementById('mn-body'); if(b) renderEditor(MANUAL, b, 'mn'); }
+// 共通エディタ：作成フォームと履歴のその場編集の両方で使う（S=状態, body=描画先, uid=ラジオ名の一意化）
+function renderEditor(S, body, uid){
   if(!priceLoaded){ body.innerHTML='<div class="muted">価格表を読み込み中…</div>'; return; }
-  if(!MANUAL.freeRows) MANUAL.freeRows=[];
+  if(!S.freeRows) S.freeRows=[];
+  const rerender=()=>renderEditor(S, body, uid);
   let sub=0;
-  const rows=MANUAL.rows.map((r,i)=>{
+  const rows=S.rows.map((r,i)=>{
     const pe=r.call?PRICES.find(x=>x.call===r.call):null;
     const avail=pe?PFARMS.filter(f=>pe.prices[f]&&pe.prices[f]!==''):[];
     const st=(r.price!=null&&r.price!==''&&r.qty)?r.price*r.qty:null; if(st!=null) sub+=st;
@@ -585,7 +593,7 @@ function renderManual(){
       <td class="num"><button type="button" class="mn-del" data-i="${i}" title="この行を削除">×</button></td></tr>`;
   }).join('');
   // 自由行（値引き・定型外の行。摘要/数量/単価を直接編集。単価はマイナス可）
-  const freeRows=MANUAL.freeRows.map((f,i)=>{
+  const freeRows=S.freeRows.map((f,i)=>{
     const st=(f.price!=null&&f.price!==''&&f.qty!=null&&f.qty!=='')?f.price*f.qty:null; if(st!=null) sub+=st;
     return `<tr class="free-row">
       <td colspan="2"><input class="fr-desc" data-i="${i}" value="${esc(f.desc||'')}" placeholder="摘要（例: 開花による可食部減少に伴う値引き）"></td>
@@ -601,30 +609,33 @@ function renderManual(){
   const ship=`<div class="ship-bar" style="margin-top:12px">
     <span class="ship-lbl">配送</span>
     <span class="ship-mode">
-      <label><input type="radio" name="mn-shipmode" class="mn-shipmode" value="cool" ${MANUAL.shipMode!=='normal'?'checked':''}> クール</label>
-      <label><input type="radio" name="mn-shipmode" class="mn-shipmode" value="normal" ${MANUAL.shipMode==='normal'?'checked':''}> 常温</label>
+      <label><input type="radio" name="shipmode-${uid}" class="mn-shipmode" value="cool" ${S.shipMode!=='normal'?'checked':''}> クール</label>
+      <label><input type="radio" name="shipmode-${uid}" class="mn-shipmode" value="normal" ${S.shipMode==='normal'?'checked':''}> 常温</label>
     </span>
-    ${SHIP_SIZES.map(s=>`<label class="ship-cell"><span class="ss-l">${s.l}</span><input type="number" class="mn-ship" min="0" step="1" value="${MANUAL.ship[s.v]||''}" data-size="${esc(s.v)}" placeholder="0"><span class="ss-u">箱</span></label>`).join('')}
+    ${SHIP_SIZES.map(s=>`<label class="ship-cell"><span class="ss-l">${s.l}</span><input type="number" class="mn-ship" min="0" step="1" value="${S.ship[s.v]||''}" data-size="${esc(s.v)}" placeholder="0"><span class="ss-u">箱</span></label>`).join('')}
     <span class="ship-hint">箱数を入れた分だけ載ります</span></div>`;
-  body.innerHTML=table+ship;
+  const addBtns=(uid==='mn')?'':`<div style="margin-top:10px"><button type="button" class="btn ghost sm ed-addrow">＋ 品目を追加</button> <button type="button" class="btn ghost sm ed-addfree">＋ 自由行（値引き等）</button></div>`;
+  body.innerHTML=table+ship+addBtns;
   body.querySelectorAll('.mn-item').forEach(sel=>sel.addEventListener('change',e=>{
-    const r=MANUAL.rows[+e.target.dataset.i]; const pe=PRICES.find(x=>x.call===e.target.value);
-    r.call=e.target.value||undefined; r.jp=pe?pe.jp:''; r.farm=undefined; r.price=undefined; renderManual();
+    const r=S.rows[+e.target.dataset.i]; const pe=PRICES.find(x=>x.call===e.target.value);
+    r.call=e.target.value||undefined; r.jp=pe?pe.jp:''; r.farm=undefined; r.price=undefined; rerender();
   }));
   body.querySelectorAll('.mn-farm').forEach(sel=>sel.addEventListener('change',e=>{
-    const r=MANUAL.rows[+e.target.dataset.i]; r.farm=e.target.value||undefined;
+    const r=S.rows[+e.target.dataset.i]; r.farm=e.target.value||undefined;
     if(r.farm){ const pe=PRICES.find(x=>x.call===r.call); const pv=pe&&pe.prices[r.farm]; if(pv!=null&&pv!=='') r.price=parseFloat(pv); }
-    renderManual();
+    rerender();
   }));
-  body.querySelectorAll('.mn-qty').forEach(inp=>inp.addEventListener('change',e=>{ MANUAL.rows[+e.target.dataset.i].qty=Math.max(0,Math.round(parseFloat(e.target.value)||0)); renderManual(); }));
-  body.querySelectorAll('.mn-price').forEach(inp=>inp.addEventListener('change',e=>{ const v=e.target.value; MANUAL.rows[+e.target.dataset.i].price=(v===''?undefined:parseFloat(v)); renderManual(); }));
-  body.querySelectorAll('.mn-del').forEach(b=>b.addEventListener('click',()=>{ MANUAL.rows.splice(+b.dataset.i,1); if(!MANUAL.rows.length&&!MANUAL.freeRows.length) MANUAL.rows.push({}); renderManual(); }));
-  body.querySelectorAll('.fr-desc').forEach(inp=>inp.addEventListener('change',e=>{ MANUAL.freeRows[+e.target.dataset.i].desc=e.target.value; }));
-  body.querySelectorAll('.fr-qty').forEach(inp=>inp.addEventListener('change',e=>{ const v=e.target.value; MANUAL.freeRows[+e.target.dataset.i].qty=(v===''?'':parseFloat(v)); renderManual(); }));
-  body.querySelectorAll('.fr-price').forEach(inp=>inp.addEventListener('change',e=>{ const v=e.target.value; MANUAL.freeRows[+e.target.dataset.i].price=(v===''?'':parseFloat(v)); renderManual(); }));
-  body.querySelectorAll('.fr-del').forEach(b=>b.addEventListener('click',()=>{ MANUAL.freeRows.splice(+b.dataset.i,1); renderManual(); }));
-  body.querySelectorAll('.mn-ship').forEach(inp=>inp.addEventListener('change',e=>{ MANUAL.ship[e.target.dataset.size]=Math.max(0,parseInt(e.target.value)||0); }));
-  body.querySelectorAll('.mn-shipmode').forEach(r=>r.addEventListener('change',e=>{ if(e.target.checked) MANUAL.shipMode=e.target.value; }));
+  body.querySelectorAll('.mn-qty').forEach(inp=>inp.addEventListener('change',e=>{ S.rows[+e.target.dataset.i].qty=Math.max(0,Math.round(parseFloat(e.target.value)||0)); rerender(); }));
+  body.querySelectorAll('.mn-price').forEach(inp=>inp.addEventListener('change',e=>{ const v=e.target.value; S.rows[+e.target.dataset.i].price=(v===''?undefined:parseFloat(v)); rerender(); }));
+  body.querySelectorAll('.mn-del').forEach(b=>b.addEventListener('click',()=>{ S.rows.splice(+b.dataset.i,1); if(!S.rows.length&&!S.freeRows.length) S.rows.push({}); rerender(); }));
+  body.querySelectorAll('.fr-desc').forEach(inp=>inp.addEventListener('change',e=>{ S.freeRows[+e.target.dataset.i].desc=e.target.value; }));
+  body.querySelectorAll('.fr-qty').forEach(inp=>inp.addEventListener('change',e=>{ const v=e.target.value; S.freeRows[+e.target.dataset.i].qty=(v===''?'':parseFloat(v)); rerender(); }));
+  body.querySelectorAll('.fr-price').forEach(inp=>inp.addEventListener('change',e=>{ const v=e.target.value; S.freeRows[+e.target.dataset.i].price=(v===''?'':parseFloat(v)); rerender(); }));
+  body.querySelectorAll('.fr-del').forEach(b=>b.addEventListener('click',()=>{ S.freeRows.splice(+b.dataset.i,1); rerender(); }));
+  body.querySelectorAll('.mn-ship').forEach(inp=>inp.addEventListener('change',e=>{ S.ship[e.target.dataset.size]=Math.max(0,parseInt(e.target.value)||0); }));
+  body.querySelectorAll('.mn-shipmode').forEach(r=>r.addEventListener('change',e=>{ if(e.target.checked) S.shipMode=e.target.value; }));
+  const ar=body.querySelector('.ed-addrow'); if(ar) ar.onclick=()=>{ S.rows.push({}); rerender(); };
+  const af=body.querySelector('.ed-addfree'); if(af) af.onclick=()=>{ S.freeRows.push({desc:'',qty:1,price:'',unit:''}); rerender(); };
 }
 // 納品書作成の結果パネルのメール欄を配線（受注側と同じ挙動・単独パネル版）
 function bindManualMail(panel, o){
@@ -852,30 +863,48 @@ function parseSlipLines(lines){
   if(sawNormal && !sawCool) out.shipMode='normal';
   return out;
 }
+// 履歴カードの中で、その場編集（作成フォームと同じ操作感）→上書き保存
 async function editHistory(it, btn){
-  let r;
-  if(it.lines && it.lines.length){
-    r={ok:true, id:it.id, number:it.number, subject:it.subject, status:it.status, date:it.date, partner:it.customer, lines:it.lines};  // 履歴が明細を持っている＝即時に開く
-  }else{
-    if(btn){ btn.disabled=true; btn.textContent='読込中…'; }
-    document.getElementById('mn-result').innerHTML=`<div class="card" style="color:var(--sub)">⏳ <b>${esc(it.number||'')}</b>（${esc(it.subject||'')}）の明細をfreeeから読み込み中…</div>`;
-    switchTab('manual'); window.scrollTo({top:0, behavior:'smooth'});
-    r=await postAction({action:'getSlip', token:ADMIN_TOKEN_VAL, freeeId:it.id});
-    if(btn){ btn.disabled=false; btn.textContent='編集'; }
-    if(!r||r.ok!==true){
-      document.getElementById('mn-result').innerHTML=`<div class="card" style="color:#a8452e">⚠️ 明細の取得に失敗しました${r&&r.error?'：'+esc(r.error):'（通信の一時障害の可能性）'}。履歴の「編集」をもう一度押してください。</div>`;
-      toast('明細の取得に失敗しました'); return; }
+  const card=btn&&btn.closest('.hist-item'); if(!card) return;
+  const open=card.querySelector('.hist-editor');
+  if(open){ open.remove(); const hb=card.querySelector('.hl-block'); if(hb) hb.classList.remove('hide'); btn.textContent='編集'; return; }  // 開いていれば閉じる
+  let lines=it.lines;
+  if(!lines||!lines.length){
+    btn.disabled=true; btn.textContent='読込中…';
+    const r=await postAction({action:'getSlip', token:ADMIN_TOKEN_VAL, freeeId:it.id});
+    btn.disabled=false;
+    if(!r||r.ok!==true){ btn.textContent='編集'; toast('明細の取得に失敗しました。もう一度押してください'); return; }
+    lines=r.lines;
   }
-  const p=parseSlipLines(r.lines);
-  MANUAL={ rows:p.rows.length?p.rows:[{}], freeRows:p.freeRows, ship:p.ship, shipMode:p.shipMode, freeeId:it.id, editNumber:r.number };
-  const mc=document.getElementById('mn-customer');
-  if(mc){ const pn=String(r.partner||''); const mapped=pn.includes('スパイスロード')?'SRBC様':pn.includes('クオリア')?'QOF様':pn.includes('GAOGAO')?'GAOGAO（テスト）':'';
-    mc.value=[...mc.options].some(o=>o.value===mapped)?mapped:''; }
-  const md=document.getElementById('mn-date'); if(md) md.value=String(r.date||'').replace(/\//g,'-');
-  document.getElementById('mn-result').innerHTML=`<div class="card" style="color:var(--green-d)">✏️ 編集モード：<b>${esc(r.number||'')}</b>（${esc(r.subject||'')}${r.status==='sent'?'・送付済み':''}）をfreeeから呼び戻しました。修正して「納品書を作成」を押すと、<b>この納品書が上書き保存</b>されます（番号・件名は維持）。やめる時は「新規（クリア）」。</div>`;
-  switchTab('manual'); renderManual();
-  window.scrollTo({top:0, behavior:'smooth'});
-  toast('編集モードで呼び戻しました：'+(r.number||''));
+  const p=parseSlipLines(lines||[]);
+  const S={ rows:p.rows.length?p.rows:[{}], freeRows:p.freeRows, ship:p.ship, shipMode:p.shipMode };
+  const hb=card.querySelector('.hl-block'); if(hb) hb.classList.add('hide');
+  const ed=document.createElement('div'); ed.className='hist-editor';
+  ed.innerHTML=`<div class="he-bar">✏️ <b>${esc(it.number||'')}</b>（${esc(it.subject||'')}）を編集中 — 番号・件名・取引先は維持されます
+      <span class="he-date-w">納品日 <input type="date" class="he-date" value="${esc(String(it.date||'').replace(/\//g,'-'))}"></span></div>
+    <div class="he-body"></div>
+    <div class="he-actions"><button type="button" class="btn ghost sm he-cancel">キャンセル</button><button type="button" class="btn sm he-save">この内容で上書き保存</button></div>`;
+  card.insertBefore(ed, card.querySelector('.hist-mail'));
+  renderEditor(S, ed.querySelector('.he-body'), 'h'+it.id);
+  btn.textContent='閉じる';
+  ed.querySelector('.he-cancel').onclick=()=>{ ed.remove(); if(hb) hb.classList.remove('hide'); btn.textContent='編集'; };
+  ed.querySelector('.he-save').onclick=async()=>{
+    const items=S.rows.filter(r=>r.call&&r.farm&&r.price!=null&&r.price!==''&&r.qty);
+    const freeLines=(S.freeRows||[]).filter(f=>String(f.desc||'').trim()).map(f=>({desc:f.desc, qty:f.qty, price:f.price, unit:f.unit||'', tax_rate:f.tax_rate}));
+    if(!items.length&&!freeLines.length){ toast('品目がありません'); return; }
+    const shipping=SHIP_SIZES.filter(s=>S.ship[s.v]>0).map(s=>({size:s.v, boxes:S.ship[s.v]}));
+    const date=ed.querySelector('.he-date').value;
+    if(!confirm(`freeeの納品書 ${it.number||''} を上書き保存します（番号・件名は維持）。\n品目：${items.length}件${freeLines.length?`＋自由行${freeLines.length}件`:''}\n配送：${shipping.length?shipping.map(s=>`${s.size}×${s.boxes}箱`).join('・'):'なし'}\nよろしいですか？`)) return;
+    const sb=ed.querySelector('.he-save'); sb.disabled=true; sb.textContent='上書き保存中…';
+    const r=await postAction({action:'createDraft', token:ADMIN_TOKEN_VAL, orderId:'', freeeId:it.id,
+      customer:'', person:'', deliveryDate:date,
+      items:items.map(x=>({call:x.call, jp:x.jp, farm:x.farm, qty:x.qty, price:x.price})), freeLines, shipping, shipMode:S.shipMode});
+    sb.disabled=false; sb.textContent='この内容で上書き保存';
+    if(r.ok&&r.number){ toast('✅ 上書き保存しました：'+r.number); ed.remove(); if(hb) hb.classList.remove('hide'); btn.textContent='編集'; loadHistory(); }
+    else if(r&&r.error==='TRANSIENT'){ toast('⚠️ 通信が一時的に不安定です。もう一度お試しください'); }
+    else if(r&&String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（再デプロイが必要）'); }
+    else { toast('保存失敗: '+((r&&r.error)||'応答が不完全でした。もう一度お試しください')); }
+  };
 }
 function switchTab(v){
   document.querySelectorAll('.vtb').forEach(x=>x.classList.toggle('active',x.dataset.v===v));
