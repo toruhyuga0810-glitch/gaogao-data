@@ -63,6 +63,7 @@
   .mp-mode label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
   .mp-mode input{accent-color:var(--green)}
   .mp-mode .mp-live{color:#a8452e;font-weight:700}
+  .mp-to{font-size:12px;color:var(--green-d);background:var(--accent);border-radius:8px;padding:7px 11px;margin:8px 0 4px;line-height:1.6}
   .mp-send{margin-top:8px}
   .draft-result{margin:0 16px 14px;padding:12px 14px;background:var(--accent);border:1px solid var(--green);border-radius:10px}
   .draft-result .dr-title{font-weight:700;color:var(--green-d)}
@@ -226,6 +227,12 @@ const FARM_AREA={1:'八郷',2:'鉾田',3:'土浦',4:'沖縄',5:'江戸崎',6:'�
 function farmLabel(f){ const m=String(f).match(/第(\d+)圃場/); const a=m?FARM_AREA[+m[1]]:''; return a?`${f}・${a}`:f; }
 // 配送サイズ（v=GASのFREEE_SORYOと一致させる値／l=画面表示）。箱数を入れた分だけ納品書に載る
 const SHIP_SIZES=[{v:'60サイズ',l:'60'},{v:'80サイズ',l:'80'},{v:'100サイズ',l:'100'},{v:'140サイズ（20kg）',l:'140/20kg'},{v:'140サイズ（30kg）',l:'140/30kg'}];
+// 送信先モードの表示（誰に届くか。名前ベース＝アドレスは公開admin.htmlに載せずGAS側で保持）
+const MODE_RECIPIENTS={
+  self:'自社のみ（テスト）… GAOGAO（社内2アドレス）',
+  matsumoto:'松本さん〈スパイスロード〉＋ 自社（テスト）',
+  live:'To：尾上・秋葉・松本〈スパイスロード〉 ／ CC：村上・Boonyarit・渡部〈QOF〉'
+};
 
 function statusBadge(s){ return `<span class="badge s-${esc(s)}">${esc(s)}</span>`; }
 function render(){
@@ -313,6 +320,7 @@ function render(){
             <label><input type="radio" name="mailmode-${esc(o.id)}" class="mp-mode-in" value="matsumoto"> 松本さん＋自社（テスト）</label>
             <label class="mp-live"><input type="radio" name="mailmode-${esc(o.id)}" class="mp-mode-in" value="live"> 本番（全社）</label>
           </div>
+          <div class="mp-to">送信先 → ${MODE_RECIPIENTS.self}</div>
           <button type="button" class="btn mp-send" data-id="${esc(o.id)}">この内容で送信</button>
         </div>
       </div>`:''}
@@ -497,8 +505,9 @@ function fmtDeliveryDate(d){
 function buildDeliveryMail(o, url, exp, track){
   const sm=String(o.draftSubject||'').match(/[#＃]\s*(\d+)/); const n=sm?sm[1]:'';
   const noubi=fmtDeliveryDate(o.deliveryDate);
+  const tr=String(track||'').replace(/\D/g,'');   // 佐川追跡番号はハイフン等を除いて数字だけに
   const subject=`[GAOGAO納品書＃${n}]タイ野菜${noubi}納品分`;
-  const body=`株式会社スパイスロード\n購買部　尾上 裕美 様\n経理部　秋葉 正志 様\n\nいつも大変お世話になっております。\n\nTHAI SUPERMARKET 99 / GAOGAOの日向でございます。\n\n平素は弊社に格別のお引き立てを賜り、誠にありがとうございます。\nこの度、＃${n}タイ野菜${noubi}納品分の納品書をメールにてお送りいたします。\n\n納品書URL：\n${url}\n有効期限：${exp}\n\n佐川追跡番号：${track}\nhttps://www.sagawa-exp.co.jp/howto-search/\n\nお手数をおかけいたしますが、内容をご確認いただきますようお願い申し上げます。\n\nご不明な点・不備等がございましたら、本メールへのご返信にてお気軽にお申し付けください。\n\n何卒よろしくお願い申し上げます。`;
+  const body=`株式会社スパイスロード\n購買部　尾上 裕美 様\n経理部　秋葉 正志 様\n\nいつも大変お世話になっております。\n\nTHAI SUPERMARKET 99 / GAOGAOの日向でございます。\n\n平素は弊社に格別のお引き立てを賜り、誠にありがとうございます。\nこの度、＃${n}タイ野菜${noubi}納品分の納品書をメールにてお送りいたします。\n\n納品書URL：\n${url}\n有効期限：${exp}\n\n佐川追跡番号：${tr}\nhttps://www.sagawa-exp.co.jp/howto-search/\n\nお手数をおかけいたしますが、内容をご確認いただきますようお願い申し上げます。\n\nご不明な点・不備等がございましたら、本メールへのご返信にてお気軽にお申し付けください。\n\n何卒よろしくお願い申し上げます。`;
   return {subject, body};
 }
 
@@ -639,6 +648,7 @@ async function createManual(){
             <label><input type="radio" name="mn-mailmode" class="mp-mode-in" value="matsumoto"> 松本さん＋自社（テスト）</label>
             <label class="mp-live"><input type="radio" name="mn-mailmode" class="mp-mode-in" value="live"> 本番（全社）</label>
           </div>
+          <div class="mp-to">送信先 → ${MODE_RECIPIENTS.self}</div>
           <button type="button" class="btn mp-send">この内容で送信</button>
         </div>
       </div>`;
@@ -882,6 +892,19 @@ document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
     else { if(!supLoaded) loadSupply(); if(!priceLoaded) loadPrices(); }
   }
 }));
+// 送信先モードを変えたら「送信先 →」表示を更新
+document.addEventListener('change',e=>{
+  if(e.target.classList&&e.target.classList.contains('mp-mode-in')){
+    const panel=e.target.closest('.mail-panel'); const to=panel&&panel.querySelector('.mp-to');
+    if(to) to.textContent='送信先 → '+(MODE_RECIPIENTS[e.target.value]||'');
+  }
+});
+// 佐川追跡番号はハイフン等を自動除去（数字だけに）。例 4541-4665-0252 → 454146650252
+document.addEventListener('input',e=>{
+  if(e.target.classList&&e.target.classList.contains('mp-track')){
+    const v=e.target.value.replace(/[^\d]/g,''); if(v!==e.target.value) e.target.value=v;
+  }
+});
 </script>
 <script src="assets/nav-liquid.js"></script>
 <script src="assets/i18n.js?v=12"></script>
