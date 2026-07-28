@@ -138,8 +138,7 @@
   <div id="admin-content" class="hide">
     <div class="vtabs">
       <button class="vtb active" data-v="orders">受注管理</button>
-      <button class="vtb" data-v="manual">納品書作成</button>
-      <button class="vtb" data-v="history">納品履歴</button>
+      <button class="vtb" data-v="manual">納品書作成・履歴</button>
       <button class="vtb" data-v="supply">供給・出荷マスタ</button>
     </div>
 
@@ -178,16 +177,13 @@
         <button type="button" class="btn draft-btn" id="mn-create" style="margin-left:auto">納品書を作成</button>
       </div>
       <div id="mn-result"></div>
-    </div>
 
-    <div id="view-history" class="hide">
-      <div class="card">
-        <div class="row" style="align-items:center">
-          <div class="muted" style="max-width:720px;line-height:1.8">過去に作成した納品書の履歴です。<b>freeeで開く</b>で内容確認・URL共有、<b>編集</b>で内容を呼び戻して修正（同じ納品書が更新されます）。取り消し済み・送付済みは編集できません。</div>
-          <div style="flex:1"></div>
-          <button class="btn ghost sm" id="hist-reload">↻ 再読込</button>
-        </div>
-      </div>
+      <h2 style="font-size:15px;margin:26px 0 10px;padding-top:14px;border-top:1px solid var(--line)">納品履歴</h2>
+      <div class="card"><div class="row" style="align-items:center">
+        <div class="muted" style="max-width:760px;line-height:1.8"><b>編集</b>で上のフォームに呼び戻して修正 →「納品書を作成」で<b>上書き</b>。<b>納品書URL・佐川番号</b>は後から入力・保存でき、そのままメール送信もできます。取り消し済みは表示しません。</div>
+        <div style="flex:1"></div>
+        <button class="btn ghost sm" id="hist-reload">↻ 再読込</button>
+      </div></div>
       <div id="hist-state" class="card state">読み込み中…</div>
       <div id="hist-list"></div>
     </div>
@@ -685,40 +681,90 @@ async function createManual(){
 /* ===== 納品履歴（過去の納品書を一覧・freeeで開く・呼び戻し編集） ===== */
 let HISTORY=[];
 async function loadHistory(){
-  const st=document.getElementById('hist-state'), list=document.getElementById('hist-list');
-  st.classList.remove('hide'); st.textContent='読み込み中…'; list.innerHTML='';
+  const st=document.getElementById('hist-state'), list=document.getElementById('hist-list'); if(!st||!list) return;
+  st.classList.remove('hide'); st.textContent='読み込み中…';
   try{
-    const rows=await fetchSheet('納品書リンク');
-    const hi=rows.findIndex(r=>r.some(c=>String(c).trim()==='注文番号'));
-    if(hi<0){ st.textContent='まだ履歴がありません。納品書を作成すると、ここに残ります。'; return; }
-    const head=rows[hi].map(s=>String(s).trim()); const ix=k=>head.indexOf(k);
-    const items=[];
-    for(let i=hi+1;i<rows.length;i++){ const r=rows[i]||[]; const oid=String(r[ix('注文番号')]||'').trim(); if(!oid) continue;
-      items.push({ orderId:oid, number:(r[ix('番号')]||'').trim(), report_url:(r[ix('report_url')]||'').trim(),
-        status:(r[ix('状態')]||'').trim(), subject:(r[ix('件名')]||'').trim(),
-        customer:ix('取引先')>=0?(r[ix('取引先')]||'').trim():'', payload:ix('内容')>=0?(r[ix('内容')]||'').trim():'' });
-    }
-    items.reverse(); HISTORY=items; renderHistory(items);
-  }catch(e){ st.textContent='取得失敗：'+esc(e.message); }
+    const r=await postAction({action:'deliveryHistory', token:ADMIN_TOKEN_VAL});
+    if(!r||r.ok!==true){ st.textContent='取得失敗'+(r&&r.error?'：'+r.error:'（もう一度お試しください）'); list.innerHTML=''; return; }
+    HISTORY=r.items||[]; renderHistory(HISTORY);
+  }catch(e){ st.textContent='取得失敗：'+esc(e.message); list.innerHTML=''; }
+}
+function mailPanelInner(uid){
+  return `<div class="mp-title">納品メール <span class="muted">（freeeのURL共有内容＋佐川番号）</span></div>
+    <div class="mp-inputs">
+      <label class="mp-field mp-field-url"><span>納品書URL（有効期限も一緒でOK）</span><textarea class="mp-url" rows="2" placeholder="https://invoice.secure.freee.co.jp/ivex/dl/…"></textarea></label>
+      <label class="mp-field"><span>佐川追跡番号</span><input class="mp-track"></label>
+    </div>
+    <button type="button" class="btn ghost mp-preview">プレビュー作成</button>
+    <div class="mp-area hide">
+      <div class="mp-note">内容を確認し、必要なら直接編集してください。下で送信先（テスト／本番）を選んで送信します。</div>
+      <label class="mp-subj"><span>件名</span><input class="mp-subject"></label>
+      <textarea class="mp-body" rows="15"></textarea>
+      <div class="mp-mode"><span class="mp-mode-l">送信先</span>
+        <label><input type="radio" name="mm-${uid}" class="mp-mode-in" value="self" checked> 自社のみ（テスト）</label>
+        <label><input type="radio" name="mm-${uid}" class="mp-mode-in" value="matsumoto"> 松本さん＋自社（テスト）</label>
+        <label class="mp-live"><input type="radio" name="mm-${uid}" class="mp-mode-in" value="live"> 本番（全社）</label>
+      </div>
+      <div class="mp-to">送信先 → ${recipText('self')}</div>
+      <button type="button" class="btn mp-send">この内容で送信</button>
+    </div>`;
 }
 function renderHistory(items){
   const st=document.getElementById('hist-state'), list=document.getElementById('hist-list');
-  if(!items.length){ st.classList.remove('hide'); st.textContent='まだ履歴がありません。'; list.innerHTML=''; return; }
+  if(!items.length){ st.classList.remove('hide'); st.textContent='まだ履歴がありません。上で納品書を作成すると、ここに残ります。'; list.innerHTML=''; return; }
   st.classList.add('hide');
   list.innerHTML=items.map((it,i)=>{
     let pay=null; try{ pay=JSON.parse(it.payload||'{}'); }catch(e){}
-    const n=pay&&pay.items?pay.items.length:0;
-    const canEdit=n>0;
-    return `<div class="card" style="margin-bottom:10px"><div class="row" style="align-items:center;gap:10px;flex-wrap:wrap">
-      ${it.customer?`<span class="company">${esc(it.customer)}</span>`:''}
-      <b>${esc(it.subject||it.number||'(件名なし)')}</b>
-      <span class="muted" style="font-size:12px">${esc(it.number||'')}${pay&&pay.deliveryDate?' ／ 納品 '+esc(pay.deliveryDate):''}${n?' ／ 品目'+n+'件':''}</span>
-      <div style="flex:1;min-width:20px"></div>
-      ${it.report_url?`<a class="btn ghost sm" href="${esc(it.report_url)}" target="_blank" rel="noopener">freeeで開く</a>`:''}
-      ${canEdit?`<button type="button" class="btn sm hist-edit" data-i="${i}">編集</button>`:'<span class="muted" style="font-size:11px">内容記録なし</span>'}
-    </div></div>`;
+    const n=pay&&pay.items?pay.items.length:0; const sent=it.status==='sent';
+    const urlVal=(it.url||'')+((it.expiry&&it.url)?('\n有効期限：'+it.expiry):'');
+    return `<div class="card hist-item" data-oid="${esc(it.orderId)}" style="margin-bottom:10px">
+      <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap">
+        ${it.customer?`<span class="company">${esc(it.customer)}</span>`:''}
+        <b>${esc(it.subject||it.number||'(件名なし)')}</b>
+        <span class="muted" style="font-size:12px">${esc(it.number||'')}${it.date?' ／ 納品 '+esc(it.date):''}${n?' ／ 品目'+n+'件':''}${sent?' ／ 送付済み':''}</span>
+        <div style="flex:1;min-width:20px"></div>
+        ${it.report_url?`<a class="btn ghost sm" href="${esc(it.report_url)}" target="_blank" rel="noopener">freeeで開く</a>`:''}
+        ${(n&&!sent)?`<button type="button" class="btn sm hist-edit" data-i="${i}">編集</button>`:''}
+      </div>
+      <div class="hist-mail" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
+        <div class="mp-inputs">
+          <label class="mp-field mp-field-url"><span>納品書URL（freeeの共有内容を貼付。有効期限も一緒でOK）</span><textarea class="hm-url" rows="2" placeholder="https://invoice.secure.freee.co.jp/ivex/dl/…">${esc(urlVal)}</textarea></label>
+          <label class="mp-field"><span>佐川追跡番号</span><input class="hm-sagawa mp-track" value="${esc(it.sagawa||'')}"></label>
+        </div>
+        <button type="button" class="btn ghost sm hm-save" data-i="${i}">この情報を保存</button>
+        <button type="button" class="btn sm hm-mail" data-i="${i}">納品メールを作成</button>
+        <div class="hm-area"></div>
+      </div>
+    </div>`;
   }).join('');
   list.querySelectorAll('.hist-edit').forEach(b=>b.onclick=()=>editHistory(HISTORY[+b.dataset.i]));
+  list.querySelectorAll('.hm-save').forEach(b=>b.onclick=()=>histSaveMeta(b));
+  list.querySelectorAll('.hm-mail').forEach(b=>b.onclick=()=>histMail(b));
+}
+function histReadMeta(item){
+  const raw=item.querySelector('.hm-url').value.trim();
+  const um=raw.match(/https?:\/\/\S+/); const em=raw.match(/有効期限[：:\s]*([^\n\r]+)/);
+  return { url:um?um[0]:'', expiry:em?em[1].trim():'', sagawa:item.querySelector('.hm-sagawa').value.replace(/\D/g,'') };
+}
+async function histSaveMeta(b){
+  const item=b.closest('.hist-item'); const m=histReadMeta(item);
+  b.disabled=true; const lbl=b.textContent; b.textContent='保存中…';
+  const r=await postAction({action:'saveDeliveryMeta', token:ADMIN_TOKEN_VAL, orderId:item.dataset.oid, url:m.url, expiry:m.expiry, sagawa:m.sagawa});
+  b.disabled=false; b.textContent=lbl;
+  if(r&&r.ok){ const it=HISTORY[+b.dataset.i]; if(it){ it.url=m.url; it.expiry=m.expiry; it.sagawa=m.sagawa; } toast('保存しました'); }
+  else toast('保存失敗: '+((r&&r.error)||''));
+}
+function histMail(b){
+  const i=+b.dataset.i, it=HISTORY[i]; const item=b.closest('.hist-item'); const area=item.querySelector('.hm-area');
+  histSaveMeta(item.querySelector('.hm-save'));   // メール作成時に情報も保存
+  let pay=null; try{ pay=JSON.parse(it.payload||'{}'); }catch(e){}
+  const o={draftSubject:it.subject, deliveryDate:(pay&&pay.deliveryDate)||it.date, orderId:it.orderId};
+  area.innerHTML=`<div class="mail-panel" style="margin-top:12px">${mailPanelInner(esc(it.orderId))}</div>`;
+  const panel=area.querySelector('.mail-panel');
+  panel.querySelector('.mp-url').value=item.querySelector('.hm-url').value;
+  panel.querySelector('.mp-track').value=item.querySelector('.hm-sagawa').value;
+  bindManualMail(panel, o);
+  panel.querySelector('.mp-preview').click();
 }
 function editHistory(it){
   let pay=null; try{ pay=JSON.parse(it.payload||'{}'); }catch(e){ toast('内容を読めませんでした'); return; }
@@ -733,7 +779,7 @@ function editHistory(it){
 }
 function switchTab(v){
   document.querySelectorAll('.vtb').forEach(x=>x.classList.toggle('active',x.dataset.v===v));
-  ['orders','manual','history','supply'].forEach(k=>document.getElementById('view-'+k).classList.toggle('hide',k!==v));
+  ['orders','manual','supply'].forEach(k=>document.getElementById('view-'+k).classList.toggle('hide',k!==v));
 }
 
 async function init(){
@@ -963,10 +1009,8 @@ document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
   const v=t.dataset.v;
   document.getElementById('view-orders').classList.toggle('hide',v!=='orders');
   document.getElementById('view-manual').classList.toggle('hide',v!=='manual');
-  document.getElementById('view-history').classList.toggle('hide',v!=='history');
   document.getElementById('view-supply').classList.toggle('hide',v!=='supply');
-  if(v==='manual'){ if(priceLoaded) renderManual(); else loadPrices().then(renderManual).catch(()=>{}); }
-  if(v==='history'){ loadHistory(); }
+  if(v==='manual'){ if(priceLoaded) renderManual(); else loadPrices().then(renderManual).catch(()=>{}); loadHistory(); }
   if(v==='supply'){
     // タブを開くたびに最新を読み直す（保存していない編集がある間は上書きしない）
     const editing=document.querySelector('#sup-table .dirty, #price-table .dirty');
