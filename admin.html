@@ -27,11 +27,8 @@
   .mn-del{border:1px solid var(--line);background:#fff;color:var(--sub);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1}
   .mn-del:hover{color:#a8452e;border-color:#e5b8ad}
   /* 履歴カード内のその場編集 */
-  .hist-editor{margin-top:10px;padding:12px;background:#fff;border:1.5px solid var(--green);border-radius:10px}
-  .he-bar{font-size:12.5px;color:var(--green-d);margin-bottom:10px;display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap}
   .he-date-w{color:var(--sub);font-size:12px;display:inline-flex;align-items:center;gap:6px}
   .he-date-w input{padding:5px 8px;font-size:12.5px}
-  .he-actions{display:flex;gap:8px;margin-top:10px;justify-content:flex-end}
   /* 履歴カード内の明細表示 */
   .hl-block{margin-top:10px;padding:10px 12px;background:#fafbfa;border:1px solid var(--line);border-radius:10px}
   .hl-head{font-size:12px;font-weight:700;color:var(--green-d);margin:6px 0 3px}
@@ -59,8 +56,8 @@
   .ship-mode label{display:inline-flex;align-items:center;gap:3px;cursor:pointer}
   .ship-mode input{accent-color:var(--green)}
   .ship-cell{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--sub)}
-  .ship-cell .ss-l{min-width:52px;text-align:right}
-  .ship-cell .ship-in{width:48px;text-align:right;padding:4px 6px;border:1px solid var(--line);border-radius:6px}
+  .ship-cell .ss-l{text-align:right}
+  .ship-cell input{width:52px;text-align:right;padding:5px 7px;border:1px solid var(--line);border-radius:6px;font-size:13px}
   .ship-cell .ss-u{color:var(--sub)}
   .ship-hint{font-size:11px;color:var(--sub);margin-left:auto}
   .btn.xs{padding:5px 10px;font-size:12px;border-radius:8px}
@@ -202,7 +199,7 @@
 
       <h2 style="font-size:15px;margin:26px 0 10px;padding-top:14px;border-top:1px solid var(--line)">納品履歴</h2>
       <div class="card"><div class="row" style="align-items:center">
-        <div class="muted" style="max-width:760px;line-height:1.8"><b>編集</b>を押すと、その場で作成時と同じ画面が開き、修正して<b>上書き保存</b>できます（番号・件名は維持）。<b>納品書URL・佐川番号</b>は後から入力・保存でき、そのままメール送信もできます。取り消し済みは表示しません。</div>
+        <div class="muted" style="max-width:760px;line-height:1.8">各納品書は<b>その場で修正 → 上書き保存</b>できます（番号・件名は維持）。<b>納品書URL・佐川番号</b>は後から入力・保存でき、そのままメール送信もできます。取り消し済みは表示しません。</div>
         <div style="flex:1"></div>
         <button class="btn ghost sm" id="hist-reload">↻ 再読込</button>
       </div></div>
@@ -578,7 +575,7 @@ function renderManual(){ const b=document.getElementById('mn-body'); if(b) rende
 function renderEditor(S, body, uid){
   if(!priceLoaded){ body.innerHTML='<div class="muted">価格表を読み込み中…</div>'; return; }
   if(!S.freeRows) S.freeRows=[];
-  const rerender=()=>renderEditor(S, body, uid);
+  const rerender=()=>{ S._dirty=true; renderEditor(S, body, uid); };   // 編集された状態を記録（裏更新で消さないため）
   let sub=0;
   const rows=S.rows.map((r,i)=>{
     const pe=r.call?PRICES.find(x=>x.call===r.call):null;
@@ -628,12 +625,12 @@ function renderEditor(S, body, uid){
   body.querySelectorAll('.mn-qty').forEach(inp=>inp.addEventListener('change',e=>{ S.rows[+e.target.dataset.i].qty=Math.max(0,Math.round(parseFloat(e.target.value)||0)); rerender(); }));
   body.querySelectorAll('.mn-price').forEach(inp=>inp.addEventListener('change',e=>{ const v=e.target.value; S.rows[+e.target.dataset.i].price=(v===''?undefined:parseFloat(v)); rerender(); }));
   body.querySelectorAll('.mn-del').forEach(b=>b.addEventListener('click',()=>{ S.rows.splice(+b.dataset.i,1); if(!S.rows.length&&!S.freeRows.length) S.rows.push({}); rerender(); }));
-  body.querySelectorAll('.fr-desc').forEach(inp=>inp.addEventListener('change',e=>{ S.freeRows[+e.target.dataset.i].desc=e.target.value; }));
+  body.querySelectorAll('.fr-desc').forEach(inp=>inp.addEventListener('change',e=>{ S._dirty=true; S.freeRows[+e.target.dataset.i].desc=e.target.value; }));
   body.querySelectorAll('.fr-qty').forEach(inp=>inp.addEventListener('change',e=>{ const v=e.target.value; S.freeRows[+e.target.dataset.i].qty=(v===''?'':parseFloat(v)); rerender(); }));
   body.querySelectorAll('.fr-price').forEach(inp=>inp.addEventListener('change',e=>{ const v=e.target.value; S.freeRows[+e.target.dataset.i].price=(v===''?'':parseFloat(v)); rerender(); }));
   body.querySelectorAll('.fr-del').forEach(b=>b.addEventListener('click',()=>{ S.freeRows.splice(+b.dataset.i,1); rerender(); }));
-  body.querySelectorAll('.mn-ship').forEach(inp=>inp.addEventListener('change',e=>{ S.ship[e.target.dataset.size]=Math.max(0,parseInt(e.target.value)||0); }));
-  body.querySelectorAll('.mn-shipmode').forEach(r=>r.addEventListener('change',e=>{ if(e.target.checked) S.shipMode=e.target.value; }));
+  body.querySelectorAll('.mn-ship').forEach(inp=>inp.addEventListener('change',e=>{ S._dirty=true; S.ship[e.target.dataset.size]=Math.max(0,parseInt(e.target.value)||0); }));
+  body.querySelectorAll('.mn-shipmode').forEach(r=>r.addEventListener('change',e=>{ if(e.target.checked){ S._dirty=true; S.shipMode=e.target.value; } }));
   const ar=body.querySelector('.ed-addrow'); if(ar) ar.onclick=()=>{ S.rows.push({}); rerender(); };
   const af=body.querySelector('.ed-addfree'); if(af) af.onclick=()=>{ S.freeRows.push({desc:'',qty:1,price:'',unit:''}); rerender(); };
 }
@@ -739,10 +736,10 @@ async function loadHistory(){
       else toast('履歴の更新に失敗（前回の内容を表示中）');
       return;
     }
-    HISTORY=r.items||[];
-    try{ localStorage.setItem('gg_hist_cache', JSON.stringify(HISTORY)); }catch(e){}
-    // 入力中（URL/佐川欄にフォーカス）の時は書き換えない＝入力を消さない
-    if(!list.contains(document.activeElement)) renderHistory(HISTORY);
+    try{ localStorage.setItem('gg_hist_cache', JSON.stringify(r.items||[])); }catch(e){}
+    // 編集中（変更あり）・入力中の時は差し替えない＝編集内容を消さない
+    const editing=(HISTORY||[]).some(x=>x&&x._S&&x._S._dirty) || list.contains(document.activeElement);
+    if(!editing){ HISTORY=r.items||[]; renderHistory(HISTORY); }
   }catch(e){ if(!HISTORY.length){ st.classList.remove('hide'); st.textContent='取得失敗：'+esc(e.message); } }
 }
 function mailPanelInner(uid){
@@ -772,22 +769,17 @@ function renderHistory(items){
   list.innerHTML=items.map((it,i)=>{
     const sent=it.status==='sent';
     const urlVal=(it.url||'')+((it.expiry&&it.url)?('\n有効期限：'+it.expiry):'');
-    const linesHtml=(it.lines&&it.lines.length)?`<div class="hl-block">${it.lines.map(l=>{
-      if(l.type==='text') return `<div class="hl-head">${esc(l.description||'')}</div>`;
-      const qty=Number(l.quantity)||0, price=parseFloat(l.unit_price)||0, amt=qty*price;
-      const tax=(l.tax_rate===10)?'税率10%':'軽減税率8%';
-      return `<div class="hl-item"><span class="hl-desc">${esc(l.description||'')}</span><b class="hl-amt">${yen(amt)}</b><span class="hl-calc">${yen(price)} × ${qty}${l.unit?'（'+esc(l.unit)+'）':''}</span><span class="hl-tax">${tax}</span></div>`;
-    }).join('')}</div>`:'';
     return `<div class="card hist-item" data-fid="${esc(String(it.id))}" style="margin-bottom:10px">
       <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap">
         ${it.customer?`<span class="company">${esc(it.customer)}</span>`:''}
         <b>${esc(it.subject||it.number||'(件名なし)')}</b>
-        <span class="muted" style="font-size:12px">${esc(it.number||'')}${it.date?' ／ 納品 '+esc(it.date):''}${it.amount!=null?' ／ '+yen(it.amount):''}${sent?' ／ 送付済み':' ／ 未送付'}</span>
+        <span class="muted" style="font-size:12px">${esc(it.number||'')}${it.amount!=null?' ／ '+yen(it.amount):''}${sent?' ／ 送付済み':' ／ 未送付'}</span>
+        <span class="he-date-w">納品日 <input type="date" class="he-date" data-i="${i}" value="${esc(String(it.date||'').replace(/\//g,'-'))}"></span>
         <div style="flex:1;min-width:20px"></div>
         ${it.report_url?`<a class="btn ghost sm" href="${esc(it.report_url)}" target="_blank" rel="noopener">freeeで開く</a>`:''}
-        <button type="button" class="btn sm hist-edit" data-i="${i}">編集</button>
+        <button type="button" class="btn sm he-save" data-i="${i}">上書き保存</button>
       </div>
-      ${linesHtml}
+      <div class="he-body" data-i="${i}" style="margin-top:10px"></div>
       <div class="hist-mail" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
         <div class="mp-inputs">
           <label class="mp-field mp-field-url"><span>納品書URL（freeeの共有内容を貼付。有効期限も一緒でOK）</span><textarea class="hm-url" rows="2" placeholder="https://invoice.secure.freee.co.jp/ivex/dl/…">${esc(urlVal)}</textarea></label>
@@ -799,9 +791,36 @@ function renderHistory(items){
       </div>
     </div>`;
   }).join('');
-  list.querySelectorAll('.hist-edit').forEach(b=>b.onclick=()=>editHistory(HISTORY[+b.dataset.i], b));
+  // 各カードに編集画面を最初から展開（作成フォームと同じ操作感）
+  items.forEach((it,i)=>{
+    const p=parseSlipLines(it.lines||[]);
+    const S={ rows:p.rows.length?p.rows:[{}], freeRows:p.freeRows, ship:p.ship, shipMode:p.shipMode };
+    it._S=S;
+    const bodyEl=list.querySelector(`.he-body[data-i="${i}"]`);
+    if(bodyEl) renderEditor(S, bodyEl, 'h'+it.id);
+  });
+  list.querySelectorAll('.he-save').forEach(b=>b.onclick=()=>histSaveSlip(b));
   list.querySelectorAll('.hm-save').forEach(b=>b.onclick=()=>histSaveMeta(b));
   list.querySelectorAll('.hm-mail').forEach(b=>b.onclick=()=>histMail(b));
+}
+// 履歴カードの編集内容で、その納品書を上書き保存
+async function histSaveSlip(b){
+  const i=+b.dataset.i, it=HISTORY[i]; const S=it&&it._S; if(!S) return;
+  const items=S.rows.filter(r=>r.call&&r.farm&&r.price!=null&&r.price!==''&&r.qty);
+  const freeLines=(S.freeRows||[]).filter(f=>String(f.desc||'').trim()).map(f=>({desc:f.desc, qty:f.qty, price:f.price, unit:f.unit||'', tax_rate:f.tax_rate}));
+  if(!items.length&&!freeLines.length){ toast('品目がありません'); return; }
+  const shipping=SHIP_SIZES.filter(s=>S.ship[s.v]>0).map(s=>({size:s.v, boxes:S.ship[s.v]}));
+  const card=b.closest('.hist-item'); const date=(card.querySelector('.he-date')||{}).value||'';
+  if(!confirm(`freeeの納品書 ${it.number||''} を上書き保存します（番号・件名は維持）。\n品目：${items.length}件${freeLines.length?`＋自由行${freeLines.length}件`:''}\n配送：${shipping.length?shipping.map(s=>`${s.size}×${s.boxes}箱`).join('・'):'なし'}\nよろしいですか？`)) return;
+  b.disabled=true; const lbl=b.textContent; b.textContent='保存中…';
+  const r=await postAction({action:'createDraft', token:ADMIN_TOKEN_VAL, orderId:'', freeeId:it.id,
+    customer:'', person:'', deliveryDate:date,
+    items:items.map(x=>({call:x.call, jp:x.jp, farm:x.farm, qty:x.qty, price:x.price})), freeLines, shipping, shipMode:S.shipMode});
+  b.disabled=false; b.textContent=lbl;
+  if(r.ok&&r.number){ toast('✅ 上書き保存しました：'+r.number); loadHistory(); }
+  else if(r&&r.error==='TRANSIENT'){ toast('⚠️ 通信が一時的に不安定です。もう一度お試しください'); }
+  else if(r&&String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（再デプロイが必要）'); }
+  else { toast('保存失敗: '+((r&&r.error)||'応答が不完全でした。もう一度お試しください')); }
 }
 function histReadMeta(item){
   const raw=item.querySelector('.hm-url').value.trim();
@@ -862,49 +881,6 @@ function parseSlipLines(lines){
   });
   if(sawNormal && !sawCool) out.shipMode='normal';
   return out;
-}
-// 履歴カードの中で、その場編集（作成フォームと同じ操作感）→上書き保存
-async function editHistory(it, btn){
-  const card=btn&&btn.closest('.hist-item'); if(!card) return;
-  const open=card.querySelector('.hist-editor');
-  if(open){ open.remove(); const hb=card.querySelector('.hl-block'); if(hb) hb.classList.remove('hide'); btn.textContent='編集'; return; }  // 開いていれば閉じる
-  let lines=it.lines;
-  if(!lines||!lines.length){
-    btn.disabled=true; btn.textContent='読込中…';
-    const r=await postAction({action:'getSlip', token:ADMIN_TOKEN_VAL, freeeId:it.id});
-    btn.disabled=false;
-    if(!r||r.ok!==true){ btn.textContent='編集'; toast('明細の取得に失敗しました。もう一度押してください'); return; }
-    lines=r.lines;
-  }
-  const p=parseSlipLines(lines||[]);
-  const S={ rows:p.rows.length?p.rows:[{}], freeRows:p.freeRows, ship:p.ship, shipMode:p.shipMode };
-  const hb=card.querySelector('.hl-block'); if(hb) hb.classList.add('hide');
-  const ed=document.createElement('div'); ed.className='hist-editor';
-  ed.innerHTML=`<div class="he-bar">✏️ <b>${esc(it.number||'')}</b>（${esc(it.subject||'')}）を編集中 — 番号・件名・取引先は維持されます
-      <span class="he-date-w">納品日 <input type="date" class="he-date" value="${esc(String(it.date||'').replace(/\//g,'-'))}"></span></div>
-    <div class="he-body"></div>
-    <div class="he-actions"><button type="button" class="btn ghost sm he-cancel">キャンセル</button><button type="button" class="btn sm he-save">この内容で上書き保存</button></div>`;
-  card.insertBefore(ed, card.querySelector('.hist-mail'));
-  renderEditor(S, ed.querySelector('.he-body'), 'h'+it.id);
-  btn.textContent='閉じる';
-  ed.querySelector('.he-cancel').onclick=()=>{ ed.remove(); if(hb) hb.classList.remove('hide'); btn.textContent='編集'; };
-  ed.querySelector('.he-save').onclick=async()=>{
-    const items=S.rows.filter(r=>r.call&&r.farm&&r.price!=null&&r.price!==''&&r.qty);
-    const freeLines=(S.freeRows||[]).filter(f=>String(f.desc||'').trim()).map(f=>({desc:f.desc, qty:f.qty, price:f.price, unit:f.unit||'', tax_rate:f.tax_rate}));
-    if(!items.length&&!freeLines.length){ toast('品目がありません'); return; }
-    const shipping=SHIP_SIZES.filter(s=>S.ship[s.v]>0).map(s=>({size:s.v, boxes:S.ship[s.v]}));
-    const date=ed.querySelector('.he-date').value;
-    if(!confirm(`freeeの納品書 ${it.number||''} を上書き保存します（番号・件名は維持）。\n品目：${items.length}件${freeLines.length?`＋自由行${freeLines.length}件`:''}\n配送：${shipping.length?shipping.map(s=>`${s.size}×${s.boxes}箱`).join('・'):'なし'}\nよろしいですか？`)) return;
-    const sb=ed.querySelector('.he-save'); sb.disabled=true; sb.textContent='上書き保存中…';
-    const r=await postAction({action:'createDraft', token:ADMIN_TOKEN_VAL, orderId:'', freeeId:it.id,
-      customer:'', person:'', deliveryDate:date,
-      items:items.map(x=>({call:x.call, jp:x.jp, farm:x.farm, qty:x.qty, price:x.price})), freeLines, shipping, shipMode:S.shipMode});
-    sb.disabled=false; sb.textContent='この内容で上書き保存';
-    if(r.ok&&r.number){ toast('✅ 上書き保存しました：'+r.number); ed.remove(); if(hb) hb.classList.remove('hide'); btn.textContent='編集'; loadHistory(); }
-    else if(r&&r.error==='TRANSIENT'){ toast('⚠️ 通信が一時的に不安定です。もう一度お試しください'); }
-    else if(r&&String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（再デプロイが必要）'); }
-    else { toast('保存失敗: '+((r&&r.error)||'応答が不完全でした。もう一度お試しください')); }
-  };
 }
 function switchTab(v){
   document.querySelectorAll('.vtb').forEach(x=>x.classList.toggle('active',x.dataset.v===v));
