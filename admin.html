@@ -26,6 +26,15 @@
   .mn-price{width:90px;text-align:right}
   .mn-del{border:1px solid var(--line);background:#fff;color:var(--sub);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1}
   .mn-del:hover{color:#a8452e;border-color:#e5b8ad}
+  /* 履歴カード内の明細表示 */
+  .hl-block{margin-top:10px;padding:10px 12px;background:#fafbfa;border:1px solid var(--line);border-radius:10px}
+  .hl-head{font-size:12px;font-weight:700;color:var(--green-d);margin:6px 0 3px}
+  .hl-head:first-child{margin-top:0}
+  .hl-item{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;padding:2px 0 2px 10px}
+  .hl-item .hl-desc{min-width:200px}
+  .hl-item .hl-amt{color:var(--ink)}
+  .hl-item .hl-calc{color:var(--sub);font-size:11.5px}
+  .hl-item .hl-tax{color:var(--sub);font-size:10.5px;background:var(--accent);border-radius:5px;padding:1px 6px}
   .free-row td{background:#fbfaf7}
   .free-row .fr-desc{width:100%;min-width:220px;font-size:12.5px}
   .free-row .fr-qty{width:64px;text-align:right}
@@ -752,6 +761,12 @@ function renderHistory(items){
   list.innerHTML=items.map((it,i)=>{
     const sent=it.status==='sent';
     const urlVal=(it.url||'')+((it.expiry&&it.url)?('\n有効期限：'+it.expiry):'');
+    const linesHtml=(it.lines&&it.lines.length)?`<div class="hl-block">${it.lines.map(l=>{
+      if(l.type==='text') return `<div class="hl-head">${esc(l.description||'')}</div>`;
+      const qty=Number(l.quantity)||0, price=parseFloat(l.unit_price)||0, amt=qty*price;
+      const tax=(l.tax_rate===10)?'税率10%':'軽減税率8%';
+      return `<div class="hl-item"><span class="hl-desc">${esc(l.description||'')}</span><b class="hl-amt">${yen(amt)}</b><span class="hl-calc">${yen(price)} × ${qty}${l.unit?'（'+esc(l.unit)+'）':''}</span><span class="hl-tax">${tax}</span></div>`;
+    }).join('')}</div>`:'';
     return `<div class="card hist-item" data-fid="${esc(String(it.id))}" style="margin-bottom:10px">
       <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap">
         ${it.customer?`<span class="company">${esc(it.customer)}</span>`:''}
@@ -761,6 +776,7 @@ function renderHistory(items){
         ${it.report_url?`<a class="btn ghost sm" href="${esc(it.report_url)}" target="_blank" rel="noopener">freeeで開く</a>`:''}
         <button type="button" class="btn sm hist-edit" data-i="${i}">編集</button>
       </div>
+      ${linesHtml}
       <div class="hist-mail" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
         <div class="mp-inputs">
           <label class="mp-field mp-field-url"><span>納品書URL（freeeの共有内容を貼付。有効期限も一緒でOK）</span><textarea class="hm-url" rows="2" placeholder="https://invoice.secure.freee.co.jp/ivex/dl/…">${esc(urlVal)}</textarea></label>
@@ -837,15 +853,19 @@ function parseSlipLines(lines){
   return out;
 }
 async function editHistory(it, btn){
-  if(btn){ btn.disabled=true; btn.textContent='読込中…'; }
-  // すぐ上部に読み込み中を出してスクロール（反応が見えるように）
-  document.getElementById('mn-result').innerHTML=`<div class="card" style="color:var(--sub)">⏳ <b>${esc(it.number||'')}</b>（${esc(it.subject||'')}）の明細をfreeeから読み込み中…</div>`;
-  switchTab('manual'); window.scrollTo({top:0, behavior:'smooth'});
-  const r=await postAction({action:'getSlip', token:ADMIN_TOKEN_VAL, freeeId:it.id});
-  if(btn){ btn.disabled=false; btn.textContent='編集'; }
-  if(!r||r.ok!==true){
-    document.getElementById('mn-result').innerHTML=`<div class="card" style="color:#a8452e">⚠️ 明細の取得に失敗しました${r&&r.error?'：'+esc(r.error):'（通信の一時障害の可能性）'}。履歴の「編集」をもう一度押してください。</div>`;
-    toast('明細の取得に失敗しました'); return; }
+  let r;
+  if(it.lines && it.lines.length){
+    r={ok:true, id:it.id, number:it.number, subject:it.subject, status:it.status, date:it.date, partner:it.customer, lines:it.lines};  // 履歴が明細を持っている＝即時に開く
+  }else{
+    if(btn){ btn.disabled=true; btn.textContent='読込中…'; }
+    document.getElementById('mn-result').innerHTML=`<div class="card" style="color:var(--sub)">⏳ <b>${esc(it.number||'')}</b>（${esc(it.subject||'')}）の明細をfreeeから読み込み中…</div>`;
+    switchTab('manual'); window.scrollTo({top:0, behavior:'smooth'});
+    r=await postAction({action:'getSlip', token:ADMIN_TOKEN_VAL, freeeId:it.id});
+    if(btn){ btn.disabled=false; btn.textContent='編集'; }
+    if(!r||r.ok!==true){
+      document.getElementById('mn-result').innerHTML=`<div class="card" style="color:#a8452e">⚠️ 明細の取得に失敗しました${r&&r.error?'：'+esc(r.error):'（通信の一時障害の可能性）'}。履歴の「編集」をもう一度押してください。</div>`;
+      toast('明細の取得に失敗しました'); return; }
+  }
   const p=parseSlipLines(r.lines);
   MANUAL={ rows:p.rows.length?p.rows:[{}], freeRows:p.freeRows, ship:p.ship, shipMode:p.shipMode, freeeId:it.id, editNumber:r.number };
   const mc=document.getElementById('mn-customer');
