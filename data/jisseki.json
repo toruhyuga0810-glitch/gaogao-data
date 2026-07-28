@@ -1,5 +1,5 @@
 {
- "updated": "2026-07-25",
+ "updated": "2026-07-28",
  "source": "freee請求書API（delivery_slips・自動同期）",
  "records": [
   {
@@ -827,6 +827,20 @@
    "unit": "kg",
    "unitPrice": 1600,
    "amount": 8000
+  },
+  {
+   "date": "2026-07-29",
+   "no": "DEL-0000000023",
+   "customer": "スパイスロード",
+   "farm": "第3圃場・土浦・ペン",
+   "farmRaw": "第3圃場",
+   "callRaw": "ガパオ",
+   "call": "ガパオ",
+   "jp": "ホーリーバジル",
+   "qty": 12,
+   "unit": "kg",
+   "unitPrice": 1800,
+   "amount": 21600
   }
  ],
  "adjustments": [
@@ -1075,6 +1089,22 @@
    "qty": 3,
    "unitPrice": 800,
    "amount": 2400
+  },
+  {
+   "date": "2026-07-29",
+   "no": "DEL-0000000023",
+   "label": "送料：140サイズ（20kg）",
+   "qty": 2,
+   "unitPrice": 820,
+   "amount": 1640
+  },
+  {
+   "date": "2026-07-29",
+   "no": "DEL-0000000023",
+   "label": "クール料金：140サイズ（20kg）",
+   "qty": 2,
+   "unitPrice": 800,
+   "amount": 1600
   }
  ]
 }
