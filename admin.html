@@ -218,7 +218,7 @@
 
 <footer>GAOGAO管理 ／ 「注文」タブと連携</footer>
 
-<script src="assets/orders.js"></script>
+<script src="assets/orders.js?v=2"></script>
 <script>
 let ORDERS=[];
 const yen=n=>(n==null||n==='')?'–':'¥'+Math.round(n).toLocaleString();
@@ -695,7 +695,7 @@ function lockAgain(){ localStorage.removeItem(TOKEN_KEY); ADMIN_TOKEN_VAL=''; sh
 async function gateInit(){
   if(!CONFIG.ORDER_WEBAPP_URL){ showContent(); init(); return; } // 未接続時はデモ表示
   const saved=localStorage.getItem(TOKEN_KEY);
-  if(saved){ const r=await tryAuth(saved); if(r && r.ok===true){ unlock(saved); return; } }
+  if(saved){ try{ const r=await tryAuth(saved); if(r && r.ok===true){ unlock(saved); return; } }catch(e){} }  // 保存トークン確認が瞬断でコケても解錠フォームは必ず出す
   const go=$('gate-go'), pw=$('gate-pw'), err=$('gate-err');
   // 全角英数字→半角に自動変換し、空白は除去（IME事故の保険）
   const normTok=s=>String(s||'').replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/\s+/g,'');
@@ -705,6 +705,7 @@ async function gateInit(){
     const v=normTok(pw.value);
     const r=await tryAuth(v);
     if(r && r.ok===true){ localStorage.setItem(TOKEN_KEY,v); err.textContent=''; unlock(v); }
+    else if(r && r.error==='TRANSIENT'){ err.textContent='⚠️ 通信が一時的に不安定です。もう一度「解錠」を押してください。'; go.disabled=false; }
     else if(r && r.error && String(r.error).indexOf('unknown action')>=0){
       err.innerHTML='⚠️ サーバー(Apps Script)が未更新です。<br>コードを更新して「新バージョンで再デプロイ」してください。'; go.disabled=false; }
     else { err.textContent='パスワードが違います'; go.disabled=false; }

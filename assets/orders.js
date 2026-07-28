@@ -65,7 +65,16 @@ function groupOrders(items){
 /* Apps Scriptへ書き込み（承認・数量変更・単価設定など） */
 async function postAction(payload){
   if(!CONFIG.ORDER_WEBAPP_URL) return {ok:false, error:'NO_WEBAPP'};
-  const res=await fetch(CONFIG.ORDER_WEBAPP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
-  return res.json().catch(()=>({ok:true}));
+  let last='';
+  for(let i=0;i<3;i++){                     // Apps Scriptは稀に空応答/瞬断があるためリトライ
+    try{
+      const res=await fetch(CONFIG.ORDER_WEBAPP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
+      const t=await res.text();
+      if(t && t.trim()){ try{ return JSON.parse(t); }catch(e){ last='parse'; } }
+      else last='empty';
+    }catch(e){ last=(e&&e.message)||'fetch'; }
+    if(i<2) await new Promise(r=>setTimeout(r,700));
+  }
+  return {ok:false, error:'TRANSIENT', detail:last};   // 3回とも失敗＝一時的な通信障害（誤ってokにしない）
 }
 function toast(msg){ let t=document.querySelector('.toast'); if(!t){t=document.createElement('div');t.className='toast';document.body.appendChild(t);} t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
