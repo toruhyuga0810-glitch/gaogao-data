@@ -139,6 +139,7 @@
     <div class="vtabs">
       <button class="vtb active" data-v="orders">受注管理</button>
       <button class="vtb" data-v="manual">納品書作成</button>
+      <button class="vtb" data-v="history">納品履歴</button>
       <button class="vtb" data-v="supply">供給・出荷マスタ</button>
     </div>
 
@@ -173,9 +174,22 @@
         <button type="button" class="btn ghost sm" id="mn-addrow" style="margin-top:12px">＋ 品目を追加</button>
       </div>
       <div class="oactions" style="border:0;background:none;padding:14px 2px 0">
+        <button type="button" class="btn ghost sm" id="mn-clear">新規（クリア）</button>
         <button type="button" class="btn draft-btn" id="mn-create" style="margin-left:auto">納品書を作成</button>
       </div>
       <div id="mn-result"></div>
+    </div>
+
+    <div id="view-history" class="hide">
+      <div class="card">
+        <div class="row" style="align-items:center">
+          <div class="muted" style="max-width:720px;line-height:1.8">過去に作成した納品書の履歴です。<b>freeeで開く</b>で内容確認・URL共有、<b>編集</b>で内容を呼び戻して修正（同じ納品書が更新されます）。取り消し済み・送付済みは編集できません。</div>
+          <div style="flex:1"></div>
+          <button class="btn ghost sm" id="hist-reload">↻ 再読込</button>
+        </div>
+      </div>
+      <div id="hist-state" class="card state">読み込み中…</div>
+      <div id="hist-list"></div>
     </div>
 
     <div id="view-supply" class="hide">
@@ -227,12 +241,15 @@ const FARM_AREA={1:'八郷',2:'鉾田',3:'土浦',4:'沖縄',5:'江戸崎',6:'�
 function farmLabel(f){ const m=String(f).match(/第(\d+)圃場/); const a=m?FARM_AREA[+m[1]]:''; return a?`${f}・${a}`:f; }
 // 配送サイズ（v=GASのFREEE_SORYOと一致させる値／l=画面表示）。箱数を入れた分だけ納品書に載る
 const SHIP_SIZES=[{v:'60サイズ',l:'60'},{v:'80サイズ',l:'80'},{v:'100サイズ',l:'100'},{v:'140サイズ（20kg）',l:'140/20kg'},{v:'140サイズ（30kg）',l:'140/30kg'}];
-// 送信先モードの表示（誰に届くか。名前ベース＝アドレスは公開admin.htmlに載せずGAS側で保持）
-const MODE_RECIPIENTS={
-  self:'自社のみ（テスト）… GAOGAO（社内2アドレス）',
-  matsumoto:'松本さん〈スパイスロード〉＋ 自社（テスト）',
-  live:'To：尾上・秋葉・松本〈スパイスロード〉 ／ CC：村上・Boonyarit・渡部〈QOF〉'
-};
+// 送信先の実メアド（GASのmailRecipientsから解錠後に取得。公開admin.htmlには埋め込まない）
+let MAIL_RECIP=null;
+function recipText(mode){
+  const R=MAIL_RECIP;
+  if(!R) return '（送信先を読込中…）';
+  if(mode==='matsumoto') return '松本さん＋自社（テスト）: '+R.matsumoto;
+  if(mode==='live') return 'To: '+R.live_to+'　／　CC: '+R.live_cc;
+  return '自社のみ（テスト）: '+R.self;
+}
 
 function statusBadge(s){ return `<span class="badge s-${esc(s)}">${esc(s)}</span>`; }
 function render(){
@@ -320,7 +337,7 @@ function render(){
             <label><input type="radio" name="mailmode-${esc(o.id)}" class="mp-mode-in" value="matsumoto"> 松本さん＋自社（テスト）</label>
             <label class="mp-live"><input type="radio" name="mailmode-${esc(o.id)}" class="mp-mode-in" value="live"> 本番（全社）</label>
           </div>
-          <div class="mp-to">送信先 → ${MODE_RECIPIENTS.self}</div>
+          <div class="mp-to">送信先 → ${recipText('self')}</div>
           <button type="button" class="btn mp-send" data-id="${esc(o.id)}">この内容で送信</button>
         </div>
       </div>`:''}
@@ -486,9 +503,11 @@ async function makeDraft(btn){
   btn.disabled=false; btn.textContent=label;
   if(r.ok===false && r.error==='NO_WEBAPP'){ toast('⚠️ Apps Script未接続'); }
   else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（createDraft対応の再デプロイが必要）'); }
-  else if(r.ok){ o.draftNumber=r.number; o.draftSubject=r.subject; render();
+  else if(r.ok && r.number){ o.draftNumber=r.number; o.draftSubject=r.subject; render();
     const od=document.querySelector(`.order[data-id="${CSS.escape(o.id)}"]`); if(od) showDraftResult(od, r);
     toast(`✅ freee下書きを${r.mode==='更新'?'更新':'作成'}しました：${r.number||''}`); }
+  else if(r.ok){ toast('⚠️ 応答が不完全でした。もう一度押すか、freee/納品履歴で確認してください'); }
+  else if(r.error==='TRANSIENT'){ toast('⚠️ 通信が一時的に不安定です。もう一度お試しください'); }
   else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); localStorage.removeItem('gaogao_admin_token'); location.reload(); }
   else { toast('作成失敗: '+((r&&r.error)||'')); }
 }
@@ -621,12 +640,13 @@ async function createManual(){
   const shipTxt=shipping.length?`${MANUAL.shipMode==='normal'?'常温':'クール'}／`+shipping.map(s=>`${s.size}×${s.boxes}箱`).join('・'):'なし';
   if(!confirm(`freeeに納品書の下書きを作成します。\n取引先：${customer}\n納品日：${date||'（本日）'}\n品目：${items.length}件\n配送：${shipTxt}\nよろしいですか？`)) return;
   btn.disabled=true; btn.textContent='freeeに作成中…';
-  const orderId='MANUAL-'+Date.now();
+  const orderId=MANUAL.orderId||('MANUAL-'+Date.now());   // 履歴から呼び戻した場合は同じ納品書を更新
+  MANUAL.orderId=orderId;
   const r=await postAction({action:'createDraft', token:ADMIN_TOKEN_VAL, orderId,
     customer, person:'', deliveryDate:date,
     items:items.map(it=>({call:it.call, jp:it.jp, farm:it.farm, qty:it.qty, price:it.price})), shipping, shipMode:MANUAL.shipMode});
   btn.disabled=false; btn.textContent='納品書を作成';
-  if(r.ok){
+  if(r.ok && r.number){
     document.getElementById('mn-result').innerHTML=`
       <div class="card draft-result"><div class="dr-title">✅ freee下書きを作成しました：<b>${esc(r.number||'')}</b></div>
         <div class="dr-note">freeeで内容を確認 →「URL共有」でリンクを発行し、下に貼って納品メールを送れます。</div>
@@ -648,16 +668,72 @@ async function createManual(){
             <label><input type="radio" name="mn-mailmode" class="mp-mode-in" value="matsumoto"> 松本さん＋自社（テスト）</label>
             <label class="mp-live"><input type="radio" name="mn-mailmode" class="mp-mode-in" value="live"> 本番（全社）</label>
           </div>
-          <div class="mp-to">送信先 → ${MODE_RECIPIENTS.self}</div>
+          <div class="mp-to">送信先 → ${recipText('self')}</div>
           <button type="button" class="btn mp-send">この内容で送信</button>
         </div>
       </div>`;
     bindManualMail(document.getElementById('mn-mail'), {draftSubject:r.subject, deliveryDate:date, orderId});
     toast('✅ 作成しました：'+(r.number||''));
   }
+  else if(r.ok){ document.getElementById('mn-result').innerHTML='<div class="card" style="color:var(--sub)">⚠️ 作成の応答が不完全でした（通信の一時障害の可能性）。「納品履歴」タブで確認してください（freeeには作成されている場合があります）。</div>'; toast('⚠️ 応答が不完全。納品履歴で確認を'); }
+  else if(r && r.error==='TRANSIENT'){ toast('⚠️ 通信が一時的に不安定です。もう一度お試しください'); }
   else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（createDraft対応の再デプロイが必要）'); }
   else if(r.error==='unauthorized'){ toast('権限エラー：ログインし直してください'); localStorage.removeItem('gaogao_admin_token'); location.reload(); }
   else { toast('作成失敗: '+((r&&r.error)||'')); }
+}
+
+/* ===== 納品履歴（過去の納品書を一覧・freeeで開く・呼び戻し編集） ===== */
+let HISTORY=[];
+async function loadHistory(){
+  const st=document.getElementById('hist-state'), list=document.getElementById('hist-list');
+  st.classList.remove('hide'); st.textContent='読み込み中…'; list.innerHTML='';
+  try{
+    const rows=await fetchSheet('納品書リンク');
+    const hi=rows.findIndex(r=>r.some(c=>String(c).trim()==='注文番号'));
+    if(hi<0){ st.textContent='まだ履歴がありません。納品書を作成すると、ここに残ります。'; return; }
+    const head=rows[hi].map(s=>String(s).trim()); const ix=k=>head.indexOf(k);
+    const items=[];
+    for(let i=hi+1;i<rows.length;i++){ const r=rows[i]||[]; const oid=String(r[ix('注文番号')]||'').trim(); if(!oid) continue;
+      items.push({ orderId:oid, number:(r[ix('番号')]||'').trim(), report_url:(r[ix('report_url')]||'').trim(),
+        status:(r[ix('状態')]||'').trim(), subject:(r[ix('件名')]||'').trim(),
+        customer:ix('取引先')>=0?(r[ix('取引先')]||'').trim():'', payload:ix('内容')>=0?(r[ix('内容')]||'').trim():'' });
+    }
+    items.reverse(); HISTORY=items; renderHistory(items);
+  }catch(e){ st.textContent='取得失敗：'+esc(e.message); }
+}
+function renderHistory(items){
+  const st=document.getElementById('hist-state'), list=document.getElementById('hist-list');
+  if(!items.length){ st.classList.remove('hide'); st.textContent='まだ履歴がありません。'; list.innerHTML=''; return; }
+  st.classList.add('hide');
+  list.innerHTML=items.map((it,i)=>{
+    let pay=null; try{ pay=JSON.parse(it.payload||'{}'); }catch(e){}
+    const n=pay&&pay.items?pay.items.length:0;
+    const canEdit=n>0;
+    return `<div class="card" style="margin-bottom:10px"><div class="row" style="align-items:center;gap:10px;flex-wrap:wrap">
+      ${it.customer?`<span class="company">${esc(it.customer)}</span>`:''}
+      <b>${esc(it.subject||it.number||'(件名なし)')}</b>
+      <span class="muted" style="font-size:12px">${esc(it.number||'')}${pay&&pay.deliveryDate?' ／ 納品 '+esc(pay.deliveryDate):''}${n?' ／ 品目'+n+'件':''}</span>
+      <div style="flex:1;min-width:20px"></div>
+      ${it.report_url?`<a class="btn ghost sm" href="${esc(it.report_url)}" target="_blank" rel="noopener">freeeで開く</a>`:''}
+      ${canEdit?`<button type="button" class="btn sm hist-edit" data-i="${i}">編集</button>`:'<span class="muted" style="font-size:11px">内容記録なし</span>'}
+    </div></div>`;
+  }).join('');
+  list.querySelectorAll('.hist-edit').forEach(b=>b.onclick=()=>editHistory(HISTORY[+b.dataset.i]));
+}
+function editHistory(it){
+  let pay=null; try{ pay=JSON.parse(it.payload||'{}'); }catch(e){ toast('内容を読めませんでした'); return; }
+  MANUAL={ rows:(pay.items||[]).map(x=>({call:x.call, jp:x.jp, farm:x.farm, qty:x.qty, price:x.price})), ship:{}, shipMode:pay.shipMode||'cool', orderId:it.orderId };
+  if(!MANUAL.rows.length) MANUAL.rows=[{}];
+  (pay.shipping||[]).forEach(s=>{ MANUAL.ship[s.size]=s.boxes; });
+  const mc=document.getElementById('mn-customer'); if(mc) mc.value=pay.customer||it.customer||'';
+  const md=document.getElementById('mn-date'); if(md) md.value=String(pay.deliveryDate||'').replace(/\//g,'-');
+  document.getElementById('mn-result').innerHTML=`<div class="card" style="color:var(--green-d)">✏️ 編集モード：<b>${esc(it.number||'')}</b>（${esc(it.subject||'')}）を呼び戻しました。修正して「納品書を作成」を押すと、<b>同じ納品書が更新</b>されます。</div>`;
+  switchTab('manual'); renderManual();
+  toast('編集モードで呼び戻しました');
+}
+function switchTab(v){
+  document.querySelectorAll('.vtb').forEach(x=>x.classList.toggle('active',x.dataset.v===v));
+  ['orders','manual','history','supply'].forEach(k=>document.getElementById('view-'+k).classList.toggle('hide',k!==v));
 }
 
 async function init(){
@@ -677,6 +753,9 @@ async function init(){
     const md=document.getElementById('mn-date'); if(md && !md.value){ md.value=new Date().toISOString().slice(0,10); }
     const mar=document.getElementById('mn-addrow'); if(mar) mar.onclick=()=>{ MANUAL.rows.push({}); renderManual(); };
     const mcr=document.getElementById('mn-create'); if(mcr) mcr.onclick=createManual;
+    try{ const rr=await postAction({action:'mailRecipients', token:ADMIN_TOKEN_VAL}); if(rr&&rr.ok) MAIL_RECIP=rr; }catch(e){}  // 送信先の実メアドを取得（.mp-to表示用）
+    const mcl=document.getElementById('mn-clear'); if(mcl) mcl.onclick=()=>{ MANUAL={rows:[{}],ship:{},shipMode:'cool'}; document.getElementById('mn-result').innerHTML=''; const d2=document.getElementById('mn-date'); if(d2) d2.value=new Date().toISOString().slice(0,10); renderManual(); toast('新規作成にリセットしました'); };
+    const hr=document.getElementById('hist-reload'); if(hr) hr.onclick=loadHistory;
     if(ORDERS.length===0){ document.getElementById('state').innerHTML='まだ注文がありません。<br><span class="muted">カートから注文が入るとここに表示されます（Apps Script接続後）。</span>'; return; }
     render();
   }catch(e){ document.getElementById('state').innerHTML='⚠️ 取得失敗：'+esc(e.message); }
@@ -884,8 +963,10 @@ document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
   const v=t.dataset.v;
   document.getElementById('view-orders').classList.toggle('hide',v!=='orders');
   document.getElementById('view-manual').classList.toggle('hide',v!=='manual');
+  document.getElementById('view-history').classList.toggle('hide',v!=='history');
   document.getElementById('view-supply').classList.toggle('hide',v!=='supply');
   if(v==='manual'){ if(priceLoaded) renderManual(); else loadPrices().then(renderManual).catch(()=>{}); }
+  if(v==='history'){ loadHistory(); }
   if(v==='supply'){
     // タブを開くたびに最新を読み直す（保存していない編集がある間は上書きしない）
     const editing=document.querySelector('#sup-table .dirty, #price-table .dirty');
@@ -897,7 +978,7 @@ document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
 document.addEventListener('change',e=>{
   if(e.target.classList&&e.target.classList.contains('mp-mode-in')){
     const panel=e.target.closest('.mail-panel'); const to=panel&&panel.querySelector('.mp-to');
-    if(to) to.textContent='送信先 → '+(MODE_RECIPIENTS[e.target.value]||'');
+    if(to) to.textContent='送信先 → '+recipText(e.target.value);
   }
 });
 // 佐川追跡番号はハイフン等を自動除去（数字だけに）。例 4541-4665-0252 → 454146650252
