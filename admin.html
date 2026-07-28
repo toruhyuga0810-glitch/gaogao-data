@@ -709,12 +709,21 @@ async function createManual(){
 let HISTORY=[];
 async function loadHistory(){
   const st=document.getElementById('hist-state'), list=document.getElementById('hist-list'); if(!st||!list) return;
-  st.classList.remove('hide'); st.textContent='読み込み中…';
+  // 前回キャッシュを即表示（体感速度）→ 裏で最新に更新
+  if(!HISTORY.length){ try{ const c=JSON.parse(localStorage.getItem('gg_hist_cache')||'[]'); if(c.length){ HISTORY=c; renderHistory(c); } }catch(e){} }
+  if(HISTORY.length){ st.classList.add('hide'); } else { st.classList.remove('hide'); st.textContent='読み込み中…'; }
   try{
     const r=await postAction({action:'deliveryHistory', token:ADMIN_TOKEN_VAL});
-    if(!r||r.ok!==true){ st.textContent='取得失敗'+(r&&r.error?'：'+r.error:'（もう一度お試しください）'); list.innerHTML=''; return; }
-    HISTORY=r.items||[]; renderHistory(HISTORY);
-  }catch(e){ st.textContent='取得失敗：'+esc(e.message); list.innerHTML=''; }
+    if(!r||r.ok!==true){
+      if(!HISTORY.length){ st.classList.remove('hide'); st.textContent='取得失敗'+(r&&r.error?'：'+r.error:'（もう一度お試しください）'); }
+      else toast('履歴の更新に失敗（前回の内容を表示中）');
+      return;
+    }
+    HISTORY=r.items||[];
+    try{ localStorage.setItem('gg_hist_cache', JSON.stringify(HISTORY)); }catch(e){}
+    // 入力中（URL/佐川欄にフォーカス）の時は書き換えない＝入力を消さない
+    if(!list.contains(document.activeElement)) renderHistory(HISTORY);
+  }catch(e){ if(!HISTORY.length){ st.classList.remove('hide'); st.textContent='取得失敗：'+esc(e.message); } }
 }
 function mailPanelInner(uid){
   return `<div class="mp-title">納品メール <span class="muted">（freeeのURL共有内容＋佐川番号）</span></div>
@@ -811,10 +820,9 @@ function parseSlipLines(lines){
         if(/[（(]常温[)）]/.test(d)) sawNormal=true;
         if(kind!=='送料') sawCool=true;
         const known=SHIP_SIZES.find(s=>s.v===size);
-        if(known){ if(kind==='送料') out.ship[size]=Number(l.quantity)||1; return; }
-        if(kind!=='送料') return;   // 既知サイズ外のクール行は送料行とペアなので自由行にしない
+        if(known){ if(kind==='送料') out.ship[size]=Number(l.quantity)||1; return; }  // 既知サイズ＝配送バーで再現（クール料金も保存時に自動生成）
       }
-      out.freeRows.push({desc:d, qty:l.quantity, price:parseFloat(l.unit_price), unit:l.unit||'', tax_rate:l.tax_rate});
+      out.freeRows.push({desc:d, qty:l.quantity, price:parseFloat(l.unit_price), unit:l.unit||'', tax_rate:l.tax_rate});  // 旧表記サイズ等は送料もクール料金も自由行で全行保持
       return;
     }
     const im=d.match(/^(.+?)[：:](.+)$/);
@@ -830,9 +838,14 @@ function parseSlipLines(lines){
 }
 async function editHistory(it, btn){
   if(btn){ btn.disabled=true; btn.textContent='読込中…'; }
+  // すぐ上部に読み込み中を出してスクロール（反応が見えるように）
+  document.getElementById('mn-result').innerHTML=`<div class="card" style="color:var(--sub)">⏳ <b>${esc(it.number||'')}</b>（${esc(it.subject||'')}）の明細をfreeeから読み込み中…</div>`;
+  switchTab('manual'); window.scrollTo({top:0, behavior:'smooth'});
   const r=await postAction({action:'getSlip', token:ADMIN_TOKEN_VAL, freeeId:it.id});
   if(btn){ btn.disabled=false; btn.textContent='編集'; }
-  if(!r||r.ok!==true){ toast('明細の取得に失敗しました'+(r&&r.error?'：'+r.error:'')); return; }
+  if(!r||r.ok!==true){
+    document.getElementById('mn-result').innerHTML=`<div class="card" style="color:#a8452e">⚠️ 明細の取得に失敗しました${r&&r.error?'：'+esc(r.error):'（通信の一時障害の可能性）'}。履歴の「編集」をもう一度押してください。</div>`;
+    toast('明細の取得に失敗しました'); return; }
   const p=parseSlipLines(r.lines);
   MANUAL={ rows:p.rows.length?p.rows:[{}], freeRows:p.freeRows, ship:p.ship, shipMode:p.shipMode, freeeId:it.id, editNumber:r.number };
   const mc=document.getElementById('mn-customer');
