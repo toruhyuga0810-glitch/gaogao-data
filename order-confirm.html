@@ -51,7 +51,7 @@
 
 <footer>GAOGAO 注文確認 ／ 「注文」タブと連携</footer>
 
-<script src="assets/orders.js"></script>
+<script src="assets/orders.js?v=3"></script>
 <script>
 let ORDERS=[];
 const STATUS_MSG={'受付':'✅ 注文を受け付けています。GAOGAOの承認をお待ちください（受付中は数量変更・キャンセルが可能です）。',
@@ -73,7 +73,7 @@ function render(){
         ? `<input class="qy" type="number" min="0" step="1" value="${it.qty}" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><span class="unit">kg</span>`
         : it.qty+' <span class="unit">kg</span>'}</td></tr>`).join('');
     h+=`<div class="order" data-id="${esc(o.id)}">
-      <div class="oh"><span class="id">${esc(o.id)}</span> ${allMode?`<span class="company">${esc(o.company||'(会社未記入)')}</span>`:''} <span class="badge s-${esc(o.status)}">${esc(o.status)}</span>
+      <div class="oh"><span class="id">${esc(o.id)}</span> ${allMode?`<span class="company">${esc(o.company||'(会社未記入)')}${o.store?'　'+esc(o.store):''}</span>`:(o.store?`<span class="company">${esc(o.store)}</span>`:'')} <span class="badge s-${esc(o.status)}">${esc(o.status)}</span>
         <span class="meta">受信 ${esc(fmtDate(o.received))} ／ 希望納品 ${esc(o.deliveryDate||'未定')} ／ 担当 ${esc(o.person||'—')}</span></div>
       <div class="note-ok">${STATUS_MSG[o.status]||''}</div>
       <div class="ob"><table><thead><tr><th>品目</th><th class="num">数量</th></tr></thead><tbody>${rows}</tbody></table>
@@ -131,6 +131,6 @@ document.getElementById('reload').onclick=init;
 init();
 </script>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=12"></script>
+<script src="assets/i18n.js?v=13"></script>
 </body>
 </html>

@@ -44,6 +44,7 @@ async function loadOrderItems(){
     const r=rows[i]; if(!get(r,'注文番号')) continue;
     items.push({
       id:get(r,'注文番号'), received:get(r,'受信日時'), company:get(r,'会社'), person:get(r,'担当者'),
+      store:get(r,'店舗'),
       deliveryDate:get(r,'希望納品日'), call:get(r,'呼称'), jp:get(r,'日本名'),
       qty:num(get(r,'数量(kg)'))||0, price:num(get(r,'単価(税抜)')),
       status:get(r,'ステータス')||'受付', note:get(r,'備考'), updated:get(r,'更新日時')
@@ -55,7 +56,7 @@ async function loadOrderItems(){
 function groupOrders(items){
   const map=new Map();
   items.forEach(it=>{
-    if(!map.has(it.id)) map.set(it.id,{id:it.id,received:it.received,company:it.company,person:it.person,
+    if(!map.has(it.id)) map.set(it.id,{id:it.id,received:it.received,company:it.company,person:it.person,store:it.store,
       deliveryDate:it.deliveryDate,note:it.note,status:it.status,updated:it.updated,items:[]});
     const o=map.get(it.id); o.items.push(it);
     if(it.status) o.status=it.status; // 同一注文は同ステータス

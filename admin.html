@@ -247,7 +247,7 @@
 
 <footer>GAOGAO管理 ／ 「注文」タブと連携</footer>
 
-<script src="assets/orders.js?v=2"></script>
+<script src="assets/orders.js?v=3"></script>
 <script>
 let ORDERS=[];
 const yen=n=>(n==null||n==='')?'–':'¥'+Math.round(n).toLocaleString();
@@ -299,7 +299,7 @@ function render(){
     }).join('');
     h+=`<div class="order" data-id="${esc(o.id)}">
       <div class="oh">
-        <span class="company">${esc(o.company)}</span>
+        <span class="company">${esc(o.company)}${o.store?'　'+esc(o.store):''}</span>
         ${statusBadge(o.status)}
         <span class="meta">担当 ${esc(o.person||'—')}　／　希望納品 ${esc(o.deliveryDate||'未定')}</span>
         <span class="id">${esc(o.id)}</span>
@@ -1139,6 +1139,6 @@ document.addEventListener('input',e=>{
 });
 </script>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=12"></script>
+<script src="assets/i18n.js?v=13"></script>
 </body>
 </html>

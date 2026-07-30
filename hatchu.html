@@ -216,6 +216,21 @@
         {name:"テスト担当", email:"toruhyuga0810@gmail.com"}
       ]
     },
+    // ▼ 会社ごとの店舗（圃場参加表2026.7.5より・店長名つき）。店舗を選ぶと担当者に店長名が入る
+    STORES: {
+      "SRBC様": {
+        "サイアムセラドン": [
+          {store:"新宿タカシマヤ店", code:"502", manager:"プー"},
+          {store:"御茶ノ水ソラシティ店", code:"510", manager:"斉藤"},
+          {store:"東京 鉄鋼ビル店", code:"514", manager:"ミュウ"},
+          {store:"東武池袋店", code:"515", manager:"吉田"},
+          {store:"竹芝店", code:"515b", manager:"タリニー"}
+        ],
+        "サイアムヘリテイジ東京": [
+          {store:"新丸の内ビル店", code:"503", manager:"阿部"}
+        ]
+      }
+    },
     // ▼ 発注確認メール（顧客が自分のメールで送信。To/CC・本文を自動生成＝手間ゼロ）
     ORDER_MAIL_TO: ["toruhyuga@thaisupermarket99.com","m_matsumoto@spiceroad.co.jp","y_onoue@spiceroad.co.jp"],
     ORDER_MAIL_CC: ["b_sitalaphinunt@qof.co.jp","s_watanabe@qof.co.jp"],
@@ -492,6 +507,8 @@ function renderCart(){
     +'<label>注文者（会社）<span style="color:#c0584f">*</span></label>'
     +'<select id="f-company">'+opts+'</select>'
     +'<input id="f-company-other" class="hide" placeholder="会社・店舗名を入力" value="">'
+    +'<label id="f-store-label" class="hide">店舗</label>'
+    +'<select id="f-store" class="hide"></select>'
     +'<label>ご担当者 <span style="color:#c0584f">*</span></label>'
     +'<select id="f-person"></select>'
     +'<input id="f-person-other" class="hide" placeholder="ご担当者名を入力" value="">'
@@ -515,11 +532,31 @@ function renderCart(){
   const csel=$('f-company'); if(savedC){ csel.value=savedC; }
   const other=$('f-company-other');
   const psel=$('f-person'), pother=$('f-person-other');
+  const ssel=$('f-store'), slabel=$('f-store-label');
+  function storeManager(){  // 選択中の店舗の店長名（未選択なら空）
+    const op=ssel.selectedOptions[0]; return (op && op.getAttribute('data-manager')) || '';
+  }
+  function fillStores(){
+    const brands=(CONFIG.STORES && CONFIG.STORES[csel.value]) || null;
+    const has=!!brands;
+    ssel.classList.toggle('hide', !has); slabel.classList.toggle('hide', !has);
+    if(!has){ ssel.innerHTML=''; return; }
+    let h='<option value="">本部（一括）</option>';
+    Object.keys(brands).forEach(b=>{
+      h+='<optgroup label="'+esc(b)+'">'+brands[b].map(s=>'<option value="'+esc(b+' '+s.store)+'" data-manager="'+esc(s.manager)+'">'+esc(s.store)+'（店長: '+esc(s.manager)+'）</option>').join('')+'</optgroup>';
+    });
+    ssel.innerHTML=h;
+    const savedS=localStorage.getItem('gaogao_store')||'';
+    if(savedS && [...ssel.options].some(o=>o.value===savedS)) ssel.value=savedS;
+  }
   function fillPersons(){
     const contacts=(CONFIG.CONTACTS && CONFIG.CONTACTS[csel.value]) || [];
-    psel.innerHTML=contacts.map(c=>'<option value="'+esc(c.name)+'" data-email="'+esc(c.email)+'">'+esc(c.name)+'</option>').join('')
+    const mgr=storeManager();
+    psel.innerHTML=(mgr?'<option value="'+esc(mgr+'（店長）')+'" data-email="">'+esc(mgr+'（店長）')+'</option>':'')
+      +contacts.map(c=>'<option value="'+esc(c.name)+'" data-email="'+esc(c.email)+'">'+esc(c.name)+'</option>').join('')
       +'<option value="__other">その他（自由入力）</option>';
-    if(savedP && contacts.some(c=>c.name===savedP)) psel.value=savedP;
+    if(mgr) psel.selectedIndex=0;   // 店舗を選んだら店長を既定に（変更可）
+    else if(savedP && contacts.some(c=>c.name===savedP)) psel.value=savedP;
     syncPersonOther();
   }
   function syncPersonOther(){
@@ -527,8 +564,9 @@ function renderCart(){
     psel.classList.toggle('hide', companyOther);
     pother.classList.toggle('hide', !(companyOther || personOther));
   }
-  function syncOther(){ const o=csel.value==='その他'; other.classList.toggle('hide',!o); fillPersons(); }
+  function syncOther(){ const o=csel.value==='その他'; other.classList.toggle('hide',!o); fillStores(); fillPersons(); }
   csel.addEventListener('change',syncOther);
+  ssel.addEventListener('change',fillPersons);
   psel.addEventListener('change',syncPersonOther);
   syncOther();
   $('f-hint').innerHTML = CONFIG.ORDER_WEBAPP_URL
@@ -565,21 +603,21 @@ function TRN(s){ return (window.ggTr && window.ggTr(s)) || s; }
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
 
 function fmtJpDate(s){ if(!s) return ''; const d=new Date(s+'T00:00:00'); if(isNaN(d)) return s; const w='日月火水木金土'[d.getDay()]; return `${d.getMonth()+1}月${d.getDate()}日(${w})`; }
-function buildOrderMailUrl(company, person, date, items, note, contactEmail){
+function buildOrderMailUrl(company, person, date, items, note, contactEmail, store){
   const perKg = Math.round(1000 / (CONFIG.PACK_G||500)); // 500g→2個/kg
   const d = fmtJpDate(date);
   const lines = items.map(i=>`・${i.call}（${i.jp}）　${i.qty}kg（${CONFIG.PACK_G||500}gパック${Math.round(i.qty*perKg)}個）`).join('\n');
   const body =
 `${CONFIG.ORDER_MAIL_GREETING}
 
-${company}の${person}です。いつもお世話になっております。
+${company}${store?'（'+store+'）':''}の${person}です。いつもお世話になっております。
 ${d?d+'着の':''}野菜を発注いたします。
 
 ${lines}
 ${note?'\n備考：'+note+'\n':''}
 尚、出荷可否のご返信をお願いいたします。
 以上、よろしくお願いいたします。`;
-  const subject = `【発注】${company}${d?'　'+d+'着':''}`;
+  const subject = `【発注】${company}${store?'　'+store:''}${d?'　'+d+'着':''}`;
   const toList = (CONFIG.ORDER_MAIL_TO||[]);
   const to = toList.join(',');
   const ccList = (CONFIG.ORDER_MAIL_CC||[]).slice();
@@ -603,18 +641,21 @@ async function submitOrder(){
   }
   const date=$('f-date').value;
   const note=$('f-note').value.trim();
+  const storeEl=$('f-store');
+  const store=(storeEl && !storeEl.classList.contains('hide')) ? storeEl.value : '';
   if(!company){ toast('会社名を入力してください'); return; }
   if(!person){ toast('ご担当者名を入力してください'); return; }
   localStorage.setItem('gaogao_company', $('f-company').value);
   localStorage.setItem('gaogao_person', person);
-  const payload={ company, person, deliveryDate:date, note, items: items.map(i=>({call:i.call,jp:i.jp,qty:i.qty})), submittedAt:new Date().toISOString() };
+  localStorage.setItem('gaogao_store', store);
+  const payload={ company, person, store, deliveryDate:date, note, items: items.map(i=>({call:i.call,jp:i.jp,qty:i.qty})), submittedAt:new Date().toISOString() };
 
   const btn=$('f-submit'); btn.disabled=true; btn.textContent='送信中…';
 
   // --- mailto fallback (Apps Script未設定時) ---
   if(!CONFIG.ORDER_WEBAPP_URL){
     const lines=items.map(i=>`・${i.call}（${i.jp}）: ${i.qty} kg`).join('\n');
-    const body=`GAOGAO 発注\n\n会社: ${company}\n担当: ${person}\n希望納品日: ${date||'未定'}\n\n${lines}\n\n備考: ${note||'(なし)'}`;
+    const body=`GAOGAO 発注\n\n会社: ${company}${store?`\n店舗: ${store}`:''}\n担当: ${person}\n希望納品日: ${date||'未定'}\n\n${lines}\n\n備考: ${note||'(なし)'}`;
     window.location.href=`mailto:${CONFIG.ORDER_EMAIL}?subject=${encodeURIComponent('【GAOGAO発注】'+company)}&body=${encodeURIComponent(body)}`;
     showDone(null, true); return;
   }
@@ -624,7 +665,7 @@ async function submitOrder(){
     const res=await fetch(CONFIG.ORDER_WEBAPP_URL,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(payload) });
     const data=await res.json().catch(()=>({ok:true}));
     if(data.ok===false) throw new Error(data.error||'送信エラー');
-    const mailUrl=buildOrderMailUrl(company,person,date,items,note,contactEmail);
+    const mailUrl=buildOrderMailUrl(company,person,date,items,note,contactEmail,store);
     showDone(data.id||null,false,mailUrl);
     setTimeout(()=>{ try{ window.location.href=mailUrl; }catch(e){} }, 600);
   }catch(err){
@@ -699,6 +740,6 @@ $('overlay').onclick=closeCart;
 load();
 </script>
 <script src="assets/nav-liquid.js"></script>
-<script src="assets/i18n.js?v=12"></script>
+<script src="assets/i18n.js?v=13"></script>
 </body>
 </html>
