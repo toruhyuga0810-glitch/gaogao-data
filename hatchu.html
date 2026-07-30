@@ -620,7 +620,8 @@ ${note?'\n備考：'+note+'\n':''}
   const subject = `【発注】${company}${store?'　'+store:''}${d?'　'+d+'着':''}`;
   const toList = (CONFIG.ORDER_MAIL_TO||[]);
   const to = toList.join(',');
-  const ccList = (CONFIG.ORDER_MAIL_CC||[]).slice();
+  let ccList = (CONFIG.ORDER_MAIL_CC||[]).slice();
+  if(store) ccList = ccList.filter(e=>e.indexOf('@qof')<0);  // 店舗直接発注（実証）はQOFへCCしない（移行期の情報設計・2026-07-31決定）
   if(contactEmail && toList.indexOf(contactEmail)<0 && ccList.indexOf(contactEmail)<0) ccList.push(contactEmail); // 選んだ担当者を控えでCCに（重複時は追加しない）
   const cc = ccList.join(',');
   return `mailto:${to}?cc=${encodeURIComponent(cc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
