@@ -262,7 +262,7 @@ function recipText(mode){
   const R=MAIL_RECIP;
   if(!R) return '（送信先を読込中…）';
   if(mode==='matsumoto') return '松本さん＋自社（テスト）: '+R.matsumoto;
-  if(mode==='live') return 'To: '+R.live_to+'　／　CC: '+R.live_cc;
+  if(mode==='live') return 'To: '+R.live_to+(R.live_cc?'　／　CC: '+R.live_cc:'　（QOFはStep3ローンチまで送付なし）');
   return '自社のみ（テスト）: '+R.self;
 }
 
@@ -350,7 +350,7 @@ function render(){
             <span class="mp-mode-l">送信先</span>
             <label><input type="radio" name="mailmode-${esc(o.id)}" class="mp-mode-in" value="self" checked> 自社のみ（テスト）</label>
             <label><input type="radio" name="mailmode-${esc(o.id)}" class="mp-mode-in" value="matsumoto"> 松本さん＋自社（テスト）</label>
-            <label class="mp-live"><input type="radio" name="mailmode-${esc(o.id)}" class="mp-mode-in" value="live"> 本番（全社）</label>
+            <label class="mp-live"><input type="radio" name="mailmode-${esc(o.id)}" class="mp-mode-in" value="live"> 本番（スパイスロード）</label>
           </div>
           <div class="mp-to">送信先 → ${recipText('self')}</div>
           <button type="button" class="btn mp-send" data-id="${esc(o.id)}">この内容で送信</button>
@@ -449,7 +449,7 @@ function render(){
     const body=panel.querySelector('.mp-body').value;
     if(!subject||!body){ toast('件名・本文を確認してください'); return; }
     const mode=(panel.querySelector('.mp-mode-in:checked')||{}).value||'self';
-    const modeLabels={self:'自社のみ（テスト）', matsumoto:'松本さん＋自社（テスト）', live:'スパイスロード＋QOF（CC）【本番・全社】'};
+    const modeLabels={self:'自社のみ（テスト）', matsumoto:'松本さん＋自社（テスト）', live:'スパイスロード【本番】（QOFはStep3まで白紙）'};
     if(!confirm(`納品メールを送信します。\n送信先：${modeLabels[mode]}\n件名：${subject}\n\nよろしいですか？`)) return;
     const label=b.textContent; b.disabled=true; b.textContent='送信中…';
     const r=await postAction({action:'sendDeliveryMail', token:ADMIN_TOKEN_VAL, orderId:o.id, subject, body, mailMode:mode});
@@ -651,7 +651,7 @@ function bindManualMail(panel, o){
     const body=panel.querySelector('.mp-body').value;
     if(!subject||!body){ toast('件名・本文を確認してください'); return; }
     const mode=(panel.querySelector('.mp-mode-in:checked')||{}).value||'self';
-    const modeLabels={self:'自社のみ（テスト）', matsumoto:'松本さん＋自社（テスト）', live:'スパイスロード＋QOF（CC）【本番・全社】'};
+    const modeLabels={self:'自社のみ（テスト）', matsumoto:'松本さん＋自社（テスト）', live:'スパイスロード【本番】（QOFはStep3まで白紙）'};
     if(!confirm(`納品メールを送信します。\n送信先：${modeLabels[mode]}\n件名：${subject}\n\nよろしいですか？`)) return;
     const b=panel.querySelector('.mp-send'); const label=b.textContent; b.disabled=true; b.textContent='送信中…';
     const r=await postAction({action:'sendDeliveryMail', token:ADMIN_TOKEN_VAL, orderId:o.orderId, subject, body, mailMode:mode});
@@ -704,7 +704,7 @@ async function createManual(){
             <span class="mp-mode-l">送信先</span>
             <label><input type="radio" name="mn-mailmode" class="mp-mode-in" value="self" checked> 自社のみ（テスト）</label>
             <label><input type="radio" name="mn-mailmode" class="mp-mode-in" value="matsumoto"> 松本さん＋自社（テスト）</label>
-            <label class="mp-live"><input type="radio" name="mn-mailmode" class="mp-mode-in" value="live"> 本番（全社）</label>
+            <label class="mp-live"><input type="radio" name="mn-mailmode" class="mp-mode-in" value="live"> 本番（スパイスロード）</label>
           </div>
           <div class="mp-to">送信先 → ${recipText('self')}</div>
           <button type="button" class="btn mp-send">この内容で送信</button>
@@ -756,7 +756,7 @@ function mailPanelInner(uid){
       <div class="mp-mode"><span class="mp-mode-l">送信先</span>
         <label><input type="radio" name="mm-${uid}" class="mp-mode-in" value="self" checked> 自社のみ（テスト）</label>
         <label><input type="radio" name="mm-${uid}" class="mp-mode-in" value="matsumoto"> 松本さん＋自社（テスト）</label>
-        <label class="mp-live"><input type="radio" name="mm-${uid}" class="mp-mode-in" value="live"> 本番（全社）</label>
+        <label class="mp-live"><input type="radio" name="mm-${uid}" class="mp-mode-in" value="live"> 本番（スパイスロード）</label>
       </div>
       <div class="mp-to">送信先 → ${recipText('self')}</div>
       <button type="button" class="btn mp-send">この内容で送信</button>
