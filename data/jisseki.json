@@ -1,5 +1,5 @@
 {
- "updated": "2026-07-28",
+ "updated": "2026-07-30",
  "source": "freee請求書API（delivery_slips・自動同期）",
  "records": [
   {
@@ -841,6 +841,48 @@
    "unit": "kg",
    "unitPrice": 1800,
    "amount": 21600
+  },
+  {
+   "date": "2026-08-01",
+   "no": "DEL-0000000024",
+   "customer": "スパイスロード",
+   "farm": "第1圃場・八郷・中村",
+   "farmRaw": "第1圃場",
+   "callRaw": "ガパオ",
+   "call": "ガパオ",
+   "jp": "ホーリーバジル",
+   "qty": 5,
+   "unit": "kg",
+   "unitPrice": 1700,
+   "amount": 8500
+  },
+  {
+   "date": "2026-08-01",
+   "no": "DEL-0000000024",
+   "customer": "スパイスロード",
+   "farm": "第3圃場・土浦・ペン",
+   "farmRaw": "第3圃場",
+   "callRaw": "ガパオ",
+   "call": "ガパオ",
+   "jp": "ホーリーバジル",
+   "qty": 5,
+   "unit": "kg",
+   "unitPrice": 1800,
+   "amount": 9000
+  },
+  {
+   "date": "2026-08-01",
+   "no": "DEL-0000000024",
+   "customer": "スパイスロード",
+   "farm": "第3圃場・土浦・ペン",
+   "farmRaw": "第3圃場",
+   "callRaw": "ホラパー",
+   "call": "ホラパー",
+   "jp": "スイートバジル",
+   "qty": 5,
+   "unit": "kg",
+   "unitPrice": 1800,
+   "amount": 9000
   }
  ],
  "adjustments": [
@@ -1101,6 +1143,22 @@
   {
    "date": "2026-07-29",
    "no": "DEL-0000000023",
+   "label": "クール料金：140サイズ（20kg）",
+   "qty": 2,
+   "unitPrice": 800,
+   "amount": 1600
+  },
+  {
+   "date": "2026-08-01",
+   "no": "DEL-0000000024",
+   "label": "送料：140サイズ（20kg）",
+   "qty": 2,
+   "unitPrice": 820,
+   "amount": 1640
+  },
+  {
+   "date": "2026-08-01",
+   "no": "DEL-0000000024",
    "label": "クール料金：140サイズ（20kg）",
    "qty": 2,
    "unitPrice": 800,
