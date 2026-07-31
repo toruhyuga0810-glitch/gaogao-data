@@ -1,5 +1,5 @@
 {
- "updated": "2026-07-30",
+ "updated": "2026-07-31",
  "source": "freee請求書API（delivery_slips・自動同期）",
  "records": [
   {
@@ -851,10 +851,10 @@
    "callRaw": "ガパオ",
    "call": "ガパオ",
    "jp": "ホーリーバジル",
-   "qty": 5,
+   "qty": 4,
    "unit": "kg",
    "unitPrice": 1700,
-   "amount": 8500
+   "amount": 6800
   },
   {
    "date": "2026-08-01",
@@ -865,10 +865,10 @@
    "callRaw": "ガパオ",
    "call": "ガパオ",
    "jp": "ホーリーバジル",
-   "qty": 5,
+   "qty": 6,
    "unit": "kg",
    "unitPrice": 1800,
-   "amount": 9000
+   "amount": 10800
   },
   {
    "date": "2026-08-01",
