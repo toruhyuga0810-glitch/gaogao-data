@@ -736,7 +736,7 @@ async function createManual(){
     bindManualMail(document.getElementById('mn-mail'), {draftSubject:r.subject, deliveryDate:date||undefined, orderId:orderId||r.number});
     if(overwrite){ MANUAL.freeeId=r.id; MANUAL.editNumber=r.number; }   // 続けて再編集できるよう維持
     toast(`✅ ${r.mode==='更新'?'上書き保存':'作成'}しました：${r.number||''}`);
-    loadHistory();
+    loadHistory(true);
   }
   else if(r.ok){ document.getElementById('mn-result').innerHTML='<div class="card" style="color:var(--sub)">⚠️ 作成の応答が不完全でした（通信の一時障害の可能性）。「納品履歴」タブで確認してください（freeeには作成されている場合があります）。</div>'; toast('⚠️ 応答が不完全。納品履歴で確認を'); }
   else if(r && r.error==='TRANSIENT'){ toast('⚠️ 通信が一時的に不安定です。もう一度お試しください'); }
@@ -747,7 +747,8 @@ async function createManual(){
 
 /* ===== 納品履歴（過去の納品書を一覧・freeeで開く・呼び戻し編集） ===== */
 let HISTORY=[];
-async function loadHistory(){
+async function loadHistory(force){
+  if(!force && HISTORY.length && Date.now()-(loadHistory._t||0)<45000) return;   // 連打・タブ往復でfreeeを叩きすぎない
   const st=document.getElementById('hist-state'), list=document.getElementById('hist-list'); if(!st||!list) return;
   // 前回キャッシュを即表示（体感速度）→ 裏で最新に更新
   if(!HISTORY.length){ try{ const c=JSON.parse(localStorage.getItem('gg_hist_cache')||'[]'); if(c.length){ HISTORY=c; renderHistory(c); } }catch(e){} }
@@ -759,6 +760,7 @@ async function loadHistory(){
       else toast('履歴の更新に失敗（前回の内容を表示中）');
       return;
     }
+    loadHistory._t=Date.now();
     try{ localStorage.setItem('gg_hist_cache', JSON.stringify(r.items||[])); }catch(e){}
     // 編集中（変更あり）・入力中の時は差し替えない＝編集内容を消さない
     const editing=(HISTORY||[]).some(x=>x&&x._S&&x._S._dirty) || list.contains(document.activeElement);
@@ -840,7 +842,7 @@ async function histSaveSlip(b){
     customer:'', person:'', deliveryDate:date,
     items:items.map(x=>({call:x.call, jp:x.jp, farm:x.farm, qty:x.qty, price:x.price})), freeLines, shipping, shipMode:S.shipMode});
   b.disabled=false; b.textContent=lbl;
-  if(r.ok&&r.number){ toast('✅ 上書き保存しました：'+r.number); loadHistory(); }
+  if(r.ok&&r.number){ toast('✅ 上書き保存しました：'+r.number); loadHistory(true); }
   else if(r&&r.error==='TRANSIENT'){ toast('⚠️ 通信が一時的に不安定です。もう一度お試しください'); }
   else if(r&&String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Script未更新（再デプロイが必要）'); }
   else { toast('保存失敗: '+((r&&r.error)||'応答が不完全でした。もう一度お試しください')); }
@@ -930,7 +932,7 @@ async function init(){
     const mcr=document.getElementById('mn-create'); if(mcr) mcr.onclick=createManual;
     try{ const rr=await postAction({action:'mailRecipients', token:ADMIN_TOKEN_VAL}); if(rr&&rr.ok) MAIL_RECIP=rr; }catch(e){}  // 送信先の実メアドを取得（.mp-to表示用）
     const mcl=document.getElementById('mn-clear'); if(mcl) mcl.onclick=()=>{ MANUAL={rows:[{}],ship:{},shipMode:'cool'}; document.getElementById('mn-result').innerHTML=''; const d2=document.getElementById('mn-date'); if(d2) d2.value=new Date().toISOString().slice(0,10); renderManual(); toast('新規作成にリセットしました'); };
-    const hr=document.getElementById('hist-reload'); if(hr) hr.onclick=loadHistory;
+    const hr=document.getElementById('hist-reload'); if(hr) hr.onclick=()=>loadHistory(true);
     if(ORDERS.length===0){ document.getElementById('state').innerHTML='まだ注文がありません。<br><span class="muted">カートから注文が入るとここに表示されます（Apps Script接続後）。</span>'; return; }
     render();
   }catch(e){ document.getElementById('state').innerHTML='⚠️ 取得失敗：'+esc(e.message); }
