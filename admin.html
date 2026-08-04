@@ -303,7 +303,7 @@
 <script src="assets/orders.js?v=3"></script>
 <script>
 let ORDERS=[];
-const yen=n=>(n==null||n==='')?'–':'¥'+Math.round(n).toLocaleString();
+const yen=n=>(n==null||n==='')?'–':'¥'+Math.floor(n).toLocaleString();   // 端数はfreee(line_amount_fraction:omit=切捨て)と同じ丸めで表示
 // 圃場番号→エリア名（表示用。値は「第N圃場」のまま）。jisseki/GASのFREEE_FARM_AREAと同期
 const FARM_AREA={1:'八郷',2:'鉾田',3:'土浦',4:'沖縄',5:'江戸崎',6:'牛久'};
 function farmLabel(f){ const m=String(f).match(/第(\d+)圃場/); const a=m?FARM_AREA[+m[1]]:''; return a?`${f}・${a}`:f; }
