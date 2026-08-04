@@ -587,7 +587,7 @@ function addFromRow(btn){
   const row=btn.closest('tr');
   const inp=row.querySelector('.qty');
   const call=btn.dataset.call, jp=btn.dataset.jp;
-  let q=Math.round(parseFloat(inp.value)||0);
+  let q=Math.round((parseFloat(inp.value)||0)*1000)/1000;  // 小数OK（2.5kg等）。矢印は1kg刻みのまま
   if(q<=0){
     if(cart[call]){ delete cart[call]; saveCart(); updateFab(); inp.value=''; inp.classList.remove('has');
       btn.classList.remove('added'); btn.innerHTML=addBtnHTML(false); toast(TRN(jp)+' をカートから削除しました'); }

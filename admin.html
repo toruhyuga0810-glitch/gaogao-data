@@ -416,7 +416,7 @@ function render(){
   el.querySelectorAll('.qty-in,.price-in').forEach(inp=>inp.addEventListener('change',e=>{
     const t=e.target; const o=ORDERS.find(x=>x.id===t.dataset.id); if(!o) return;
     const it=o.items.find(x=>x.call===t.dataset.call); if(!it) return;
-    if(t.classList.contains('qty-in')) it.qty=Math.max(0,Math.round(parseFloat(t.value)||0));
+    if(t.classList.contains('qty-in')) it.qty=Math.max(0,Math.round((parseFloat(t.value)||0)*1000)/1000);
     else it.price=(t.value===''?null:parseFloat(t.value));
     render();
   }));
@@ -476,7 +476,7 @@ async function act(btn){
   // 数量の変更を保存（欠品調整。0で明細削除）
   const qtyInputs=[...order.querySelectorAll('.qty-in')];
   for(const inp of qtyInputs){
-    const q=Math.max(0,Math.round(parseFloat(inp.value)||0));
+    const q=Math.max(0,Math.round((parseFloat(inp.value)||0)*1000)/1000);
     const it=o.items.find(x=>x.call===inp.dataset.call);
     if(it && q!==it.qty){
       const r=await postAction({action:'updateItem',id,call:inp.dataset.call,qty:q});
@@ -629,7 +629,7 @@ function renderEditor(S, body, uid){
     if(r.farm){ const pe=PRICES.find(x=>x.call===r.call); const pv=pe&&pe.prices[r.farm]; if(pv!=null&&pv!=='') r.price=parseFloat(pv); }
     rerender();
   }));
-  body.querySelectorAll('.mn-qty').forEach(inp=>inp.addEventListener('change',e=>{ S.rows[+e.target.dataset.i].qty=Math.max(0,Math.round(parseFloat(e.target.value)||0)); rerender(); }));
+  body.querySelectorAll('.mn-qty').forEach(inp=>inp.addEventListener('change',e=>{ S.rows[+e.target.dataset.i].qty=Math.max(0,Math.round((parseFloat(e.target.value)||0)*1000)/1000); rerender(); }));
   body.querySelectorAll('.mn-price').forEach(inp=>inp.addEventListener('change',e=>{ const v=e.target.value; S.rows[+e.target.dataset.i].price=(v===''?undefined:parseFloat(v)); rerender(); }));
   body.querySelectorAll('.mn-del').forEach(b=>b.addEventListener('click',()=>{ S.rows.splice(+b.dataset.i,1); if(!S.rows.length&&!S.freeRows.length) S.rows.push({}); rerender(); }));
   body.querySelectorAll('.fr-desc').forEach(inp=>inp.addEventListener('change',e=>{ S._dirty=true; S.freeRows[+e.target.dataset.i].desc=e.target.value; }));

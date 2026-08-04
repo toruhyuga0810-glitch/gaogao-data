@@ -100,7 +100,7 @@ async function act(btn){
   // save qty changes
   const inputs=[...order.querySelectorAll('.qy')]; let changed=0;
   for(const inp of inputs){
-    const q=Math.max(0,Math.round(parseFloat(inp.value)||0));
+    const q=Math.max(0,Math.round((parseFloat(inp.value)||0)*1000)/1000);
     const it=o.items.find(x=>x.call===inp.dataset.call);
     if(it && q!==it.qty){
       const r=await postAction({action:'updateItem',id,call:inp.dataset.call,qty:q});
