@@ -27,6 +27,16 @@
   .mn-del{border:1px solid var(--line);background:#fff;color:var(--sub);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1}
   .mn-del:hover{color:#a8452e;border-color:#e5b8ad}
   th.mv-h,td.mv-c{width:26px;padding-left:6px;padding-right:2px}
+  /* 編集テーブルは列幅固定＝値が入っても表がズレない */
+  .ed-table{table-layout:fixed;width:100%}
+  .ed-table th:nth-child(1){width:32px}
+  .ed-table th:nth-child(4){width:96px}
+  .ed-table th:nth-child(5){width:110px}
+  .ed-table th:nth-child(6){width:96px}
+  .ed-table th:nth-child(7){width:38px}
+  .ed-table td{overflow:hidden;text-overflow:ellipsis}
+  .ed-table .mn-item,.ed-table .mn-farm{width:100%;max-width:none}
+  .ed-table td.num,.ed-table th.num{white-space:nowrap}
   .mv-btns{display:inline-flex;flex-direction:column;gap:2px;vertical-align:middle}
   .mv{border:1px solid var(--line);background:#fff;color:var(--sub);border-radius:5px;width:20px;height:15px;font-size:8px;line-height:1;cursor:pointer;padding:0}
   .mv:hover:not(:disabled){color:var(--green-d);border-color:var(--green)}
@@ -606,7 +616,7 @@ function renderEditor(S, body, uid){
       <td class="num">${st!=null?yen(st):'–'}</td>
       <td class="num"><button type="button" class="fr-del" data-i="${i}" title="この行を削除">×</button></td></tr>`;
   }).join('');
-  const table=`<div class="scroll"><table>
+  const table=`<div class="scroll"><table class="ed-table">
     <thead><tr><th class="mv-h"></th><th>品目</th><th>圃場</th><th class="num">数量</th><th class="num">単価</th><th class="num">小計</th><th></th></tr></thead>
     <tbody>${rows}${freeRows}</tbody>
     <tfoot><tr><th colspan="5" class="num">合計(税抜)</th><th class="num">${yen(sub)}</th><th></th></tr></tfoot></table></div>`;
