@@ -17,12 +17,12 @@
   .oactions .draft-btn{margin-left:auto;box-shadow:0 1px 4px rgba(62,87,73,.25)}
   @media(max-width:640px){ .oactions .draft-btn{margin-left:0;width:100%} }
   .price-in{width:90px;text-align:right}
-  .qty-in{width:64px;text-align:right}
+  .qty-in{width:78px;text-align:right}
   th.chk,td.chk{width:34px;text-align:center;padding-left:4px;padding-right:4px}
   .di-chk{width:16px;height:16px;accent-color:var(--green);cursor:pointer}
   .farm-sel{font-size:12px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;max-width:160px}
   .mn-item,.mn-farm{font-size:12px;padding:5px 7px;border:1px solid var(--line);border-radius:7px;background:#fff;max-width:210px}
-  .mn-qty{width:64px;text-align:right}
+  .mn-qty{width:80px;text-align:right}
   .mn-price{width:90px;text-align:right}
   .mn-del{border:1px solid var(--line);background:#fff;color:var(--sub);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1}
   .mn-del:hover{color:#a8452e;border-color:#e5b8ad}
@@ -30,7 +30,7 @@
   /* 編集テーブルは列幅固定＝値が入っても表がズレない */
   .ed-table{table-layout:fixed;width:100%}
   .ed-table th:nth-child(1){width:32px}
-  .ed-table th:nth-child(4){width:96px}
+  .ed-table th:nth-child(4){width:112px}
   .ed-table th:nth-child(5){width:110px}
   .ed-table th:nth-child(6){width:96px}
   .ed-table th:nth-child(7){width:38px}
@@ -41,6 +41,13 @@
   .mv{border:1px solid var(--line);background:#fff;color:var(--sub);border-radius:5px;width:20px;height:15px;font-size:8px;line-height:1;cursor:pointer;padding:0}
   .mv:hover:not(:disabled){color:var(--green-d);border-color:var(--green)}
   .mv:disabled{opacity:.25;cursor:default}
+  .drag-h{display:block;text-align:center;cursor:grab;user-select:none;-webkit-user-select:none;touch-action:none;color:var(--sub);font-size:14px;line-height:1;padding:1px 2px 3px;border-radius:4px}
+  .drag-h:hover{color:var(--green-d);background:var(--accent)}
+  .drag-h:active{cursor:grabbing}
+  tr.dragging{opacity:.5;background:var(--accent)}
+  tr.drop-above td{border-top:2px solid var(--green)}
+  tr.drop-below td{border-bottom:2px solid var(--green)}
+  .ed-add{margin:10px 0 2px;display:flex;gap:8px}
   /* 履歴カード内のその場編集 */
   .he-date-w{color:var(--sub);font-size:12px;display:inline-flex;align-items:center;gap:6px}
   .he-date-w input{padding:5px 8px;font-size:12.5px}
@@ -55,7 +62,7 @@
   .hl-item .hl-tax{color:var(--sub);font-size:10.5px;background:var(--accent);border-radius:5px;padding:1px 6px}
   .free-row td{background:#fbfaf7}
   .free-row .fr-desc{width:100%;min-width:220px;font-size:12.5px}
-  .free-row .fr-qty{width:64px;text-align:right}
+  .free-row .fr-qty{width:80px;text-align:right}
   .free-row .fr-price{width:90px;text-align:right}
   .free-row .fr-del{border:1px solid var(--line);background:#fff;color:var(--sub);border-radius:6px;width:26px;height:26px;cursor:pointer;font-size:15px;line-height:1}
   .free-row .fr-del:hover{color:#a8452e;border-color:#e5b8ad}
@@ -203,8 +210,6 @@
       </div>
       <div class="card">
         <div id="mn-body"></div>
-        <button type="button" class="btn ghost sm" id="mn-addrow" style="margin-top:12px">＋ 品目を追加</button>
-        <button type="button" class="btn ghost sm" id="mn-addfree" style="margin-top:12px">＋ 自由行（値引き等）</button>
       </div>
       <div class="oactions" style="border:0;background:none;padding:14px 2px 0">
         <button type="button" class="btn ghost sm" id="mn-clear">新規（クリア）</button>
@@ -597,7 +602,7 @@ function renderEditor(S, body, uid){
     const avail=pe?PFARMS.filter(f=>pe.prices[f]&&pe.prices[f]!==''):[];
     const st=(r.price!=null&&r.price!==''&&r.qty)?r.price*r.qty:null; if(st!=null) sub+=st;
     return `<tr>
-      <td class="mv-c"><span class="mv-btns"><button type="button" class="mv mn-up" data-i="${i}" ${i===0?'disabled':''} title="上へ">▲</button><button type="button" class="mv mn-dn" data-i="${i}" ${i===S.rows.length-1?'disabled':''} title="下へ">▼</button></span></td>
+      <td class="mv-c"><span class="drag-h" data-kind="it" data-i="${i}" title="ドラッグで並べ替え">≡</span><span class="mv-btns"><button type="button" class="mv mn-up" data-i="${i}" ${i===0?'disabled':''} title="上へ">▲</button><button type="button" class="mv mn-dn" data-i="${i}" ${i===S.rows.length-1?'disabled':''} title="下へ">▼</button></span></td>
       <td><select class="mn-item" data-i="${i}"><option value="">— 品目 —</option>${PRICES.map(p=>`<option value="${esc(p.call)}" ${r.call===p.call?'selected':''}>${esc(p.call)}（${esc(p.jp)}）</option>`).join('')}</select></td>
       <td>${avail.length?`<select class="mn-farm" data-i="${i}"><option value="">— 圃場 —</option>${avail.map(f=>`<option value="${esc(f)}" ${r.farm===f?'selected':''}>${esc(farmLabel(f))}（¥${pe.prices[f]}）</option>`).join('')}</select>`:(r.call?'<span class="muted" style="font-size:11px">価格表になし</span>':'<span class="muted" style="font-size:11px">品目を選択</span>')}</td>
       <td class="num"><input class="mn-qty" type="number" min="0" step="1" value="${r.qty??''}" data-i="${i}"><span class="unit">kg</span></td>
@@ -609,7 +614,7 @@ function renderEditor(S, body, uid){
   const freeRows=S.freeRows.map((f,i)=>{
     const st=(f.price!=null&&f.price!==''&&f.qty!=null&&f.qty!=='')?f.price*f.qty:null; if(st!=null) sub+=st;
     return `<tr class="free-row">
-      <td class="mv-c"><span class="mv-btns"><button type="button" class="mv fr-up" data-i="${i}" ${i===0?'disabled':''} title="上へ">▲</button><button type="button" class="mv fr-dn" data-i="${i}" ${i===S.freeRows.length-1?'disabled':''} title="下へ">▼</button></span></td>
+      <td class="mv-c"><span class="drag-h" data-kind="fr" data-i="${i}" title="ドラッグで並べ替え">≡</span><span class="mv-btns"><button type="button" class="mv fr-up" data-i="${i}" ${i===0?'disabled':''} title="上へ">▲</button><button type="button" class="mv fr-dn" data-i="${i}" ${i===S.freeRows.length-1?'disabled':''} title="下へ">▼</button></span></td>
       <td colspan="2"><input class="fr-desc" data-i="${i}" value="${esc(f.desc||'')}" placeholder="摘要（例: 開花による可食部減少に伴う値引き）"></td>
       <td class="num"><input class="fr-qty" type="number" step="1" value="${f.qty??''}" data-i="${i}"><span class="unit">${esc(f.unit||'')}</span></td>
       <td class="num"><input class="fr-price" type="number" step="10" value="${f.price??''}" data-i="${i}" placeholder="単価"></td>
@@ -628,8 +633,8 @@ function renderEditor(S, body, uid){
     </span>
     ${SHIP_SIZES.map(s=>`<label class="ship-cell"><span class="ss-l">${s.l}</span><input type="number" class="mn-ship" min="0" step="1" value="${S.ship[s.v]||''}" data-size="${esc(s.v)}" placeholder="0"><span class="ss-u">箱</span></label>`).join('')}
     <span class="ship-hint">箱数を入れた分だけ載ります</span></div>`;
-  const addBtns=(uid==='mn')?'':`<div style="margin-top:10px"><button type="button" class="btn ghost sm ed-addrow">＋ 品目を追加</button> <button type="button" class="btn ghost sm ed-addfree">＋ 自由行（値引き等）</button></div>`;
-  body.innerHTML=table+ship+addBtns;
+  const addBtns=`<div class="ed-add"><button type="button" class="btn ghost sm ed-addrow">＋ 品目を追加</button> <button type="button" class="btn ghost sm ed-addfree">＋ 自由行（値引き等）</button></div>`;
+  body.innerHTML=table+addBtns+ship;
   body.querySelectorAll('.mn-item').forEach(sel=>sel.addEventListener('change',e=>{
     const r=S.rows[+e.target.dataset.i]; const pe=PRICES.find(x=>x.call===e.target.value);
     r.call=e.target.value||undefined; r.jp=pe?pe.jp:''; r.farm=undefined; r.price=undefined; rerender();
@@ -656,6 +661,42 @@ function renderEditor(S, body, uid){
   body.querySelectorAll('.mn-shipmode').forEach(r=>r.addEventListener('change',e=>{ if(e.target.checked){ S._dirty=true; S.shipMode=e.target.value; } }));
   const ar=body.querySelector('.ed-addrow'); if(ar) ar.onclick=()=>{ S.rows.push({}); rerender(); };
   const af=body.querySelector('.ed-addfree'); if(af) af.onclick=()=>{ S.freeRows.push({desc:'',qty:1,price:'',unit:''}); rerender(); };
+  // ドラッグ並べ替え（Pointer Events自前実装＝スマホのHTML5 DnD非対応を回避。▲▼は併存のフォールバック）
+  body.querySelectorAll('.drag-h').forEach(h=>{
+    h.addEventListener('pointerdown',e=>{
+      e.preventDefault();
+      const kind=h.dataset.kind, from=+h.dataset.i;
+      const arr=(kind==='it')?S.rows:S.freeRows;
+      const sel=(kind==='it')?'tbody tr:not(.free-row)':'tbody tr.free-row';
+      const rowsEls=[...body.querySelectorAll(sel)];
+      const dragEl=rowsEls[from]; if(!dragEl) return;
+      dragEl.classList.add('dragging');
+      try{ h.setPointerCapture(e.pointerId); }catch(_){}
+      let ins=from;
+      const paint=()=>{ rowsEls.forEach(el=>el.classList.remove('drop-above','drop-below'));
+        if(ins===from||ins===from+1) return;
+        if(ins>=rowsEls.length) rowsEls[rowsEls.length-1].classList.add('drop-below');
+        else rowsEls[ins].classList.add('drop-above'); };
+      const move=ev=>{ const y=ev.clientY;
+        ins=rowsEls.filter(el=>{ const r=el.getBoundingClientRect(); return y>r.top+r.height/2; }).length;
+        paint(); };
+      const end=commit=>ev=>{
+        document.removeEventListener('pointermove',move);
+        document.removeEventListener('pointerup',up);
+        document.removeEventListener('pointercancel',cancel);
+        dragEl.classList.remove('dragging');
+        rowsEls.forEach(el=>el.classList.remove('drop-above','drop-below'));
+        if(commit&&ins!==from&&ins!==from+1){
+          const [m]=arr.splice(from,1); arr.splice(ins>from?ins-1:ins,0,m);
+          S._dirty=true; rerender();
+        }
+      };
+      const up=end(true), cancel=end(false);
+      document.addEventListener('pointermove',move);
+      document.addEventListener('pointerup',up);
+      document.addEventListener('pointercancel',cancel);
+    });
+  });
 }
 // 納品書作成の結果パネルのメール欄を配線（受注側と同じ挙動・単独パネル版）
 function bindManualMail(panel, o){
