@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GAOGAO管理</title>
 <link rel="icon" type="image/png" href="img/favicon.png?v=3">
-<link rel="stylesheet" href="assets/app.css?v=34">
+<link rel="stylesheet" href="assets/app.css?v=35">
 <style>
   .order{border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);margin-bottom:14px;overflow:hidden}
   .oh{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:13px 16px;background:#fafbfa;border-bottom:1px solid var(--line)}
@@ -83,14 +83,14 @@
     background:rgba(255,255,255,.4);backdrop-filter:blur(10px) saturate(170%);-webkit-backdrop-filter:blur(10px) saturate(170%);
     box-shadow:inset 0 1px 2px rgba(255,255,255,.85),inset 0 0 0 1px rgba(255,255,255,.45),0 2px 8px rgba(20,30,24,.08)}
   .ship-mode::before{content:'';position:absolute;top:3px;left:3px;width:calc(50% - 3px);height:calc(100% - 6px);
-    background:rgba(255,255,255,.92);border-radius:999px;z-index:1;
-    box-shadow:0 2px 7px rgba(20,30,24,.16),inset 0 1px 1px rgba(255,255,255,.95);
-    transition:transform .4s cubic-bezier(.34,1.2,.64,1)}
-  .ship-mode:has(input[value="normal"]:checked)::before{transform:translateX(100%)}
+    background:rgba(95,131,171,.85);border-radius:999px;z-index:1;
+    box-shadow:0 2px 7px rgba(20,30,24,.2),inset 0 1px 1px rgba(255,255,255,.35);
+    transition:transform .4s cubic-bezier(.34,1.2,.64,1),background .4s ease}
+  .ship-mode:has(input[value="normal"]:checked)::before{transform:translateX(100%);background:rgba(165,130,78,.85)}
   .ship-mode label{position:relative;z-index:2;width:60px;text-align:center;padding:5px 0;border-radius:999px;
     font-size:12px;font-weight:700;color:var(--sub);cursor:pointer;transition:color .3s;-webkit-tap-highlight-color:transparent}
-  .ship-mode:has(input[value="cool"]:checked) label:first-child{color:var(--green-d)}
-  .ship-mode:has(input[value="normal"]:checked) label:last-child{color:var(--green-d)}
+  .ship-mode:has(input[value="cool"]:checked) label:first-child{color:#fff;text-shadow:0 1px 2px rgba(20,30,24,.25)}
+  .ship-mode:has(input[value="normal"]:checked) label:last-child{color:#fff;text-shadow:0 1px 2px rgba(20,30,24,.25)}
   .ship-mode input{position:absolute;opacity:0;pointer-events:none}
   .ship-cell{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--sub)}
   .ship-cell .ss-l{text-align:right}
@@ -139,7 +139,9 @@
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(88,117,101,.14)}
   /* 管理タブ（受注管理／供給・出荷マスタ） */
   .vtabs{display:flex;gap:8px;margin-bottom:14px}
-  .vtb{background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 18px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600}
+  .vtb{background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 18px;font-size:13px;cursor:pointer;color:var(--sub);font-weight:600;
+    transition:transform .12s cubic-bezier(.32,.72,0,1),background .2s ease,color .2s ease}
+  .vtb:active{transform:scale(.96)}
   .vtb.active{background:var(--green);color:#fff;border-color:var(--green)}
   /* 供給マスタ表 */
   table.sup{border-collapse:collapse;font-size:12px;white-space:nowrap;width:100%}
@@ -151,6 +153,22 @@
   .dIn{padding:5px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px}
   .nIn{width:82px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px}
   .dirty{border-color:var(--warn);background:#fffaf0}
+  /* ---- アクセシビリティ（デザイン基準§9.6）：admin固有UI分。共通分はapp.css側 ---- */
+  @media (prefers-reduced-transparency: reduce){
+    .ship-mode{background:#eef0ec;backdrop-filter:none;-webkit-backdrop-filter:none}
+    .ship-mode::before{background:rgba(95,131,171,1)}
+    .ship-mode:has(input[value="normal"]:checked)::before{background:rgba(165,130,78,1)}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .ship-mode::before{transition:none}
+    .ship-mode label{transition:none}
+    .vtb{transition:none}
+    .vtb:active{transform:none}
+  }
+  @media (prefers-contrast: more){
+    .ship-mode{box-shadow:inset 0 0 0 2px #808a83}
+    .ship-mode label{color:#3a423c}
+  }
 </style>
 </head>
 <body>
