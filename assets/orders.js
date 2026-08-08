@@ -26,9 +26,9 @@ async function fetchSheet(sheet){
   if(!res.ok) throw new Error('「'+sheet+'」の取得に失敗 ('+res.status+')');
   return parseCSV(await res.text());
 }
-function num(v){ if(v==null||v==='') return null; const n=parseFloat(String(v).replace(/[,，\s¥円]/g,'')); return isNaN(n)?null:n; }
+function num(v){ if(v==null||v==='') return null; const n=parseFloat(String(v).replace(/[,，\s¥円]/g,'')); return Number.isFinite(n)?n:null; }  // NaNも巨大値/Infinity(例:"1e999")も安全にnull
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function fmtDate(s){ const m=String(s).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/); return m? `${m[1]}/${+m[2]}/${+m[3]}`:(s||''); }
+function fmtDate(s){ const m=String(s).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/); return m? `${m[1]}/${+m[2]}/${+m[3]}`:String(s==null?'':s); }  // 非文字列が来ても必ず文字列を返す
 function ym(s){ const m=String(s).match(/(\d{4})[\/\-](\d{1,2})/); return m? `${m[1]}-${('0'+m[2]).slice(-2)}`:''; }
 
 /* 注文シートを読み、明細（1行=1品目）の配列を返す。ヘッダー名で列を特定（並び替えに強い） */
@@ -46,7 +46,7 @@ async function loadOrderItems(){
       id:get(r,'注文番号'), received:get(r,'受信日時'), company:get(r,'会社'), person:get(r,'担当者'),
       store:get(r,'店舗'),
       deliveryDate:get(r,'希望納品日'), call:get(r,'呼称'), jp:get(r,'日本名'),
-      qty:num(get(r,'数量(kg)'))||0, price:num(get(r,'単価(税抜)')),
+      qty:Math.max(0,num(get(r,'数量(kg)'))||0), price:num(get(r,'単価(税抜)')),   // 数量は物理的に非負（シート直編集の負数から集計を守る）
       status:get(r,'ステータス')||'受付', note:get(r,'備考'), updated:get(r,'更新日時')
     });
   }
