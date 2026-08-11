@@ -481,7 +481,7 @@ function renderSched(){
     arr.forEach((v,i)=>{ h+='<td class="mon'+(i===nowMonth?' now':'')+'">'+cell(v)+'</td>'; });
     h+='<td class="sub p p-start">'+(esc(it.start)||'–')+'</td>';
     if(shippable){
-      h+='<td class="ord p p-ord"><input class="qty'+(cur?' has':'')+'" type="number" min="0" step="1" inputmode="numeric" value="'+cur+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'" placeholder="0">'+harvest+'</td>';
+      h+='<td class="ord p p-ord"><input class="qty'+(cur?' has':'')+'" type="number" min="0" step="0.5" inputmode="decimal" value="'+cur+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'" placeholder="0">'+harvest+'</td>';
       h+='<td class="ord p p-btn"><button class="addbtn'+(cur?' added':'')+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'">'+addBtnHTML(!!cur)+'</button></td>';
     } else {
       h+='<td class="ord p p-ord nostk">—</td>';
@@ -537,7 +537,7 @@ function renderCart(){
   let h='';
   items.forEach(it=>{
     h+='<div class="citem"><div class="nm"><b>'+esc(it.call)+'</b><div class="sub">'+esc(it.jp)+'</div></div>'
-      +'<input class="qy" type="number" min="0" step="1" inputmode="numeric" value="'+it.qty+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'"> <span class="unit">kg</span>'
+      +'<input class="qy" type="number" min="0" step="0.5" inputmode="decimal" value="'+it.qty+'" data-call="'+esc(it.call)+'" data-jp="'+esc(it.jp)+'"> <span class="unit">kg</span>'
       +'<button class="rm" data-call="'+esc(it.call)+'">削除</button></div>';
   });
   const opts=CONFIG.COMPANIES.map(c=>'<option>'+esc(c)+'</option>').join('')+'<option>その他</option>';
@@ -565,6 +565,12 @@ function renderCart(){
     const t=e.target; setQty(t.dataset.call,t.dataset.jp,t.value);
     if(!(parseFloat(t.value)>0)) renderCart();
     syncTableInputs();
+  }));
+  body.querySelectorAll('.qy').forEach(inp=>inp.addEventListener('change',e=>{   // 確定時に0.5kg刻みへスナップ
+    const t=e.target; const q=Math.max(0,Math.round((parseFloat(t.value)||0)*2)/2);
+    if(q>0){ t.value=q; setQty(t.dataset.call,t.dataset.jp,q); }
+    else { const cur=cart[t.dataset.call]; t.value=cur?(parseFloat(cur.qty)||''):''; }   // ゴミ・0は直前の値へ戻す（削除は×ボタンで）
+    renderCart(); syncTableInputs();
   }));
   body.querySelectorAll('.rm').forEach(b=>b.addEventListener('click',e=>{
     const c=e.target.dataset.call; delete cart[c]; saveCart(); updateFab(); renderCart(); syncTableInputs();
@@ -627,7 +633,7 @@ function addFromRow(btn){
   const row=btn.closest('tr');
   const inp=row.querySelector('.qty');
   const call=btn.dataset.call, jp=btn.dataset.jp;
-  let q=Math.round((parseFloat(inp.value)||0)*1000)/1000;  // 小数OK（2.5kg等）。矢印は1kg刻みのまま
+  let q=Math.round((parseFloat(inp.value)||0)*2)/2;  // 0.5kg刻み（1袋=500g固定に整合。2.3→2.5）
   if(q<=0){
     if(cart[call]){ delete cart[call]; saveCart(); updateFab(); inp.value=''; inp.classList.remove('has');
       btn.classList.remove('added'); btn.innerHTML=addBtnHTML(false); toast(TRN(jp)+' をカートから削除しました'); }

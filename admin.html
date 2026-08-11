@@ -153,6 +153,18 @@
   .dIn{padding:5px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px}
   .nIn{width:82px;padding:5px 6px;border:1px solid var(--line);border-radius:6px;font-size:12px}
   .dirty{border-color:var(--warn);background:#fffaf0}
+  /* 集約承認 */
+  table.bt{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+  table.bt th,table.bt td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:center}
+  table.bt th{background:rgba(250,251,250,.9);color:var(--sub);font-weight:600}
+  table.bt td.itn,table.bt th.itn{text-align:left;position:sticky;left:0;background:#fff;z-index:1}
+  .bt-in{width:64px;padding:5px 6px;border:1px solid var(--line);border-radius:7px;font-size:13px;text-align:right}
+  .bt-in.edited{border-color:var(--green);background:#f1faf3}
+  .bt-total{font-weight:700;font-variant-numeric:tabular-nums}
+  .bt-total.short{color:var(--warn)}
+  .bt-orig{font-size:11px;color:var(--sub)}
+  .alloc-in{width:64px;padding:5px 6px;border:1px solid var(--line);border-radius:7px;font-size:12px;text-align:right}
+  .bag{font-size:10.5px;color:var(--sub);display:block}
   /* ---- アクセシビリティ（デザイン基準§9.6）：admin固有UI分。共通分はapp.css側 ---- */
   @media (prefers-reduced-transparency: reduce){
     .ship-mode{background:#eef0ec;backdrop-filter:none;-webkit-backdrop-filter:none}
@@ -211,6 +223,7 @@
   <div id="admin-content" class="hide">
     <div class="vtabs">
       <button class="vtb active" data-v="orders">受注管理</button>
+      <button class="vtb" data-v="batch">集約承認</button>
       <button class="vtb" data-v="manual">納品書作成・履歴</button>
       <button class="vtb" data-v="supply">供給・出荷マスタ</button>
     </div>
@@ -230,6 +243,25 @@
       </div>
       <div id="state" class="card state">読み込み中…</div>
       <div id="list"></div>
+    </div>
+
+    <div id="view-batch" class="hide">
+      <div class="card">
+        <div class="row">
+          <div><b>集約承認</b><span class="muted" style="margin-left:10px">締め＝月・木 9:30 ／ 承認・返信＝15:00まで ／ 発送＝火・金</span></div>
+          <div style="flex:1"></div>
+          <button class="btn ghost sm" id="batch-reload">↻ 更新</button>
+        </div>
+        <div class="muted" style="margin-top:8px">受付中のオーダーを納品日ごとにまとめて表示します。数量は0.5kg刻み（1袋=500g）。承認すると各店舗へ納品可能数メールが送られ、店舗実績に記録されます。</div>
+      </div>
+      <div id="batch-body"><div class="card state">読み込み中…</div></div>
+      <div class="card">
+        <div class="row"><b>店舗別実績</b><span class="muted" style="margin-left:8px">承認時の確定数量ベース（数量のみ）</span>
+          <div style="flex:1"></div>
+          <select id="stats-month"><option value="">全期間</option></select>
+          <button class="btn ghost sm" id="stats-reload">実績を読み込む</button></div>
+        <div id="stats-body" class="muted" style="margin-top:10px">「実績を読み込む」を押すと表示します。</div>
+      </div>
     </div>
 
     <div id="view-manual" class="hide">
@@ -335,7 +367,7 @@ function render(){
       const p=it.price;
       if(!excluded){ if(p!=null) sub+=p*it.qty; else hasAll=false; }
       const qtyCell = editable
-        ? `<input class="qty-in" type="number" min="0" step="1" value="${it.qty}" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><span class="unit">kg</span>`
+        ? `<input class="qty-in" type="number" min="0" step="0.5" inputmode="decimal" value="${it.qty}" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><span class="unit">kg</span>`
         : `${it.qty}<span class="unit">kg</span>`;
       const pe=PRICES.find(x=>x.call===it.call);
       const avail=pe? PFARMS.filter(f=>pe.prices[f]&&pe.prices[f]!==''):[];
@@ -464,7 +496,7 @@ function render(){
   el.querySelectorAll('.qty-in,.price-in').forEach(inp=>inp.addEventListener('change',e=>{
     const t=e.target; const o=ORDERS.find(x=>x.id===t.dataset.id); if(!o) return;
     const it=o.items.find(x=>x.call===t.dataset.call); if(!it) return;
-    if(t.classList.contains('qty-in')) it.qty=Math.max(0,Math.round((parseFloat(t.value)||0)*1000)/1000);
+    if(t.classList.contains('qty-in')) it.qty=Math.max(0,Math.round((parseFloat(t.value)||0)*2)/2);   // 0.5kg刻み（1袋=500g）
     else it.price=(t.value===''?null:parseFloat(t.value));
     render();
   }));
@@ -994,7 +1026,8 @@ function parseSlipLines(lines){
 }
 function switchTab(v){
   document.querySelectorAll('.vtb').forEach(x=>x.classList.toggle('active',x.dataset.v===v));
-  ['orders','manual','supply'].forEach(k=>document.getElementById('view-'+k).classList.toggle('hide',k!==v));
+  ['orders','batch','manual','supply'].forEach(k=>document.getElementById('view-'+k).classList.toggle('hide',k!==v));
+  if(v==='batch') renderBatch();
 }
 
 async function init(){
@@ -1219,13 +1252,224 @@ document.getElementById('na-add').addEventListener('click', async ()=>{
   else if(r && String(r.error||'').indexOf('unknown action')>=0){ toast('⚠️ Apps Scriptが未更新です（supplyAdd対応の再デプロイが必要）'); }
   else { toast('追加失敗: '+((r&&r.error)||'')); }
 });
+/* ============ 集約承認（店舗別オーダーの一括確定） ============ */
+// 0.5kg刻みへスナップ
+const snapHalf=v=>Math.max(0,Math.round((parseFloat(v)||0)*2)/2);
+
+// 比例配分：target(kg)を各注文のオーダー量比で0.5刻み配分。端数はオーダー量の大きい順に0.5ずつ。確定はオーダー以下。
+function allocateHalf(target, origs){
+  target=snapHalf(target);
+  const totalOrig=origs.reduce((a,o)=>a+o.qty,0);
+  if(target>=totalOrig) return origs.map(o=>({key:o.key, v:o.qty}));   // 満量
+  const out=origs.map(o=>({key:o.key, orig:o.qty, v:Math.floor((target*o.qty/totalOrig)*2)/2}));
+  let rest=Math.round((target-out.reduce((a,o)=>a+o.v,0))*2)/2;
+  const byBig=[...out].sort((a,b)=>b.orig-a.orig);
+  let guard=0;
+  while(rest>=0.5 && guard<1000){
+    for(const o of byBig){ if(rest<0.5) break; if(o.v+0.5<=o.orig){ o.v+=0.5; rest-=0.5; } }
+    guard++;
+  }
+  return out.map(o=>({key:o.key, v:o.v}));
+}
+
+function batchGroups(){
+  const pend=ORDERS.filter(o=>o.status==='受付');
+  const groups=new Map();
+  pend.forEach(o=>{ const k=fmtDate(o.deliveryDate)||'納品日未定'; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(o); });
+  return groups;
+}
+function colLabel(o){ return o.store || o.company || o.id; }
+
+function renderBatch(){
+  const box=document.getElementById('batch-body'); if(!box) return;
+  const groups=batchGroups();
+  if(groups.size===0){ box.innerHTML='<div class="card state">受付中のオーダーはありません。</div>'; return; }
+  let h='';
+  let gi=0;
+  for(const [dl,os] of groups){
+    const calls=[...new Set(os.flatMap(o=>o.items.map(it=>it.call)))];
+    const head=os.map(o=>`<th title="${esc(o.id)}">${esc(colLabel(o))}</th>`).join('');
+    const rows=calls.map(call=>{
+      const cells=os.map(o=>{
+        const it=o.items.find(x=>x.call===call);
+        if(!it) return '<td class="muted">—</td>';
+        return `<td><input class="bt-in" type="number" min="0" step="0.5" inputmode="decimal" value="${it.qty}" data-orig="${it.qty}" data-id="${esc(o.id)}" data-call="${esc(call)}"></td>`;
+      }).join('');
+      const orig=os.reduce((a,o)=>{const it=o.items.find(x=>x.call===call);return a+(it?it.qty:0);},0);
+      const jp=(os.flatMap(o=>o.items).find(x=>x.call===call)||{}).jp||'';
+      return `<tr data-call="${esc(call)}">
+        <td class="itn"><b>${esc(call)}</b> <span class="muted" style="font-size:11px">${esc(jp)}</span></td>${cells}
+        <td><span class="bt-total" data-role="total">${orig}</span><span class="bt-orig">／注文 <span data-role="orig">${orig}</span>kg</span></td>
+        <td><input class="alloc-in" type="number" min="0" step="0.5" inputmode="decimal" placeholder="確定計"> <button type="button" class="btn ghost sm alloc-btn">配分</button></td></tr>`;
+    }).join('');
+    h+=`<div class="card batch-group" data-dl="${esc(dl)}" data-gi="${gi}">
+      <div class="row" style="padding:0 0 6px"><b style="font-size:15px">${esc(dl)} 便</b>
+        <span class="muted">注文 ${os.length}件</span><div style="flex:1"></div>
+        <button type="button" class="btn ghost sm bt-print">検品表を印刷</button>
+        <button type="button" class="btn bt-approve">この便をまとめて承認</button></div>
+      <div class="scroll"><table class="bt">
+        <thead><tr><th class="itn">品目</th>${head}<th>合計</th><th>減額時の配分</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <div class="muted" style="margin-top:8px;font-size:12px">配分＝確定計を入れると注文比で0.5kg刻みに自動割り振り（多い店から端数を寄せる）。セルは手修正可・合計は即時反映。0にした品目はその店舗への納品なしになります。</div>
+    </div>`;
+    gi++;
+  }
+  box.innerHTML=h;
+  // 合計のライブ反映
+  const recalc=(tr)=>{
+    const ins=[...tr.querySelectorAll('.bt-in')];
+    const sum=ins.reduce((a,i)=>a+(parseFloat(i.value)||0),0);
+    const t=tr.querySelector('[data-role="total"]'); const og=parseFloat(tr.querySelector('[data-role="orig"]').textContent)||0;
+    t.textContent=Math.round(sum*10)/10; t.classList.toggle('short', sum<og-0.001);
+    ins.forEach(i=>i.classList.toggle('edited', Math.abs((parseFloat(i.value)||0)-(parseFloat(i.dataset.orig)||0))>0.001));
+  };
+  box.querySelectorAll('.bt-in').forEach(inp=>inp.addEventListener('change',e=>{
+    e.target.value=snapHalf(e.target.value)||0; recalc(e.target.closest('tr'));
+  }));
+  box.querySelectorAll('.alloc-btn').forEach(b=>b.addEventListener('click',()=>{
+    const tr=b.closest('tr');
+    const target=tr.querySelector('.alloc-in').value;
+    if(target===''){ toast('確定計(kg)を入れてから「配分」を押してください'); return; }
+    const ins=[...tr.querySelectorAll('.bt-in')];
+    const origs=ins.map(i=>({key:i, qty:parseFloat(i.dataset.orig)||0}));
+    allocateHalf(target, origs).forEach(a=>{ a.key.value=a.v; });
+    recalc(tr);
+  }));
+  box.querySelectorAll('.bt-approve').forEach(b=>b.addEventListener('click',()=>approveBatch(b.closest('.batch-group'))));
+  box.querySelectorAll('.bt-print').forEach(b=>b.addEventListener('click',()=>printPickSheet(b.closest('.batch-group'))));
+}
+
+function collectBatch(groupEl){
+  const byOrder=new Map();
+  groupEl.querySelectorAll('.bt-in').forEach(i=>{
+    const id=i.dataset.id, call=i.dataset.call, qty=snapHalf(i.value)||0;
+    if(!byOrder.has(id)) byOrder.set(id,[]);
+    byOrder.get(id).push({call, qty});
+  });
+  return [...byOrder.entries()].map(([id,items])=>({id, items}));
+}
+
+async function approveBatch(groupEl){
+  const orders=collectBatch(groupEl);
+  const dl=groupEl.dataset.dl;
+  const total=[...groupEl.querySelectorAll('.bt-in')].reduce((a,i)=>a+(parseFloat(i.value)||0),0);
+  if(!confirm(`${dl}便：${orders.length}件の注文を承認します。\n確定合計 ${Math.round(total*10)/10}kg。各店舗へ納品可能数メールが送信されます。よろしいですか？`)) return;
+  const btn=groupEl.querySelector('.bt-approve'); btn.disabled=true; btn.textContent='承認中…';
+  const r=await postAction({action:'batchApprove', token:ADMIN_TOKEN_VAL, orders});
+  if(r&&r.ok){
+    toast(`✅ 承認しました（${r.approved}件・メール${r.mails}通・実績${r.stats}行）`);
+    printPickSheet(groupEl);   // 承認をトリガーに検品表を出す（運用フローどおり）
+    try{ const items=await loadOrderItems(); ORDERS=groupOrders(items); ORDERS.forEach(o=>o._orig=o.items.map(it=>({call:it.call, price:(it.price??null)}))); }catch(e){}
+    renderBatch(); if(typeof render==='function') render();
+  } else {
+    toast('❌ 承認に失敗：'+((r&&r.error)||'通信エラー')); btn.disabled=false; btn.textContent='この便をまとめて承認';
+  }
+}
+
+/* 検品表（A4印刷）：品目×店舗×袋数＋チェック欄。承認前でも現在の画面値で印刷可 */
+function printPickSheet(groupEl){
+  const dl=groupEl.dataset.dl;
+  const heads=[...groupEl.querySelectorAll('thead th')].slice(1,-2).map(th=>th.textContent);
+  const rows=[...groupEl.querySelectorAll('tbody tr')].map(tr=>{
+    const call=tr.dataset.call;
+    const jp=(tr.querySelector('.itn .muted')||{}).textContent||'';
+    const cells=[...tr.querySelectorAll('td')].slice(1,-2).map(td=>{
+      const i=td.querySelector('.bt-in'); if(!i) return null;
+      return snapHalf(i.value)||0;
+    });
+    return {call, jp, cells};
+  });
+  const bag=q=>Math.round(q*2);
+  let totalKg=0, totalBag=0;
+  const trs=rows.map(r=>{
+    const tds=r.cells.map(q=>{
+      if(q===null) return '<td class="dash">—</td>';
+      if(!q) return '<td class="dash">0</td>';
+      return `<td><b>${q}kg</b>・${bag(q)}袋 <span class="ck">☐</span></td>`;
+    }).join('');
+    const sum=r.cells.reduce((a,q)=>a+(q||0),0); totalKg+=sum; totalBag+=bag(sum);
+    return `<tr><td class="itn">${esc(r.call)} <span class="jp">${esc(r.jp)}</span></td>${tds}<td class="sum">${Math.round(sum*10)/10}kg・${bag(sum)}袋</td></tr>`;
+  }).join('');
+  const colTotals=heads.map((_,ci)=>{
+    const s=rows.reduce((a,r)=>a+(r.cells[ci]||0),0);
+    return `<td class="sum">${Math.round(s*10)/10}kg・${bag(s)}袋</td>`;
+  }).join('');
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>ピッキング検品表 ${esc(dl)}便</title>
+  <style>
+    @page{size:A4;margin:14mm}
+    body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;color:#1d2520;font-size:12px;margin:0}
+    h1{font-size:17px;margin:0 0 2px} .sub{color:#6b756e;font-size:11px;margin-bottom:12px}
+    table{border-collapse:collapse;width:100%}
+    th,td{border:1px solid #9aa39d;padding:7px 8px;text-align:center;font-size:12px}
+    th{background:#eef1ec}
+    td.itn{text-align:left;font-weight:700} td.itn .jp{font-weight:400;color:#6b756e;font-size:10.5px}
+    td.dash{color:#b8beba} td.sum{font-weight:700;background:#fafbfa}
+    .ck{font-size:14px}
+    .foot{margin-top:12px;color:#6b756e;font-size:10.5px;display:flex;justify-content:space-between}
+    .sign{margin-top:16px;display:flex;gap:24px;font-size:11px}
+    .sign span{border-bottom:1px solid #9aa39d;min-width:120px;display:inline-block;padding:0 6px 2px}
+  </style></head><body>
+  <h1>ピッキング検品表　${esc(dl)}便</h1>
+  <div class="sub">1袋=500g（kg×2=袋数）。梱包した袋にチェック ☐ → 箱詰め時に店舗列の合計を再確認。印刷: ${new Date().toLocaleString('ja-JP')}</div>
+  <table><thead><tr><th style="text-align:left">品目</th>${heads.map(h=>`<th>${esc(h)}</th>`).join('')}<th>合計</th></tr></thead>
+  <tbody>${trs}
+  <tr><td class="itn">合計</td>${colTotals}<td class="sum">${Math.round(totalKg*10)/10}kg・${totalBag}袋</td></tr></tbody></table>
+  <div class="sign">梱包者：<span></span>　検品者：<span></span>　発送日：<span></span></div>
+  <div class="foot"><span>GAOGAO Farm 出荷管理</span><span>ラベル印刷はMacの「梱包ラベル」から（P-touch）</span></div>
+  <script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+  w.document.close();
+}
+
+/* 店舗別実績（店舗実績シートをgvizで読む・数量のみ） */
+let STATS_ROWS=null;
+async function loadStats(){
+  const body=document.getElementById('stats-body');
+  body.textContent='読み込み中…';
+  try{
+    const rows=await fetchSheet('店舗実績');
+    const head=rows[0]||[]; const col=n=>head.indexOf(n);
+    const items=rows.slice(1).filter(r=>r[col('店舗')]!=null&&String(r[col('注文番号')]||'').trim()).map(r=>({
+      dl:String(r[col('納品日')]||''), store:String(r[col('店舗')]||'')||'(店舗なし)', call:String(r[col('呼称')]||''),
+      ordered:parseFloat(r[col('オーダー数(kg)')])||0, fixed:parseFloat(r[col('確定数(kg)')])||0 }));
+    STATS_ROWS=items;
+    const months=[...new Set(items.map(i=>ym(i.dl)).filter(Boolean))].sort().reverse();
+    const sel=document.getElementById('stats-month');
+    const prev=sel.value; sel.length=1; months.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m.replace('-','年')+'月';sel.appendChild(o);});
+    if(prev&&[...sel.options].some(o=>o.value===prev)) sel.value=prev;
+    renderStats();
+  }catch(e){ body.textContent='読み込みに失敗しました（店舗実績シートは初回承認後に作成されます）'; }
+}
+function renderStats(){
+  const body=document.getElementById('stats-body');
+  if(!STATS_ROWS){ body.textContent='「実績を読み込む」を押すと表示します。'; return; }
+  const m=document.getElementById('stats-month').value;
+  const rows=STATS_ROWS.filter(i=>!m||ym(i.dl)===m);
+  if(!rows.length){ body.textContent='該当期間の実績はまだありません。'; return; }
+  const byStore=new Map();
+  rows.forEach(i=>{
+    if(!byStore.has(i.store)) byStore.set(i.store,{ordered:0,fixed:0,items:new Map()});
+    const st=byStore.get(i.store); st.ordered+=i.ordered; st.fixed+=i.fixed;
+    st.items.set(i.call,(st.items.get(i.call)||0)+i.fixed);
+  });
+  const r1=n=>Math.round(n*10)/10;
+  const trs=[...byStore.entries()].sort((a,b)=>b[1].fixed-a[1].fixed).map(([store,v])=>{
+    const top=[...v.items.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4).map(([c,q])=>`${esc(c)} ${r1(q)}`).join('・');
+    const rate=v.ordered? Math.round(v.fixed/v.ordered*100) : 100;
+    return `<tr><td style="text-align:left"><b>${esc(store)}</b></td><td class="num">${r1(v.ordered)}</td><td class="num"><b>${r1(v.fixed)}</b></td><td class="num">${rate}%</td><td style="text-align:left" class="muted">${top}</td></tr>`;
+  }).join('');
+  body.innerHTML=`<div class="scroll"><table><thead><tr><th style="text-align:left">店舗</th><th class="num">オーダー計(kg)</th><th class="num">確定計(kg)</th><th class="num">充足率</th><th style="text-align:left">内訳（確定kg上位）</th></tr></thead><tbody>${trs}</tbody></table></div>`;
+}
+
 document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.vtb').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');
   const v=t.dataset.v;
   document.getElementById('view-orders').classList.toggle('hide',v!=='orders');
+  document.getElementById('view-batch').classList.toggle('hide',v!=='batch');
   document.getElementById('view-manual').classList.toggle('hide',v!=='manual');
   document.getElementById('view-supply').classList.toggle('hide',v!=='supply');
+  if(v==='batch') renderBatch();
   if(v==='manual'){ if(priceLoaded) renderManual(); else loadPrices().then(renderManual).catch(()=>{}); loadHistory(); }
   if(v==='supply'){
     // タブを開くたびに最新を読み直す（保存していない編集がある間は上書きしない）
@@ -1234,6 +1478,9 @@ document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
     else { if(!supLoaded) loadSupply(); if(!priceLoaded) loadPrices(); }
   }
 }));
+const br=document.getElementById('batch-reload'); if(br) br.onclick=async()=>{ try{ const items=await loadOrderItems(); ORDERS=groupOrders(items); ORDERS.forEach(o=>o._orig=o.items.map(it=>({call:it.call, price:(it.price??null)}))); }catch(e){} renderBatch(); toast('最新のオーダーを読み込みました'); };
+const sr=document.getElementById('stats-reload'); if(sr) sr.onclick=loadStats;
+const sm=document.getElementById('stats-month'); if(sm) sm.addEventListener('change',renderStats);
 // 送信先モードを変えたら「送信先 →」表示を更新
 document.addEventListener('change',e=>{
   if(e.target.classList&&e.target.classList.contains('mp-mode-in')){

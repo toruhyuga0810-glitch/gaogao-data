@@ -70,7 +70,7 @@ function render(){
     const editable=(o.status==='受付');
     const rows=o.items.map(it=>`<tr><td><b>${esc(it.call)}</b> <span class="muted">${esc(it.jp)}</span></td>
       <td class="num">${editable
-        ? `<input class="qy" type="number" min="0" step="1" value="${it.qty}" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><span class="unit">kg</span>`
+        ? `<input class="qy" type="number" min="0" step="0.5" inputmode="decimal" value="${it.qty}" data-id="${esc(o.id)}" data-call="${esc(it.call)}"><span class="unit">kg</span>`
         : it.qty+' <span class="unit">kg</span>'}</td></tr>`).join('');
     h+=`<div class="order" data-id="${esc(o.id)}">
       <div class="oh"><span class="id">${esc(o.id)}</span> ${allMode?`<span class="company">${esc(o.company||'(会社未記入)')}${o.store?'　'+esc(o.store):''}</span>`:(o.store?`<span class="company">${esc(o.store)}</span>`:'')} <span class="badge s-${esc(o.status)}">${esc(o.status)}</span>
@@ -100,7 +100,7 @@ async function act(btn){
   // save qty changes
   const inputs=[...order.querySelectorAll('.qy')]; let changed=0;
   for(const inp of inputs){
-    const q=Math.max(0,Math.round((parseFloat(inp.value)||0)*1000)/1000);
+    const q=Math.max(0,Math.round((parseFloat(inp.value)||0)*2)/2);   // 0.5kg刻み（1袋=500g）
     const it=o.items.find(x=>x.call===inp.dataset.call);
     if(it && q!==it.qty){
       const r=await postAction({action:'updateItem',id,call:inp.dataset.call,qty:q});
