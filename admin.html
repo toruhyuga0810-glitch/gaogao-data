@@ -223,12 +223,22 @@
   <div id="admin-content" class="hide">
     <div class="vtabs">
       <button class="vtb active" data-v="orders">受注管理</button>
-      <button class="vtb" data-v="batch">集約承認</button>
       <button class="vtb" data-v="manual">納品書作成・履歴</button>
       <button class="vtb" data-v="supply">供給・出荷マスタ</button>
     </div>
 
     <div id="view-orders">
+      <div id="batch-wrap" class="hide">
+        <div class="card">
+          <div class="row">
+            <div><b>集約承認</b><span class="muted" style="margin-left:10px">締め＝月・木 9:30 ／ 承認・返信＝15:00まで ／ 発送＝火・金</span></div>
+            <div style="flex:1"></div>
+            <button class="btn ghost sm" id="batch-reload">↻ 更新</button>
+          </div>
+          <div class="muted" style="margin-top:8px">受付中のオーダーを納品日ごとに集約。数量は0.5kg刻み（1袋=500g）。承認すると各店舗へ納品可能数メールが送られ、店舗実績（納品実績ページ）に蓄積されます。</div>
+        </div>
+        <div id="batch-body"></div>
+      </div>
       <div class="card">
         <div class="row">
           <div><div class="muted">ステータス</div><select id="f-status">
@@ -243,19 +253,6 @@
       </div>
       <div id="state" class="card state">読み込み中…</div>
       <div id="list"></div>
-    </div>
-
-    <div id="view-batch" class="hide">
-      <div class="card">
-        <div class="row">
-          <div><b>集約承認</b><span class="muted" style="margin-left:10px">締め＝月・木 9:30 ／ 承認・返信＝15:00まで ／ 発送＝火・金</span></div>
-          <div style="flex:1"></div>
-          <button class="btn ghost sm" id="batch-reload">↻ 更新</button>
-        </div>
-        <div class="muted" style="margin-top:8px">受付中のオーダーを納品日ごとにまとめて表示します。数量は0.5kg刻み（1袋=500g）。承認すると各店舗へ納品可能数メールが送られ、店舗実績に記録されます。</div>
-      </div>
-      <div id="batch-body"><div class="card state">読み込み中…</div></div>
-      <div class="muted" style="margin:4px 2px 0;font-size:12px">店舗別実績は「納品実績」ページに統合しました（承認のたびに自動で蓄積・数量のみ）。</div>
     </div>
 
     <div id="view-manual" class="hide">
@@ -408,7 +405,7 @@ function render(){
       </div>
       ${o.note?`<div class="muted" style="margin-top:8px">備考: ${esc(o.note)}</div>`:''}</div>
       <div class="oactions">
-        <button class="btn" data-act="承認済み">この内容で承認（顧客へメール）</button>
+
         <button class="btn ghost" data-act="納品済み">納品済みにする</button>
         <button class="btn warn" data-act="キャンセル">キャンセル</button>
         <button class="btn draft-btn" data-draft="1">納品書ドラフトを${o.draftNumber?'更新':'作成'}</button>
@@ -435,7 +432,7 @@ function render(){
           <button type="button" class="btn mp-send" data-id="${esc(o.id)}">この内容で送信</button>
         </div>
       </div>`:''}
-      ${editable?'<div class="muted" style="padding:0 16px 12px">※ 欠品時は数量を変更してから承認してください。承認すると納品可能数が顧客へメール送信されます。単価は空欄でもOK（仕入れ先確定後に入力可）。</div>':''}</div>`;
+      ${editable?'<div class="muted" style="padding:0 16px 12px">※ 承認は上の「集約承認」ブロックから（数量確定・メール送信・実績記録まで一括）。ここでは圃場割当・単価・納品書の準備ができます。</div>':''}</div>`;
   });
   el.innerHTML=h;
   el.querySelectorAll('.oactions .btn[data-act]').forEach(b=>b.onclick=()=>act(b));
@@ -1020,8 +1017,7 @@ function parseSlipLines(lines){
 }
 function switchTab(v){
   document.querySelectorAll('.vtb').forEach(x=>x.classList.toggle('active',x.dataset.v===v));
-  ['orders','batch','manual','supply'].forEach(k=>document.getElementById('view-'+k).classList.toggle('hide',k!==v));
-  if(v==='batch') renderBatch();
+  ['orders','manual','supply'].forEach(k=>document.getElementById('view-'+k).classList.toggle('hide',k!==v));
 }
 
 async function init(){
@@ -1045,12 +1041,12 @@ async function init(){
     try{ const rr=await postAction({action:'mailRecipients', token:ADMIN_TOKEN_VAL}); if(rr&&rr.ok) MAIL_RECIP=rr; }catch(e){}  // 送信先の実メアドを取得（.mp-to表示用）
     const mcl=document.getElementById('mn-clear'); if(mcl) mcl.onclick=()=>{ MANUAL={rows:[{}],ship:{},shipMode:'cool'}; document.getElementById('mn-result').innerHTML=''; const d2=document.getElementById('mn-date'); if(d2) d2.value=new Date().toISOString().slice(0,10); renderManual(); toast('新規作成にリセットしました'); };
     const hr=document.getElementById('hist-reload'); if(hr) hr.onclick=()=>loadHistory(true);
-    if(ORDERS.length===0){ document.getElementById('state').innerHTML='まだ注文がありません。<br><span class="muted">カートから注文が入るとここに表示されます（Apps Script接続後）。</span>'; return; }
-    render();
+    if(ORDERS.length===0){ document.getElementById('state').innerHTML='まだ注文がありません。<br><span class="muted">カートから注文が入るとここに表示されます（Apps Script接続後）。</span>'; renderBatch(); return; }
+    render(); renderBatch();
   }catch(e){ document.getElementById('state').innerHTML='⚠️ 取得失敗：'+esc(e.message); }
 }
 ['f-status','f-company'].forEach(id=>document.getElementById(id).addEventListener('change',render));
-document.getElementById('reload').onclick=init;
+document.getElementById('reload').onclick=async()=>{ await init(); renderBatch(); };
 
 // ===== コンテンツ・ロック（GAOGAO専用） =====
 const TOKEN_KEY='gaogao_admin_token';
@@ -1276,8 +1272,10 @@ function colLabel(o){ return o.store || o.company || o.id; }
 
 function renderBatch(){
   const box=document.getElementById('batch-body'); if(!box) return;
+  const wrap=document.getElementById('batch-wrap');
   const groups=batchGroups();
-  if(groups.size===0){ box.innerHTML='<div class="card state">受付中のオーダーはありません。</div>'; return; }
+  if(groups.size===0){ box.innerHTML=''; if(wrap) wrap.classList.add('hide'); return; }
+  if(wrap) wrap.classList.remove('hide');
   let h='';
   let gi=0;
   for(const [dl,os] of groups){
@@ -1420,10 +1418,8 @@ document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
   t.classList.add('active');
   const v=t.dataset.v;
   document.getElementById('view-orders').classList.toggle('hide',v!=='orders');
-  document.getElementById('view-batch').classList.toggle('hide',v!=='batch');
   document.getElementById('view-manual').classList.toggle('hide',v!=='manual');
   document.getElementById('view-supply').classList.toggle('hide',v!=='supply');
-  if(v==='batch') renderBatch();
   if(v==='manual'){ if(priceLoaded) renderManual(); else loadPrices().then(renderManual).catch(()=>{}); loadHistory(); }
   if(v==='supply'){
     // タブを開くたびに最新を読み直す（保存していない編集がある間は上書きしない）
