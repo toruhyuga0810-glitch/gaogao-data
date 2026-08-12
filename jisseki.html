@@ -386,6 +386,11 @@ function jstRender(v){
   const rows=JST_ROWS.filter(i2=>(v==='__all__'||i2.store===v)&&(!fm||ym(i2.dl)===fm));
   if(!rows.length){ area.innerHTML=`${head}<div class="card state">該当する実績がありません（期間フィルタを「全期間」に）。</div>`; return; }
   const r1=n=>Math.round(n*10)/10;
+  const jstBars=(brows)=>{ const tot=brows.reduce((a,b2)=>a+b2.kg,0)||1; const mx=brows[0].kg||1;
+    return '<div class="hbar">'+brows.map(b2=>
+      '<div class="hb-row"><span class="hb-l">'+esc(b2.label)+'</span>'
+      +'<span class="hb-t"><i style="width:'+Math.max(2,Math.round(b2.kg/mx*100))+'%"></i></span>'
+      +'<span class="hb-v">'+r1(b2.kg)+'kg・'+Math.round(b2.kg/tot*100)+'%</span></div>').join('')+'</div>'; };
   let html='';
   if(v==='__all__'){
     const by=new Map();
@@ -397,7 +402,9 @@ function jstRender(v){
       const top=[...v2.items.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4).map(([c,q])=>`${esc(c)} ${r1(q)}`).join('・');
       return `<tr><td style="text-align:left"><b>${esc(st)}</b></td><td class="num">${v2.days.size}</td><td class="num">${r1(v2.ordered)}</td><td class="num"><b>${r1(v2.fixed)}</b></td><td class="num">${rate}%</td><td style="text-align:left" class="muted">${top}</td></tr>`;
     }).join('');
-    html=`<div class="card"><div class="scroll"><table><thead><tr><th style="text-align:left">店舗</th><th class="num">納品回数</th><th class="num">オーダー計(kg)</th><th class="num">確定計(kg)</th><th class="num">充足率</th><th style="text-align:left">内訳（確定kg上位）</th></tr></thead><tbody>${trs}</tbody></table></div>
+    const barRows=[...by.entries()].map(([st,v2])=>({label:st,kg:v2.fixed})).sort((a,b)=>b.kg-a.kg);
+    html=`<div class="card"><h2 style="margin-top:0">店舗別 累計確定量・構成比</h2><div class="hbarbox">${jstBars(barRows)}</div></div>
+      <div class="card"><div class="scroll"><table><thead><tr><th style="text-align:left">店舗</th><th class="num">納品回数</th><th class="num">オーダー計(kg)</th><th class="num">確定計(kg)</th><th class="num">充足率</th><th style="text-align:left">内訳（確定kg上位）</th></tr></thead><tbody>${trs}</tbody></table></div>
       <div class="muted" style="margin-top:8px;font-size:11px">バーの「店舗別」で店舗を選ぶと品目別の内訳。充足率＝確定÷オーダー（100%未満は収穫都合の減額）。期間はバーの「全期間」で絞り込み。</div></div>`;
   }else{
     const by=new Map();
@@ -410,7 +417,9 @@ function jstRender(v){
       return `<tr><td style="text-align:left"><b>${esc(c)}</b> <span class="muted" style="font-size:11px">${esc(v2.jp)}</span></td><td class="num">${v2.days.size}</td><td class="num">${r1(v2.ordered)}</td><td class="num"><b>${r1(v2.fixed)}</b></td><td class="num">${rate}%</td></tr>`;
     }).join('');
     const trate=to?Math.round(tf/to*100):100;
-    html=`<div class="card"><div class="row" style="margin-bottom:6px"><b>${esc(v)}</b></div><div class="scroll"><table><thead><tr><th style="text-align:left">品目</th><th class="num">納品回数</th><th class="num">オーダー計(kg)</th><th class="num">確定計(kg)</th><th class="num">充足率</th></tr></thead>
+    const barRows=[...by.entries()].map(([c,v2])=>({label:c,kg:v2.fixed})).sort((a,b)=>b.kg-a.kg);
+    html=`<div class="card"><h2 style="margin-top:0">品目別 確定量・構成比（${esc(v)}）</h2><div class="hbarbox">${jstBars(barRows)}</div></div>
+      <div class="card"><div class="row" style="margin-bottom:6px"><b>${esc(v)}</b></div><div class="scroll"><table><thead><tr><th style="text-align:left">品目</th><th class="num">納品回数</th><th class="num">オーダー計(kg)</th><th class="num">確定計(kg)</th><th class="num">充足率</th></tr></thead>
       <tbody>${trs}<tr><td style="text-align:left"><b>合計</b></td><td></td><td class="num"><b>${r1(to)}</b></td><td class="num"><b>${r1(tf)}</b></td><td class="num"><b>${trate}%</b></td></tr></tbody></table></div></div>`;
   }
   area.innerHTML=head+html;

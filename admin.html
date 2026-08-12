@@ -1020,13 +1020,26 @@ function switchTab(v){
   ['orders','manual','supply'].forEach(k=>document.getElementById('view-'+k).classList.toggle('hide',k!==v));
 }
 
+const ADMIN_DEMO=(new URLSearchParams(location.search)).get('demo')==='1';
+function adminDemoOrders(){
+  const mk=(id,store,items,dl)=>({id,status:'受付',company:'SRBC様',store,person:'店長',deliveryDate:dl,note:'',received:'2026/8/13 08:'+id.slice(-2),items:items.map(([call,jp,qty])=>({call,jp,qty,price:null}))});
+  return [
+    mk('DEMO-01','サイアムセラドン 新宿タカシマヤ店',[['ガパオ','ホーリーバジル',3],['ホラパー','スイートバジル',2],['パクチーファラン','ノコギリパクチー',1.5]],'2026/8/14'),
+    mk('DEMO-02','サイアムセラドン 銀座店',[['ガパオ','ホーリーバジル',2.5],['バイチャプルー','ハイゴショウ',1]],'2026/8/14'),
+    mk('DEMO-03','サイアムセラドン 池袋店',[['ガパオ','ホーリーバジル',2],['ホラパー','スイートバジル',1.5]],'2026/8/14'),
+    mk('DEMO-04','サイアムセラドン 横浜店',[['パクチーファラン','ノコギリパクチー',1],['ガパオ','ホーリーバジル',1.5]],'2026/8/14'),
+    mk('DEMO-05','ヘリテイジ 竹芝店',[['ガパオ','ホーリーバジル',1],['ホラパー','スイートバジル',1]],'2026/8/14'),
+    Object.assign(mk('DEMO-09','',[['ガパオ','ホーリーバジル',20]],'2026/8/15'),{company:'QOF様',person:'村上'}),
+  ];
+}
 async function init(){
   document.getElementById('conn').innerHTML = CONFIG.ORDER_WEBAPP_URL
     ? '✅ Apps Script接続済み：承認・単価がスプレッドシートに保存されます。'
     : '⚠️ Apps Script未接続：操作は画面表示のみで保存されません。assets/orders.js の ORDER_WEBAPP_URL を設定してください。';
   document.getElementById('state').classList.remove('hide'); document.getElementById('state').textContent='読み込み中…';
   try{
-    const items=await loadOrderItems(); ORDERS=groupOrders(items);
+    const items=ADMIN_DEMO?[]:await loadOrderItems(); ORDERS=ADMIN_DEMO?adminDemoOrders():groupOrders(items);
+    if(ADMIN_DEMO){ document.getElementById('conn').innerHTML='🔶 <b>プレビュー（仮データ）モード</b>：表示確認用です。承認・保存・送信はすべて無効。通常運用は demo なしのURLで。'; }
     ORDERS.forEach(o=>o._orig=o.items.map(it=>({call:it.call, price:(it.price??null)})));  // 元の単価を記録（リセット用）
     try{ const links=await loadDraftLinks(); ORDERS.forEach(o=>{ const l=links[o.id]; if(l){ o.draftNumber=l.number; o.draftSubject=l.subject; } }); }catch(e){}  // 既存ドラフトがあればボタンを「更新」に＋件名#N復元
     const sel=document.getElementById('f-company'); [...new Set(ORDERS.map(o=>o.company).filter(Boolean))].forEach(c=>{const op=document.createElement('option');op.textContent=c;sel.appendChild(op);});
@@ -1055,6 +1068,8 @@ async function tryAuth(pw){ return await postAction({action:'auth',token:pw}); }
 function showContent(){ $('lockcard').classList.add('hide'); $('admin-content').classList.remove('hide'); }
 function showLock(){ $('admin-content').classList.add('hide'); $('lockcard').classList.remove('hide'); $('gate-pw').value=''; $('gate-pw').focus(); }
 function unlock(pw){ ADMIN_TOKEN_VAL=pw; showContent(); init(); }
+if(ADMIN_DEMO){ const _pa=postAction; window.postAction=async(pl)=>{ if(pl&&pl.action==='auth') return _pa(pl);
+  toast('プレビュー中：保存・送信は無効です'); return {ok:false,error:'DEMO'}; }; }
 function lockAgain(){ localStorage.removeItem(TOKEN_KEY); ADMIN_TOKEN_VAL=''; showLock(); }
 async function gateInit(){
   if(!CONFIG.ORDER_WEBAPP_URL){ showContent(); init(); return; } // 未接続時はデモ表示
@@ -1328,6 +1343,8 @@ function renderBatch(){
     recalc(tr);
   }));
   box.querySelectorAll('.bt-approve').forEach(b=>b.addEventListener('click',()=>approveBatch(b.closest('.batch-group'))));
+  if(ADMIN_DEMO){ box.querySelectorAll('.bt-approve').forEach(b=>{ b.disabled=true; b.textContent='承認（プレビュー中は無効）'; });
+    box.querySelectorAll('.batch-group .row b').forEach(t=>{ if(!t.dataset.demo){ t.dataset.demo='1'; t.insertAdjacentHTML('afterend','<span class="badge" style="background:var(--warnbg);color:var(--warn);margin-left:6px">プレビュー（仮データ）</span>'); } }); }
   box.querySelectorAll('.bt-print').forEach(b=>b.addEventListener('click',()=>printPickSheet(b.closest('.batch-group'))));
 }
 
