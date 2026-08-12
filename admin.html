@@ -1316,19 +1316,31 @@ function renderBatch(){
         <button type="button" class="btn bt-approve">この便をまとめて承認</button></div>
       <div class="scroll"><table class="bt">
         <thead><tr><th class="itn">品目</th>${head}<th>合計</th><th>減額時の配分</th></tr></thead>
-        <tbody>${rows}</tbody></table></div>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td class="itn"><b>合計</b></td>${os.map((_,ci)=>`<td class="bt-total" data-colsum="${ci}"></td>`).join('')}<td class="bt-total" data-grand="1"></td><td></td></tr></tfoot></table></div>
       <div class="muted" style="margin-top:8px;font-size:12px">配分＝確定計を入れると注文比で0.5kg刻みに自動割り振り（多い店から端数を寄せる）。セルは手修正可・合計は即時反映。0にした品目はその店舗への納品なしになります。</div>
     </div>`;
     gi++;
   }
   box.innerHTML=h;
-  // 合計のライブ反映
+  // 合計のライブ反映（行・店舗列・総計）
+  const recalcCols=(g)=>{
+    const trs=[...g.querySelectorAll('tbody tr')];
+    let grand=0;
+    g.querySelectorAll('[data-colsum]').forEach((td,ci)=>{
+      let sum=0; trs.forEach(tr=>{ const inp=tr.querySelectorAll('td')[ci+1].querySelector('.bt-in'); if(inp) sum+=parseFloat(inp.value)||0; });
+      grand+=sum; td.innerHTML=`${Math.round(sum*10)/10}<span class="bag">${Math.round(sum*2)}袋</span>`;
+    });
+    const gd=g.querySelector('[data-grand]'); if(gd) gd.innerHTML=`<b>${Math.round(grand*10)/10}kg</b><span class="bag">${Math.round(grand*2)}袋</span>`;
+  };
+  box.querySelectorAll('.batch-group').forEach(recalcCols);
   const recalc=(tr)=>{
     const ins=[...tr.querySelectorAll('.bt-in')];
     const sum=ins.reduce((a,i)=>a+(parseFloat(i.value)||0),0);
     const t=tr.querySelector('[data-role="total"]'); const og=parseFloat(tr.querySelector('[data-role="orig"]').textContent)||0;
     t.textContent=Math.round(sum*10)/10; t.classList.toggle('short', sum<og-0.001);
     ins.forEach(i=>i.classList.toggle('edited', Math.abs((parseFloat(i.value)||0)-(parseFloat(i.dataset.orig)||0))>0.001));
+    recalcCols(tr.closest('.batch-group'));
   };
   box.querySelectorAll('.bt-in').forEach(inp=>inp.addEventListener('change',e=>{
     e.target.value=snapHalf(e.target.value)||0; recalc(e.target.closest('tr'));

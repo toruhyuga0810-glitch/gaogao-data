@@ -403,7 +403,11 @@ function jstRender(v){
       return `<tr><td style="text-align:left"><b>${esc(st)}</b></td><td class="num">${v2.days.size}</td><td class="num">${r1(v2.ordered)}</td><td class="num"><b>${r1(v2.fixed)}</b></td><td class="num">${rate}%</td><td style="text-align:left" class="muted">${top}</td></tr>`;
     }).join('');
     const barRows=[...by.entries()].map(([st,v2])=>({label:st,kg:v2.fixed})).sort((a,b)=>b.kg-a.kg);
-    html=`<div class="card"><h2 style="margin-top:0">店舗別 累計確定量・構成比</h2><div class="hbarbox">${jstBars(barRows)}</div></div>
+    const byItem=new Map();
+    rows.forEach(i2=>byItem.set(i2.call,(byItem.get(i2.call)||0)+i2.fixed));
+    const itemRows=[...byItem.entries()].map(([c,kg])=>({label:c,kg})).sort((a,b)=>b.kg-a.kg);
+    html=`<div class="card"><h2 style="margin-top:0">品目別 確定量・構成比（全店舗）</h2><div class="hbarbox">${jstBars(itemRows)}</div></div>
+      <div class="card"><h2 style="margin-top:0">店舗別 累計確定量・構成比</h2><div class="hbarbox">${jstBars(barRows)}</div></div>
       <div class="card"><div class="scroll"><table><thead><tr><th style="text-align:left">店舗</th><th class="num">納品回数</th><th class="num">オーダー計(kg)</th><th class="num">確定計(kg)</th><th class="num">充足率</th><th style="text-align:left">内訳（確定kg上位）</th></tr></thead><tbody>${trs}</tbody></table></div>
       <div class="muted" style="margin-top:8px;font-size:11px">バーの「店舗別」で店舗を選ぶと品目別の内訳。充足率＝確定÷オーダー（100%未満は収穫都合の減額）。期間はバーの「全期間」で絞り込み。</div></div>`;
   }else{
