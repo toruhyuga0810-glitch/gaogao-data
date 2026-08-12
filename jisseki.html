@@ -388,6 +388,19 @@ function jstRender(v){
   if(!rows.length){ area.innerHTML=`${head}<div class="card state">該当する実績がありません（期間フィルタを「全期間」に）。</div>`; return; }
   const r1=n=>Math.round(n*10)/10;
   const JST_PIE=['#4f9c72','#5f8ec9','#bd8138','#9c82d1','#c9758f'];
+  const jstSliceLabels={id:'jstSliceLabels',afterDatasetsDraw(chart){
+    const ctx=chart.ctx, meta=chart.getDatasetMeta(0), data=chart.data.datasets[0].data;
+    const tot=data.reduce((a,v)=>a+v,0)||1;
+    meta.data.forEach((arc,i)=>{
+      const vkg=data[i], pct=Math.round(vkg/tot*100); if(pct<6) return;   // 細切れは省略（凡例・ホバーで確認）
+      const pos=arc.tooltipPosition();
+      ctx.save(); ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.shadowColor='rgba(0,0,0,.25)'; ctx.shadowBlur=3;
+      ctx.font='700 11px "Hiragino Kaku Gothic ProN",sans-serif';
+      ctx.fillText(vkg+'kg',pos.x,pos.y-7); ctx.fillText(pct+'%',pos.x,pos.y+7);
+      ctx.restore();
+    });
+  }};
   const jstPie=(id,entries)=>{
     const top5=entries.slice(0,5), rest=entries.slice(5);
     const labels=top5.map(x=>x.label).concat(rest.length?['その他（'+rest.length+'）']:[]);
@@ -401,7 +414,8 @@ function jstRender(v){
             return d.labels.map((l,i)=>({text:l+'　'+Math.round(d.datasets[0].data[i]/tot*100)+'%',
               fillStyle:d.datasets[0].backgroundColor[i],strokeStyle:'transparent',index:i}));}}},
           tooltip:{callbacks:{label(ctx){const tot=ctx.dataset.data.reduce((a,v)=>a+v,0)||1;
-            return ' '+ctx.parsed+'kg（'+Math.round(ctx.parsed/tot*1000)/10+'%）';}}}}}});
+            return ' '+ctx.parsed+'kg（'+Math.round(ctx.parsed/tot*1000)/10+'%）';}}}},
+      plugins:[jstSliceLabels]});
   };
   const pies=[];
   let html='';
