@@ -414,7 +414,7 @@ function jstRender(v){
             return d.labels.map((l,i)=>({text:l+'　'+Math.round(d.datasets[0].data[i]/tot*100)+'%',
               fillStyle:d.datasets[0].backgroundColor[i],strokeStyle:'transparent',index:i}));}}},
           tooltip:{callbacks:{label(ctx){const tot=ctx.dataset.data.reduce((a,v)=>a+v,0)||1;
-            return ' '+ctx.parsed+'kg（'+Math.round(ctx.parsed/tot*1000)/10+'%）';}}}},
+            return ' '+ctx.parsed+'kg（'+Math.round(ctx.parsed/tot*1000)/10+'%）';}}}}},
       plugins:[jstSliceLabels]});
   };
   const pies=[];
