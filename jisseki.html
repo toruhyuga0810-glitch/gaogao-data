@@ -391,6 +391,13 @@ function jstRender(v){
   const jstSliceLabels={id:'jstSliceLabels',afterDatasetsDraw(chart){
     const ctx=chart.ctx, meta=chart.getDatasetMeta(0), data=chart.data.datasets[0].data;
     const tot=data.reduce((a,v)=>a+v,0)||1;
+    const cx=(chart.chartArea.left+chart.chartArea.right)/2, cy=(chart.chartArea.top+chart.chartArea.bottom)/2;
+    ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#6b756e'; ctx.font='600 11px "Hiragino Kaku Gothic ProN",sans-serif';
+    ctx.fillText('合計', cx, cy-13);
+    ctx.fillStyle='#3e4a42'; ctx.font='700 19px "Hiragino Kaku Gothic ProN",sans-serif';
+    ctx.fillText((Math.round(tot*10)/10)+'kg', cx, cy+7);
+    ctx.restore();
     meta.data.forEach((arc,i)=>{
       const vkg=data[i], pct=Math.round(vkg/tot*100); if(pct<6) return;   // 細切れは省略（凡例・ホバーで確認）
       const pos=arc.tooltipPosition();
