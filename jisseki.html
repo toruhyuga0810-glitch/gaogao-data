@@ -412,7 +412,7 @@ function jstRender(v){
       ctx.restore();
     });
   }};
-  const jstPie=(id,entries)=>{
+  const jstPie=(id,entries,legendPos)=>{
     const top5=entries.slice(0,5), rest=entries.slice(5);
     const labels=top5.map(x=>x.label).concat(rest.length?['その他（'+rest.length+'）']:[]);
     const data=top5.map(x=>r1(x.kg)).concat(rest.length?[r1(rest.reduce((a,x)=>a+x.kg,0))]:[]);
@@ -420,7 +420,7 @@ function jstRender(v){
     return new Chart(document.getElementById(id),{type:'doughnut',
       data:{labels,datasets:[{data,backgroundColor:colors,borderColor:'#ffffff',borderWidth:2,hoverOffset:6}]},
       options:{responsive:true,maintainAspectRatio:false,cutout:'58%',
-        plugins:{legend:{position:'right',labels:{color:'#3e4a42',font:{size:12},boxWidth:14,boxHeight:14,borderRadius:4,useBorderRadius:true,
+        plugins:{legend:{position:legendPos||'right',labels:{color:'#3e4a42',font:{size:legendPos==='bottom'?11:12},boxWidth:14,boxHeight:14,borderRadius:4,useBorderRadius:true,
           generateLabels(c){const d=c.data;const tot=d.datasets[0].data.reduce((a,v)=>a+v,0)||1;
             return d.labels.map((l,i)=>({text:l+'　'+Math.round(d.datasets[0].data[i]/tot*100)+'%',
               fillStyle:d.datasets[0].backgroundColor[i],strokeStyle:'transparent',index:i}));}}},
@@ -472,7 +472,7 @@ function jstRender(v){
     const byItem=new Map();
     rows.forEach(i2=>byItem.set(i2.call,(byItem.get(i2.call)||0)+i2.fixed));
     const itemRows=[...byItem.entries()].map(([c,kg])=>({label:c,kg})).sort((a,b)=>b.kg-a.kg);
-    pies.push(['jst-pie-a',itemRows],['jst-pie-b',barRows]);
+    pies.push(['jst-pie-a',itemRows],['jst-pie-b',barRows,'bottom']);   // 店名は長いので下凡例（折り返し）
     lines.push(['jst-line', jstMonthly(JST_ROWS, null)]);
     html=`<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin-bottom:16px">
       <div class="card" style="margin-bottom:0"><h2 style="margin-top:0">品目構成比（全店舗・確定量）</h2><div class="chartbox"><canvas id="jst-pie-a"></canvas></div></div>
@@ -502,7 +502,7 @@ function jstRender(v){
   }
   jstDestroy();
   area.innerHTML=head+html;
-  pies.forEach(([id,en])=>{ if(en.length&&document.getElementById(id)) JST_CH.push(jstPie(id,en)); });
+  pies.forEach(([id,en,pos])=>{ if(en.length&&document.getElementById(id)) JST_CH.push(jstPie(id,en,pos)); });
   lines.forEach(([id,md])=>{ if(md.months.length&&document.getElementById(id)) JST_CH.push(jstLine(id,md)); });
 }
 document.getElementById('jst-store').addEventListener('change',jstApply);
