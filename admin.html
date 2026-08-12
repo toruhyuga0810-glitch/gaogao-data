@@ -255,13 +255,7 @@
         <div class="muted" style="margin-top:8px">受付中のオーダーを納品日ごとにまとめて表示します。数量は0.5kg刻み（1袋=500g）。承認すると各店舗へ納品可能数メールが送られ、店舗実績に記録されます。</div>
       </div>
       <div id="batch-body"><div class="card state">読み込み中…</div></div>
-      <div class="card">
-        <div class="row"><b>店舗別実績</b><span class="muted" style="margin-left:8px">承認時の確定数量ベース（数量のみ）</span>
-          <div style="flex:1"></div>
-          <select id="stats-month"><option value="">全期間</option></select>
-          <button class="btn ghost sm" id="stats-reload">実績を読み込む</button></div>
-        <div id="stats-body" class="muted" style="margin-top:10px">「実績を読み込む」を押すと表示します。</div>
-      </div>
+      <div class="muted" style="margin:4px 2px 0;font-size:12px">店舗別実績は「納品実績」ページに統合しました（承認のたびに自動で蓄積・数量のみ）。</div>
     </div>
 
     <div id="view-manual" class="hide">
@@ -1421,46 +1415,6 @@ function printPickSheet(groupEl){
   w.document.close();
 }
 
-/* 店舗別実績（店舗実績シートをgvizで読む・数量のみ） */
-let STATS_ROWS=null;
-async function loadStats(){
-  const body=document.getElementById('stats-body');
-  body.textContent='読み込み中…';
-  try{
-    const rows=await fetchSheet('店舗実績');
-    const head=rows[0]||[]; const col=n=>head.indexOf(n);
-    const items=rows.slice(1).filter(r=>r[col('店舗')]!=null&&String(r[col('注文番号')]||'').trim()).map(r=>({
-      dl:String(r[col('納品日')]||''), store:String(r[col('店舗')]||'')||'(店舗なし)', call:String(r[col('呼称')]||''),
-      ordered:parseFloat(r[col('オーダー数(kg)')])||0, fixed:parseFloat(r[col('確定数(kg)')])||0 }));
-    STATS_ROWS=items;
-    const months=[...new Set(items.map(i=>ym(i.dl)).filter(Boolean))].sort().reverse();
-    const sel=document.getElementById('stats-month');
-    const prev=sel.value; sel.length=1; months.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m.replace('-','年')+'月';sel.appendChild(o);});
-    if(prev&&[...sel.options].some(o=>o.value===prev)) sel.value=prev;
-    renderStats();
-  }catch(e){ body.textContent='読み込みに失敗しました（店舗実績シートは初回承認後に作成されます）'; }
-}
-function renderStats(){
-  const body=document.getElementById('stats-body');
-  if(!STATS_ROWS){ body.textContent='「実績を読み込む」を押すと表示します。'; return; }
-  const m=document.getElementById('stats-month').value;
-  const rows=STATS_ROWS.filter(i=>!m||ym(i.dl)===m);
-  if(!rows.length){ body.textContent='該当期間の実績はまだありません。'; return; }
-  const byStore=new Map();
-  rows.forEach(i=>{
-    if(!byStore.has(i.store)) byStore.set(i.store,{ordered:0,fixed:0,items:new Map()});
-    const st=byStore.get(i.store); st.ordered+=i.ordered; st.fixed+=i.fixed;
-    st.items.set(i.call,(st.items.get(i.call)||0)+i.fixed);
-  });
-  const r1=n=>Math.round(n*10)/10;
-  const trs=[...byStore.entries()].sort((a,b)=>b[1].fixed-a[1].fixed).map(([store,v])=>{
-    const top=[...v.items.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4).map(([c,q])=>`${esc(c)} ${r1(q)}`).join('・');
-    const rate=v.ordered? Math.round(v.fixed/v.ordered*100) : 100;
-    return `<tr><td style="text-align:left"><b>${esc(store)}</b></td><td class="num">${r1(v.ordered)}</td><td class="num"><b>${r1(v.fixed)}</b></td><td class="num">${rate}%</td><td style="text-align:left" class="muted">${top}</td></tr>`;
-  }).join('');
-  body.innerHTML=`<div class="scroll"><table><thead><tr><th style="text-align:left">店舗</th><th class="num">オーダー計(kg)</th><th class="num">確定計(kg)</th><th class="num">充足率</th><th style="text-align:left">内訳（確定kg上位）</th></tr></thead><tbody>${trs}</tbody></table></div>`;
-}
-
 document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
   document.querySelectorAll('.vtb').forEach(x=>x.classList.remove('active'));
   t.classList.add('active');
@@ -1479,8 +1433,6 @@ document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
   }
 }));
 const br=document.getElementById('batch-reload'); if(br) br.onclick=async()=>{ try{ const items=await loadOrderItems(); ORDERS=groupOrders(items); ORDERS.forEach(o=>o._orig=o.items.map(it=>({call:it.call, price:(it.price??null)}))); }catch(e){} renderBatch(); toast('最新のオーダーを読み込みました'); };
-const sr=document.getElementById('stats-reload'); if(sr) sr.onclick=loadStats;
-const sm=document.getElementById('stats-month'); if(sm) sm.addEventListener('change',renderStats);
 // 送信先モードを変えたら「送信先 →」表示を更新
 document.addEventListener('change',e=>{
   if(e.target.classList&&e.target.classList.contains('mp-mode-in')){

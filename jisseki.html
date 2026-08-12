@@ -102,6 +102,15 @@
     </div>
   </div>
   <div class="row" style="align-items:center;gap:14px;margin-top:26px;flex-wrap:wrap">
+    <h2 style="margin:0">店舗別実績</h2>
+    <span class="muted" style="font-size:12px">承認時の確定数量ベース（数量のみ）</span>
+    <div style="flex:1"></div>
+    <select id="jst-store"><option value="">全店舗</option></select>
+    <select id="jst-month"><option value="">全期間</option></select>
+  </div>
+  <div class="card" id="jst-card"><div id="jst-body" class="muted">読み込み中…</div></div>
+
+  <div class="row" style="align-items:center;gap:14px;margin-top:26px;flex-wrap:wrap">
     <h2 style="margin:0">納品書ごとの明細</h2>
     <div class="seg" id="j-mode">
       <button class="active" data-m="date">日付順</button>
@@ -333,6 +342,67 @@ document.getElementById('j-csv').addEventListener('click',()=>{
 });
 document.getElementById('j-reload').addEventListener('click',loadJisseki);
 loadJisseki();
+</script>
+<script>
+/* ---- 店舗別実績（承認時の確定数量ベース・数量のみ）。正本=スプレッドシート「店舗実績」 ---- */
+let JST_ROWS=null;
+async function jstLoad(){
+  const body=document.getElementById('jst-body');
+  try{
+    const rows=await fetchSheet('店舗実績');
+    const head=(rows[0]||[]).map(c=>String(c).trim()); const col=n=>head.indexOf(n);
+    JST_ROWS=rows.slice(1).filter(r=>String(r[col('注文番号')]||'').trim()).map(r=>({
+      dl:String(r[col('納品日')]||''), store:String(r[col('店舗')]||'').trim()||String(r[col('会社')]||'').trim()||'(店舗なし)',
+      call:String(r[col('呼称')]||''), jp:String(r[col('日本名')]||''),
+      ordered:parseFloat(r[col('オーダー数(kg)')])||0, fixed:parseFloat(r[col('確定数(kg)')])||0 }));
+    if(!JST_ROWS.length){ body.textContent='実績はまだありません（2026年8月の集約承認開始以降、承認のたびに蓄積されます）。'; return; }
+    const stores=[...new Set(JST_ROWS.map(i=>i.store))].sort();
+    const months=[...new Set(JST_ROWS.map(i=>ym(i.dl)).filter(Boolean))].sort().reverse();
+    const ss=document.getElementById('jst-store'), sm=document.getElementById('jst-month');
+    ss.length=1; stores.forEach(st=>{const o=document.createElement('option');o.value=st;o.textContent=st;ss.appendChild(o);});
+    sm.length=1; months.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m.replace('-','年')+'月';sm.appendChild(o);});
+    jstRender();
+  }catch(e){ body.textContent='店舗別実績を読み込めませんでした（初回の集約承認後に表示されます）。'; }
+}
+function jstRender(){
+  const body=document.getElementById('jst-body');
+  if(!JST_ROWS||!JST_ROWS.length) return;
+  const fs=document.getElementById('jst-store').value, fm=document.getElementById('jst-month').value;
+  const rows=JST_ROWS.filter(i=>(!fs||i.store===fs)&&(!fm||ym(i.dl)===fm));
+  if(!rows.length){ body.textContent='該当する実績がありません。'; return; }
+  const r1=n=>Math.round(n*10)/10;
+  if(!fs){
+    // 全店舗ビュー：店舗ごとの合計と内訳上位
+    const by=new Map();
+    rows.forEach(i=>{ if(!by.has(i.store)) by.set(i.store,{ordered:0,fixed:0,items:new Map(),days:new Set()});
+      const v=by.get(i.store); v.ordered+=i.ordered; v.fixed+=i.fixed; v.days.add(i.dl);
+      v.items.set(i.call,(v.items.get(i.call)||0)+i.fixed); });
+    const trs=[...by.entries()].sort((a,b)=>b[1].fixed-a[1].fixed).map(([st,v])=>{
+      const rate=v.ordered?Math.round(v.fixed/v.ordered*100):100;
+      const top=[...v.items.entries()].sort((a,b)=>b[1]-a[1]).slice(0,4).map(([c,q])=>`${esc(c)} ${r1(q)}`).join('・');
+      return `<tr><td style="text-align:left"><b>${esc(st)}</b></td><td class="num">${v.days.size}</td><td class="num">${r1(v.ordered)}</td><td class="num"><b>${r1(v.fixed)}</b></td><td class="num">${rate}%</td><td style="text-align:left" class="muted">${top}</td></tr>`;
+    }).join('');
+    body.innerHTML=`<div class="scroll"><table><thead><tr><th style="text-align:left">店舗</th><th class="num">納品回数</th><th class="num">オーダー計(kg)</th><th class="num">確定計(kg)</th><th class="num">充足率</th><th style="text-align:left">内訳（確定kg上位）</th></tr></thead><tbody>${trs}</tbody></table></div>
+      <div class="muted" style="margin-top:8px;font-size:11px">店舗を選ぶと品目別の内訳を表示します。充足率＝確定÷オーダー（100%未満は収穫都合による減額）。</div>`;
+  } else {
+    // 店舗ビュー：品目別内訳
+    const by=new Map();
+    rows.forEach(i=>{ if(!by.has(i.call)) by.set(i.call,{jp:i.jp,ordered:0,fixed:0,days:new Set()});
+      const v=by.get(i.call); v.ordered+=i.ordered; v.fixed+=i.fixed; v.days.add(i.dl); });
+    let to=0,tf=0;
+    const trs=[...by.entries()].sort((a,b)=>b[1].fixed-a[1].fixed).map(([c,v])=>{
+      to+=v.ordered; tf+=v.fixed;
+      const rate=v.ordered?Math.round(v.fixed/v.ordered*100):100;
+      return `<tr><td style="text-align:left"><b>${esc(c)}</b> <span class="muted" style="font-size:11px">${esc(v.jp)}</span></td><td class="num">${v.days.size}</td><td class="num">${r1(v.ordered)}</td><td class="num"><b>${r1(v.fixed)}</b></td><td class="num">${rate}%</td></tr>`;
+    }).join('');
+    const trate=to?Math.round(tf/to*100):100;
+    body.innerHTML=`<div class="scroll"><table><thead><tr><th style="text-align:left">品目</th><th class="num">納品回数</th><th class="num">オーダー計(kg)</th><th class="num">確定計(kg)</th><th class="num">充足率</th></tr></thead>
+      <tbody>${trs}<tr><td style="text-align:left"><b>合計</b></td><td></td><td class="num"><b>${r1(to)}</b></td><td class="num"><b>${r1(tf)}</b></td><td class="num"><b>${trate}%</b></td></tr></tbody></table></div>`;
+  }
+}
+document.getElementById('jst-store').addEventListener('change',jstRender);
+document.getElementById('jst-month').addEventListener('change',jstRender);
+jstLoad();
 </script>
 <script src="assets/nav-liquid.js"></script>
 <script src="assets/i18n.js?v=13"></script>
