@@ -1454,7 +1454,8 @@ function printPickSheetSingle(S, customer, dateStr, number){
   const bag=q=>Math.round(q*2);
   let tk=0,tb=0;
   const trs=[...merged.entries()].map(([call,v])=>{ tk+=v.qty; tb+=bag(v.qty);
-    const boxes='☐'.repeat(Math.min(bag(v.qty),60));
+    const n=Math.min(bag(v.qty),80);   // ラベルのNo n/Nと同じ連番を添える＝ラベルを貼ったらその番号にチェック
+    const boxes=Array.from({length:n},(_,i)=>`<span class="bx"><i>${i+1}</i>☐</span>`).join('');
     return `<tr><td class="itn">${esc(call)} <span class="jp">${esc(v.jp)}</span></td><td class="num">${Math.round(v.qty*10)/10}kg</td><td class="num">${bag(v.qty)}袋</td><td class="ck">${boxes}</td></tr>`;
   }).join('');
   const w=window.open('','_blank');
@@ -1463,11 +1464,12 @@ function printPickSheetSingle(S, customer, dateStr, number){
   h1{font-size:17px;margin:0 0 2px}.sub{color:#6b756e;font-size:11px;margin-bottom:12px}
   table{border-collapse:collapse;width:100%}th,td{border:1px solid #9aa39d;padding:8px;font-size:12px}
   th{background:#eef1ec}td.itn{font-weight:700}td.itn .jp{font-weight:400;color:#6b756e;font-size:10.5px}
-  td.num{text-align:right;white-space:nowrap}td.ck{font-size:13px;letter-spacing:2px;line-height:1.9;word-break:break-all}
+  td.num{text-align:right;white-space:nowrap}td.ck{font-size:13px;line-height:2.1}
+  .bx{display:inline-block;margin:0 7px 2px 0;white-space:nowrap}.bx i{font-style:normal;font-size:9px;color:#6b756e;vertical-align:top;margin-right:1px}
   td.sum{font-weight:700;background:#fafbfa}
   .sign{margin-top:16px;display:flex;gap:24px;font-size:11px}.sign span{border-bottom:1px solid #9aa39d;min-width:120px;display:inline-block;padding:0 6px 2px}</style></head><body>
   <h1>ピッキング検品表　${esc(number||'（納品書）')}</h1>
-  <div class="sub">宛先：${esc(customer||'—')}　納品日：${esc(dateStr||'—')}　1袋=500g（kg×2=袋数）。梱包した袋の数だけ ☐ にチェック。印刷: ${new Date().toLocaleString('ja-JP')}</div>
+  <div class="sub">宛先：${esc(customer||'—')}　納品日：${esc(dateStr||'—')}　1袋=500g（kg×2=袋数）。ラベルNo◯を貼った袋ごとに、同じ番号の ☐ へチェック。印刷: ${new Date().toLocaleString('ja-JP')}</div>
   <table><thead><tr><th style="text-align:left">品目</th><th>数量</th><th>袋数</th><th style="text-align:left">検品チェック（1袋=1マス）</th></tr></thead>
   <tbody>${trs}<tr><td class="sum">合計</td><td class="num sum">${Math.round(tk*10)/10}kg</td><td class="num sum">${tb}袋</td><td class="sum"></td></tr></tbody></table>
   <div class="sign">梱包者：<span></span>　検品者：<span></span>　発送日：<span></span></div>
