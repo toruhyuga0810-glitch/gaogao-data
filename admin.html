@@ -1408,7 +1408,8 @@ function printPickSheet(groupEl){
     const tds=r.cells.map(q=>{
       if(q===null) return '<td class="dash">—</td>';
       if(!q) return '<td class="dash">0</td>';
-      return `<td><b>${q}kg</b>・${bag(q)}袋 <span class="ck">☐</span></td>`;
+      const marks=Array.from({length:Math.min(bag(q),40)},(_,i)=>`<span class="bx"><i>${i+1}</i>☐</span>`).join('');
+      return `<td><b>${q}kg</b>・${bag(q)}袋<div class="cks">${marks}</div></td>`;
     }).join('');
     const sum=r.cells.reduce((a,q)=>a+(q||0),0); totalKg+=sum; totalBag+=bag(sum);
     return `<tr><td class="itn">${esc(r.call)} <span class="jp">${esc(r.jp)}</span></td>${tds}<td class="sum">${Math.round(sum*10)/10}kg・${bag(sum)}袋</td></tr>`;
@@ -1428,13 +1429,15 @@ function printPickSheet(groupEl){
     th{background:#eef1ec}
     td.itn{text-align:left;font-weight:700} td.itn .jp{font-weight:400;color:#6b756e;font-size:10.5px}
     td.dash{color:#b8beba} td.sum{font-weight:700;background:#fafbfa}
-    .ck{font-size:14px}
+    .cks{margin-top:3px;line-height:1.7}
+    .bx{display:inline-block;margin:0 5px 1px 0;white-space:nowrap;font-size:11px}
+    .bx i{font-style:normal;font-size:8px;color:#6b756e;vertical-align:top;margin-right:1px}
     .foot{margin-top:12px;color:#6b756e;font-size:10.5px;display:flex;justify-content:space-between}
     .sign{margin-top:16px;display:flex;gap:24px;font-size:11px}
     .sign span{border-bottom:1px solid #9aa39d;min-width:120px;display:inline-block;padding:0 6px 2px}
   </style></head><body>
   <h1>ピッキング検品表　${esc(dl)}便</h1>
-  <div class="sub">1袋=500g（kg×2=袋数）。梱包した袋にチェック ☐ → 箱詰め時に店舗列の合計を再確認。印刷: ${new Date().toLocaleString('ja-JP')}</div>
+  <div class="sub">1袋=500g（kg×2=袋数）。ラベルNo◯を貼った袋ごとに同じ番号の☐へチェック → 箱詰め時に店舗列の合計を再確認。印刷: ${new Date().toLocaleString('ja-JP')}</div>
   <table><thead><tr><th style="text-align:left">品目</th>${heads.map(h=>`<th>${esc(h)}</th>`).join('')}<th>合計</th></tr></thead>
   <tbody>${trs}
   <tr><td class="itn">合計</td>${colTotals}<td class="sum">${Math.round(totalKg*10)/10}kg・${totalBag}袋</td></tr></tbody></table>
