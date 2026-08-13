@@ -226,7 +226,8 @@ function buildJDashboard(){
   jdestroy();
   const dash=document.getElementById('j-dash');
   if(!R.length){ dash.classList.add('hide'); return; }
-  dash.classList.remove('hide');
+  const jstOn=document.getElementById('jst-store')&&document.getElementById('jst-store').value;
+  dash.classList.toggle('hide', !!jstOn);   // 店舗別ビュー中は本体ダッシュを出さない（亡霊表示防止）
   // 品目集計
   const items={};
   R.forEach(r=>{const it=items[r.call]=items[r.call]||{jp:r.jp,kg:0,nos:new Set(),farms:{}};
@@ -379,6 +380,7 @@ function jstApply(){
     jstRender(v);
   }else{
     if(JST_PREV){ parts.forEach((el,i2)=>el.classList.toggle('hide',JST_PREV[i2])); JST_PREV=null; }
+    if(typeof JCH!=='undefined'&&Object.keys(JCH).length) document.getElementById('j-dash').classList.remove('hide');  // 本体描画済みなら必ず復帰
     jitem.disabled=false; area.classList.add('hide'); jstDestroy(); area.innerHTML='';
   }
 }
