@@ -1446,7 +1446,7 @@ async function printPickSheet(groupEl){
   }).join('');
   w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>ピッキング検品表 ${esc(dl)}便</title>
   <style>
-    @page{size:A4;margin:12mm}
+    @page{size:A4 landscape;margin:10mm 12mm}
     body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;color:#1d2520;font-size:12px;margin:0}
     h1{font-size:17px;margin:0 0 2px} .sub{color:#6b756e;font-size:10.5px;margin-bottom:10px}
     table.ib{border-collapse:collapse;width:100%;margin-bottom:9px;page-break-inside:avoid}
@@ -1490,7 +1490,7 @@ async function printPickSheetSingle(S, customer, dateStr, number){
   }).join('');
   const w=w0;
   w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>検品表 ${esc(number||'')}</title>
-  <style>@page{size:A4;margin:14mm}body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;color:#1d2520;font-size:12px;margin:0}
+  <style>@page{size:A4 landscape;margin:10mm 12mm}body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;color:#1d2520;font-size:12px;margin:0}
   h1{font-size:17px;margin:0 0 2px}.sub{color:#6b756e;font-size:11px;margin-bottom:12px}
   table{border-collapse:collapse;width:100%}th,td{border:1px solid #9aa39d;padding:8px;font-size:12px}
   th{background:#eef1ec}td.itn{font-weight:700}td.itn .jp{font-weight:400;color:#6b756e;font-size:10.5px}
