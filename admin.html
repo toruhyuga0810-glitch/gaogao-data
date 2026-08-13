@@ -911,6 +911,7 @@ function renderHistory(items){
         <span class="he-date-w">納品日 <input type="date" class="he-date" data-i="${i}" value="${esc(String(it.date||'').replace(/\//g,'-'))}"></span>
         <div style="flex:1;min-width:20px"></div>
         ${it.report_url?`<a class="btn ghost sm" href="${esc(it.report_url)}" target="_blank" rel="noopener">freeeで開く</a>`:''}
+        <button type="button" class="btn ghost sm he-pick" data-i="${i}">検品表</button>
         <button type="button" class="btn sm he-save" data-i="${i}">上書き保存</button>
       </div>
       <div class="he-body" data-i="${i}" style="margin-top:10px"></div>
@@ -932,6 +933,12 @@ function renderHistory(items){
     it._S=S;
     const bodyEl=list.querySelector(`.he-body[data-i="${i}"]`);
     if(bodyEl) renderEditor(S, bodyEl, 'h'+it.id);
+  });
+  list.querySelectorAll('.he-pick').forEach(b=>b.onclick=()=>{
+    const it=items[+b.dataset.i];
+    const rows=(it.lines||[]).filter(l=>l&&l.type==='item'&&String(l.unit||'')==='kg'&&(parseFloat(l.quantity)||0)>0)
+      .map(l=>{ const m=String(l.description||'').split(/：(.*)/); return {call:(m[0]||'').trim()||String(l.description||''), jp:(m[1]||'').trim(), qty:parseFloat(l.quantity)||0}; });
+    printPickSheetSingle({rows}, it.customer||'', String(it.date||''), (String(it.subject||'').match(/[#＃]\s*\d+/)||[it.number||''])[0]);
   });
   list.querySelectorAll('.he-save').forEach(b=>b.onclick=()=>histSaveSlip(b));
   list.querySelectorAll('.hm-save').forEach(b=>b.onclick=()=>histSaveMeta(b));
@@ -1414,7 +1421,7 @@ async function printPickSheet(groupEl){
     return {call, jp, cells};
   }).filter(r=>r.cells.some(q=>q));
   const bag=q=>Math.round(q*2);
-  const marks=n=>Array.from({length:Math.min(n,60)},(_,i2)=>`<span class="bx"><i>${i2+1}</i>☐</span>`).join('');
+  const marks=n=>Array.from({length:n},(_,i2)=>`<span class="bx"><i>${i2+1}</i>☐</span>`).join('');   // 上限なし＝袋数ぶん必ず出す（inline-blockで自然折返し）
   let totalKg=0, totalBag=0;
   const blocks=items.map(r=>{
     const sts=r.cells.map((q,ci)=>({st:heads[ci],q})).filter(x=>x.q);
@@ -1467,20 +1474,21 @@ async function printPickSheet(groupEl){
 }
 
 /* 検品表（単票版）：納品書エディタの内容から印刷（注文シートを介さない自作納品書でも動く） */
-function printPickSheetSingle(S, customer, dateStr, number){
+async function printPickSheetSingle(S, customer, dateStr, number){
+  const w0=window.open('','_blank');   // クリック直後に確保（ポップアップブロック回避）
+  const th=await thaiMap();
   const merged=new Map();   // 圃場で行が分かれても品目で合算（ラベル連番と同じ意味論）
   (S.rows||[]).forEach(r=>{ if(!r.call||!(Number(r.qty)>0)) return;
     if(!merged.has(r.call)) merged.set(r.call,{jp:r.jp||'',qty:0});
     merged.get(r.call).qty+=Number(r.qty); });
-  if(!merged.size){ toast('数量の入った品目がありません'); return; }
+  if(!merged.size){ toast('数量の入った品目がありません'); try{w0.close();}catch(e){} return; }
   const bag=q=>Math.round(q*2);
   let tk=0,tb=0;
   const trs=[...merged.entries()].map(([call,v])=>{ tk+=v.qty; tb+=bag(v.qty);
-    const n=Math.min(bag(v.qty),80);   // ラベルのNo n/Nと同じ連番を添える＝ラベルを貼ったらその番号にチェック
-    const boxes=Array.from({length:n},(_,i)=>`<span class="bx"><i>${i+1}</i>☐</span>`).join('');
-    return `<tr><td class="itn">${esc(call)} <span class="jp">${esc(v.jp)}</span></td><td class="num">${Math.round(v.qty*10)/10}kg</td><td class="num">${bag(v.qty)}袋</td><td class="ck">${boxes}</td></tr>`;
+    const boxes=Array.from({length:bag(v.qty)},(_,i)=>`<span class="bx"><i>${i+1}</i>☐</span>`).join('');   // 上限なし・折返し表示
+    return `<tr><td class="itn">${esc(call)} <span style="color:#3e4a42">${esc(th[call]||'')}</span> <span class="jp">${esc(v.jp)}</span></td><td class="num">${Math.round(v.qty*10)/10}kg</td><td class="num">${bag(v.qty)}袋</td><td class="ck">${boxes}</td></tr>`;
   }).join('');
-  const w=window.open('','_blank');
+  const w=w0;
   w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>検品表 ${esc(number||'')}</title>
   <style>@page{size:A4;margin:14mm}body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;color:#1d2520;font-size:12px;margin:0}
   h1{font-size:17px;margin:0 0 2px}.sub{color:#6b756e;font-size:11px;margin-bottom:12px}
