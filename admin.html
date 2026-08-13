@@ -1442,6 +1442,20 @@ function printPickSheet(groupEl){
   <tbody>${trs}
   <tr><td class="itn">合計</td>${colTotals}<td class="sum">${Math.round(totalKg*10)/10}kg・${totalBag}袋</td></tr></tbody></table>
   <div class="sign">梱包者：<span></span>　検品者：<span></span>　発送日：<span></span></div>
+  ${heads.map((st,ci)=>{
+    const srows=rows.map(r=>({call:r.call,jp:r.jp,q:r.cells[ci]})).filter(r=>r.q);
+    if(!srows.length) return '';
+    let sk=0,sb=0;
+    const strs=srows.map(r=>{ sk+=r.q; sb+=bag(r.q);
+      const marks=Array.from({length:Math.min(bag(r.q),40)},(_,i)=>`<span class="bx"><i>${i+1}</i>☐</span>`).join('');
+      return `<tr><td class="itn">${esc(r.call)} <span class="jp">${esc(r.jp)}</span></td><td>${r.q}kg</td><td>${bag(r.q)}袋</td><td class="cks" style="text-align:left">${marks}</td></tr>`; }).join('');
+    return `<div style="page-break-before:always"></div>
+      <h1>検品表（店舗別）　${esc(st)}</h1>
+      <div class="sub">${esc(dl)}便　ラベルNo◯を貼った袋ごとに同じ番号の☐へチェック。この店舗の箱に同梱可</div>
+      <table><thead><tr><th style="text-align:left">品目</th><th>数量</th><th>袋数</th><th style="text-align:left">検品チェック（1袋=1マス）</th></tr></thead>
+      <tbody>${strs}<tr><td class="itn">合計</td><td class="sum">${Math.round(sk*10)/10}kg</td><td class="sum">${sb}袋</td><td class="sum"></td></tr></tbody></table>
+      <div class="sign">梱包者：<span></span>　検品者：<span></span></div>`;
+  }).join('')}
   <div class="foot"><span>GAOGAO Farm 出荷管理</span><span>ラベル印刷はMacの「梱包ラベル」から（P-touch）</span></div>
   <script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
   w.document.close();
