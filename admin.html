@@ -1389,74 +1389,79 @@ async function approveBatch(groupEl){
   }
 }
 
-/* 検品表（A4印刷）：品目×店舗×袋数＋チェック欄。承認前でも現在の画面値で印刷可 */
-function printPickSheet(groupEl){
+let TH_MAP=null;
+async function thaiMap(){
+  if(TH_MAP) return TH_MAP;
+  try{
+    const rows=await fetchSheet('推定供給（月間）');
+    const hi=rows.findIndex(r=>String(r[0]).trim()==='呼称');
+    TH_MAP={}; if(hi>=0) rows.slice(hi+1).forEach(r=>{ if(r[0]&&String(r[0]).trim()) TH_MAP[String(r[0]).trim()]=String(r[2]||'').trim(); });
+  }catch(e){ TH_MAP={}; }
+  return TH_MAP;
+}
+/* 検品表（A4印刷）：品目ブロック×店舗内訳（リッチだがビジーでない・2026-08-14本人スケッチ準拠） */
+async function printPickSheet(groupEl){
+  const w=window.open('','_blank');   // クリック直後に開いてポップアップブロック回避（中身は後から書く）
+  const th=await thaiMap();
   const dl=groupEl.dataset.dl;
-  const heads=[...groupEl.querySelectorAll('thead th')].slice(1,-2).map(th=>th.textContent);
-  const rows=[...groupEl.querySelectorAll('tbody tr')].map(tr=>{
+  const heads=[...groupEl.querySelectorAll('thead th')].slice(1,-2).map(t=>t.textContent);
+  const items=[...groupEl.querySelectorAll('tbody tr')].map(tr=>{
     const call=tr.dataset.call;
     const jp=(tr.querySelector('.itn .muted')||{}).textContent||'';
     const cells=[...tr.querySelectorAll('td')].slice(1,-2).map(td=>{
-      const i=td.querySelector('.bt-in'); if(!i) return null;
-      return snapHalf(i.value)||0;
+      const i2=td.querySelector('.bt-in'); return i2? (snapHalf(i2.value)||0) : null;
     });
     return {call, jp, cells};
-  });
+  }).filter(r=>r.cells.some(q=>q));
   const bag=q=>Math.round(q*2);
+  const marks=n=>Array.from({length:Math.min(n,60)},(_,i2)=>`<span class="bx"><i>${i2+1}</i>☐</span>`).join('');
   let totalKg=0, totalBag=0;
-  const trs=rows.map(r=>{
-    const tds=r.cells.map(q=>{
-      if(q===null) return '<td class="dash">—</td>';
-      if(!q) return '<td class="dash">0</td>';
-      const marks=Array.from({length:Math.min(bag(q),40)},(_,i)=>`<span class="bx"><i>${i+1}</i>☐</span>`).join('');
-      return `<td><b>${q}kg</b>・${bag(q)}袋<div class="cks">${marks}</div></td>`;
-    }).join('');
-    const sum=r.cells.reduce((a,q)=>a+(q||0),0); totalKg+=sum; totalBag+=bag(sum);
-    return `<tr><td class="itn">${esc(r.call)} <span class="jp">${esc(r.jp)}</span></td>${tds}<td class="sum">${Math.round(sum*10)/10}kg・${bag(sum)}袋</td></tr>`;
+  const blocks=items.map(r=>{
+    const sts=r.cells.map((q,ci)=>({st:heads[ci],q})).filter(x=>x.q);
+    const sum=sts.reduce((a,x)=>a+x.q,0); totalKg+=sum; totalBag+=bag(sum);
+    const rowsH=sts.map((x,k)=>`<tr>${k===0?`<td class="itn" rowspan="${sts.length}"><b>${esc(r.call)}</b><span class="th2">${esc(th[r.call]||'')}</span><span class="jp">${esc(r.jp)}</span></td>
+      <td class="tot" rowspan="${sts.length}"><b>${Math.round(sum*10)/10}kg</b><span>${bag(sum)}袋</span></td>`:''}
+      <td class="st">${esc(x.st)}</td><td class="cks">${marks(bag(x.q))}</td><td class="skg">${x.q}kg・${bag(x.q)}袋</td></tr>`).join('');
+    return `<table class="ib">${rowsH}</table>`;
   }).join('');
-  const colTotals=heads.map((_,ci)=>{
-    const s=rows.reduce((a,r)=>a+(r.cells[ci]||0),0);
-    return `<td class="sum">${Math.round(s*10)/10}kg・${bag(s)}袋</td>`;
-  }).join('');
-  const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>ピッキング検品表 ${esc(dl)}便</title>
-  <style>
-    @page{size:A4;margin:14mm}
-    body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;color:#1d2520;font-size:12px;margin:0}
-    h1{font-size:17px;margin:0 0 2px} .sub{color:#6b756e;font-size:11px;margin-bottom:12px}
-    table{border-collapse:collapse;width:100%}
-    th,td{border:1px solid #9aa39d;padding:7px 8px;text-align:center;font-size:12px}
-    th{background:#eef1ec}
-    td.itn{text-align:left;font-weight:700} td.itn .jp{font-weight:400;color:#6b756e;font-size:10.5px}
-    td.dash{color:#b8beba} td.sum{font-weight:700;background:#fafbfa}
-    .cks{margin-top:3px;line-height:1.7}
-    .bx{display:inline-block;margin:0 5px 1px 0;white-space:nowrap;font-size:11px}
-    .bx i{font-style:normal;font-size:8px;color:#6b756e;vertical-align:top;margin-right:1px}
-    .foot{margin-top:12px;color:#6b756e;font-size:10.5px;display:flex;justify-content:space-between}
-    .sign{margin-top:16px;display:flex;gap:24px;font-size:11px}
-    .sign span{border-bottom:1px solid #9aa39d;min-width:120px;display:inline-block;padding:0 6px 2px}
-  </style></head><body>
-  <h1>ピッキング検品表　${esc(dl)}便</h1>
-  <div class="sub">1袋=500g（kg×2=袋数）。ラベルNo◯を貼った袋ごとに同じ番号の☐へチェック → 箱詰め時に店舗列の合計を再確認。印刷: ${new Date().toLocaleString('ja-JP')}</div>
-  <table><thead><tr><th style="text-align:left">品目</th>${heads.map(h=>`<th>${esc(h)}</th>`).join('')}<th>合計</th></tr></thead>
-  <tbody>${trs}
-  <tr><td class="itn">合計</td>${colTotals}<td class="sum">${Math.round(totalKg*10)/10}kg・${totalBag}袋</td></tr></tbody></table>
-  <div class="sign">梱包者：<span></span>　検品者：<span></span>　発送日：<span></span></div>
-  ${heads.map((st,ci)=>{
-    const srows=rows.map(r=>({call:r.call,jp:r.jp,q:r.cells[ci]})).filter(r=>r.q);
+  const stPages=heads.map((st,ci)=>{
+    const srows=items.map(r=>({call:r.call,jp:r.jp,q:r.cells[ci]})).filter(r=>r.q);
     if(!srows.length) return '';
     let sk=0,sb=0;
     const strs=srows.map(r=>{ sk+=r.q; sb+=bag(r.q);
-      const marks=Array.from({length:Math.min(bag(r.q),40)},(_,i)=>`<span class="bx"><i>${i+1}</i>☐</span>`).join('');
-      return `<tr><td class="itn">${esc(r.call)} <span class="jp">${esc(r.jp)}</span></td><td>${r.q}kg</td><td>${bag(r.q)}袋</td><td class="cks" style="text-align:left">${marks}</td></tr>`; }).join('');
+      return `<tr><td class="itn2"><b>${esc(r.call)}</b> <span class="th2">${esc(th[r.call]||'')}</span> <span class="jp">${esc(r.jp)}</span></td><td class="n2">${r.q}kg</td><td class="n2">${bag(r.q)}袋</td><td class="cks" style="text-align:left">${marks(bag(r.q))}</td></tr>`; }).join('');
     return `<div style="page-break-before:always"></div>
       <h1>検品表（店舗別）　${esc(st)}</h1>
       <div class="sub">${esc(dl)}便　ラベルNo◯を貼った袋ごとに同じ番号の☐へチェック。この店舗の箱に同梱可</div>
-      <table><thead><tr><th style="text-align:left">品目</th><th>数量</th><th>袋数</th><th style="text-align:left">検品チェック（1袋=1マス）</th></tr></thead>
-      <tbody>${strs}<tr><td class="itn">合計</td><td class="sum">${Math.round(sk*10)/10}kg</td><td class="sum">${sb}袋</td><td class="sum"></td></tr></tbody></table>
+      <table class="sp"><thead><tr><th style="text-align:left">品目</th><th>数量</th><th>袋数</th><th style="text-align:left">検品チェック（1袋=1マス）</th></tr></thead>
+      <tbody>${strs}<tr><td class="itn2"><b>合計</b></td><td class="n2 sum">${Math.round(sk*10)/10}kg</td><td class="n2 sum">${sb}袋</td><td class="sum"></td></tr></tbody></table>
       <div class="sign">梱包者：<span></span>　検品者：<span></span></div>`;
-  }).join('')}
-  <div class="foot"><span>GAOGAO Farm 出荷管理</span><span>ラベル印刷はMacの「梱包ラベル」から（P-touch）</span></div>
+  }).join('');
+  w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><title>ピッキング検品表 ${esc(dl)}便</title>
+  <style>
+    @page{size:A4;margin:12mm}
+    body{font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;color:#1d2520;font-size:12px;margin:0}
+    h1{font-size:17px;margin:0 0 2px} .sub{color:#6b756e;font-size:10.5px;margin-bottom:10px}
+    table.ib{border-collapse:collapse;width:100%;margin-bottom:9px;page-break-inside:avoid}
+    table.ib td{border:1px solid #9aa39d;padding:6px 8px;vertical-align:middle}
+    td.itn{width:23%;line-height:1.5} td.itn b{font-size:14px} td.itn .th2{display:block;font-size:12px;color:#3e4a42} td.itn .jp{display:block;font-size:10px;color:#6b756e}
+    td.tot{width:11%;text-align:center;background:#f4f6f3;line-height:1.6} td.tot b{font-size:15px} td.tot span{display:block;font-size:11.5px}
+    td.st{width:17%;font-weight:600;font-size:11px}
+    td.cks{line-height:1.9} td.skg{width:12%;text-align:right;font-size:11px;white-space:nowrap;color:#3e4a42}
+    .bx{display:inline-block;margin:0 6px 1px 0;white-space:nowrap;font-size:12px}
+    .bx i{font-style:normal;font-size:8.5px;color:#6b756e;vertical-align:top;margin-right:1px}
+    .total{margin:4px 0 0;text-align:right;font-size:13px;font-weight:700}
+    table.sp{border-collapse:collapse;width:100%} table.sp th,table.sp td{border:1px solid #9aa39d;padding:7px 8px;font-size:12px}
+    table.sp th{background:#eef1ec;color:#3e4a42;font-weight:600} td.itn2 .th2{color:#3e4a42} td.itn2 .jp{color:#6b756e;font-size:10px} td.n2{text-align:right;white-space:nowrap} .sum{font-weight:700;background:#fafbfa}
+    .sign{margin-top:14px;display:flex;gap:24px;font-size:11px}.sign span{border-bottom:1px solid #9aa39d;min-width:120px;display:inline-block;padding:0 6px 2px}
+    .foot{margin-top:8px;color:#6b756e;font-size:10px;display:flex;justify-content:space-between}
+  </style></head><body>
+  <h1>ピッキング検品表　${esc(dl)}便</h1>
+  <div class="sub">1袋=500g（kg×2=袋数）。品目ごとに袋詰め→ラベルNo◯を貼った袋の番号へチェック→右端の店舗合計で箱詰め確認。印刷: ${new Date().toLocaleString('ja-JP')}</div>
+  ${blocks}
+  <div class="total">便合計　${Math.round(totalKg*10)/10}kg・${totalBag}袋</div>
+  <div class="sign">梱包者：<span></span>　検品者：<span></span>　発送日：<span></span></div>
+  ${stPages}
   <script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
   w.document.close();
 }
