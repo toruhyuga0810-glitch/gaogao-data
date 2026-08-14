@@ -1,5 +1,5 @@
 {
- "updated": "2026-08-11",
+ "updated": "2026-08-14",
  "source": "freee請求書API（delivery_slips・自動同期）",
  "records": [
   {
@@ -1205,6 +1205,90 @@
    "unit": "kg",
    "unitPrice": 2600,
    "amount": 5200
+  },
+  {
+   "date": "2026-08-14",
+   "no": "DEL-0000000028",
+   "customer": "スパイスロード",
+   "farm": "第1圃場・八郷・中村",
+   "farmRaw": "第1圃場",
+   "callRaw": "ガパオ",
+   "call": "ガパオ",
+   "jp": "ホーリーバジル",
+   "qty": 9,
+   "unit": "kg",
+   "unitPrice": 1700,
+   "amount": 15300
+  },
+  {
+   "date": "2026-08-14",
+   "no": "DEL-0000000028",
+   "customer": "スパイスロード",
+   "farm": "第1圃場・八郷・中村",
+   "farmRaw": "第1圃場",
+   "callRaw": "ホラパー",
+   "call": "ホラパー",
+   "jp": "スイートバジル",
+   "qty": 3,
+   "unit": "kg",
+   "unitPrice": 1700,
+   "amount": 5100
+  },
+  {
+   "date": "2026-08-14",
+   "no": "DEL-0000000028",
+   "customer": "スパイスロード",
+   "farm": "第1圃場・八郷・中村",
+   "farmRaw": "第1圃場",
+   "callRaw": "パクチーファラン",
+   "call": "パクチーファラン",
+   "jp": "ノコギリパクチー",
+   "qty": 1,
+   "unit": "kg",
+   "unitPrice": 2900,
+   "amount": 2900
+  },
+  {
+   "date": "2026-08-14",
+   "no": "DEL-0000000028",
+   "customer": "スパイスロード",
+   "farm": "第3圃場・土浦・ペン",
+   "farmRaw": "第3圃場",
+   "callRaw": "ガパオ",
+   "call": "ガパオ",
+   "jp": "ホーリーバジル",
+   "qty": 11,
+   "unit": "kg",
+   "unitPrice": 1800,
+   "amount": 19800
+  },
+  {
+   "date": "2026-08-14",
+   "no": "DEL-0000000028",
+   "customer": "スパイスロード",
+   "farm": "第3圃場・土浦・ペン",
+   "farmRaw": "第3圃場",
+   "callRaw": "ホラパー",
+   "call": "ホラパー",
+   "jp": "スイートバジル",
+   "qty": 7,
+   "unit": "kg",
+   "unitPrice": 1800,
+   "amount": 12600
+  },
+  {
+   "date": "2026-08-14",
+   "no": "DEL-0000000028",
+   "customer": "スパイスロード",
+   "farm": "第3圃場・土浦・ペン",
+   "farmRaw": "第3圃場",
+   "callRaw": "トォーファックヤーオ",
+   "call": "トォーファックヤーオ",
+   "jp": "十六ささげ",
+   "qty": 2,
+   "unit": "kg",
+   "unitPrice": 1500,
+   "amount": 3000
   }
  ],
  "adjustments": [
@@ -1533,6 +1617,22 @@
    "qty": 3,
    "unitPrice": 800,
    "amount": 2400
+  },
+  {
+   "date": "2026-08-14",
+   "no": "DEL-0000000028",
+   "label": "送料：140サイズ（20kg）",
+   "qty": 4,
+   "unitPrice": 820,
+   "amount": 3280
+  },
+  {
+   "date": "2026-08-14",
+   "no": "DEL-0000000028",
+   "label": "クール料金：140サイズ（20kg）",
+   "qty": 4,
+   "unitPrice": 800,
+   "amount": 3200
   }
  ]
 }
