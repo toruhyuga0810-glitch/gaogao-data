@@ -936,9 +936,22 @@ function renderHistory(items){
   });
   list.querySelectorAll('.he-pick').forEach(b=>b.onclick=()=>{
     const it=items[+b.dataset.i];
-    const rows=(it.lines||[]).filter(l=>l&&l.type==='item'&&String(l.unit||'')==='kg'&&(parseFloat(l.quantity)||0)>0)
-      .map(l=>{ const m=String(l.description||'').split(/：(.*)/); return {call:(m[0]||'').trim()||String(l.description||''), jp:(m[1]||'').trim(), qty:parseFloat(l.quantity)||0}; });
-    printPickSheetSingle({rows}, it.customer||'', String(it.date||''), (String(it.subject||'').match(/[#＃]\s*\d+/)||[it.number||''])[0]);
+    // 画面で編集中の内容（_S）を最優先＝未保存の修正もそのまま検品表に反映（2026-08-21 #20で保存前スナップショット印刷の不具合）
+    let S=null;
+    if(it._S&&(it._S.rows||[]).some(r=>r&&r.call&&Number(r.qty)>0)){
+      // 自由行のうちkg単位（補填品目など）も従来どおり検品対象に含める
+      const free=(it._S.freeRows||[]).filter(f=>String(f.unit||'')==='kg'&&String(f.desc||'').trim()&&Number(f.qty)>0)
+        .map(f=>({call:String(f.desc).split(/：(.*)/)[0].trim(), jp:(String(f.desc).split(/：(.*)/)[1]||'').trim(), qty:Number(f.qty)}));
+      S={rows:[...it._S.rows,...free]};
+    }
+    else {
+      const rows=(it.lines||[]).filter(l=>l&&l.type==='item'&&String(l.unit||'')==='kg'&&(parseFloat(l.quantity)||0)>0)
+        .map(l=>{ const m=String(l.description||'').split(/：(.*)/); return {call:(m[0]||'').trim()||String(l.description||''), jp:(m[1]||'').trim(), qty:parseFloat(l.quantity)||0}; });
+      S={rows};
+    }
+    const card=b.closest('.hist-item');
+    const date=((card&&card.querySelector('.he-date'))||{}).value||String(it.date||'');
+    printPickSheetSingle(S, it.customer||'', date, (String(it.subject||'').match(/[#＃]\s*\d+/)||[it.number||''])[0]);
   });
   list.querySelectorAll('.he-save').forEach(b=>b.onclick=()=>histSaveSlip(b));
   list.querySelectorAll('.hm-save').forEach(b=>b.onclick=()=>histSaveMeta(b));
@@ -950,9 +963,12 @@ async function histSaveSlip(b){
   const items=S.rows.filter(r=>r.call&&r.farm&&r.price!=null&&r.price!==''&&r.qty);
   const freeLines=(S.freeRows||[]).filter(f=>String(f.desc||'').trim()).map(f=>({desc:f.desc, qty:f.qty, price:f.price, unit:f.unit||'', tax_rate:f.tax_rate}));
   if(!items.length&&!freeLines.length){ toast('品目がありません'); return; }
+  // 圃場・単価が未設定のまま数量だけ入っている行は保存から落ちる＝黙って消えると事故（2026-08-21 #20）。明示して確認する
+  const dropped=S.rows.filter(r=>r.call&&Number(r.qty)>0&&!(r.farm&&r.price!=null&&r.price!==''));
+  const dropNote=dropped.length?`\n⚠️ 圃場または単価が未設定のため保存に含まれない品目：${dropped.map(r=>r.call).join('・')}\n（含めるには圃場を選んでください）`:'';
   const shipping=SHIP_SIZES.filter(s=>S.ship[s.v]>0).map(s=>({size:s.v, boxes:S.ship[s.v]}));
   const card=b.closest('.hist-item'); const date=(card.querySelector('.he-date')||{}).value||'';
-  if(!confirm(`freeeの納品書 ${it.number||''} を上書き保存します（番号・件名は維持）。\n品目：${items.length}件${freeLines.length?`＋自由行${freeLines.length}件`:''}\n配送：${shipping.length?shipping.map(s=>`${s.size}×${s.boxes}箱`).join('・'):'なし'}\nよろしいですか？`)) return;
+  if(!confirm(`freeeの納品書 ${it.number||''} を上書き保存します（番号・件名は維持）。\n品目：${items.length}件${freeLines.length?`＋自由行${freeLines.length}件`:''}\n配送：${shipping.length?shipping.map(s=>`${s.size}×${s.boxes}箱`).join('・'):'なし'}${dropNote}\nよろしいですか？`)) return;
   b.disabled=true; const lbl=b.textContent; b.textContent='保存中…';
   const r=await postAction({action:'createDraft', token:ADMIN_TOKEN_VAL, orderId:'', freeeId:it.id,
     customer:'', person:'', deliveryDate:date,
