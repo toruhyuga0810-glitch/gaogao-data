@@ -14,9 +14,19 @@ jobs:
           CHANNEL_ID: "1484129314122502315"
           APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbygruSomnxo__KoY3BxEbwOrZEcrPVggI1tqOOA6btrJRqfo8mfvUbpT2RX8DZ8_j3e/exec"
         run: |
-          curl -s -H "Authorization: Bot $BOT_TOKEN" -H "User-Agent: DiscordBot (https://gaogao, 1.0)" \
-            "https://discord.com/api/v10/channels/$CHANNEL_ID/messages?limit=50" -o messages.json
+          HTTP=$(curl -s -w "%{http_code}" -H "Authorization: Bot $BOT_TOKEN" -H "User-Agent: DiscordBot (https://gaogao, 1.0)" \
+            "https://discord.com/api/v10/channels/$CHANNEL_ID/messages?limit=50" -o messages.json)
+          echo "Discord HTTP status: $HTTP"
           echo "Discord response (head):"; head -c 200 messages.json; echo
+          # ★2026-08-23 修正：Discordが配列を返さない（401/403/404/429/5xx）ときは
+          #   Apps Scriptへ「0件」を送らない（送ると掲示板が空で上書きされる）。失敗として通知して止める。
+          if ! jq -e 'type=="array"' messages.json >/dev/null 2>&1; then
+            echo "⚠️ Discord APIが正常なメッセージ配列を返しませんでした（HTTP $HTTP）。Apps Scriptへは送信しません。"
+            case "$HTTP" in
+              429|5*) echo "→ 一時的な可能性。次回の実行で回復を待ちます。"; exit 0 ;;
+              *)      echo "→ 恒久的な可能性（401=Botトークン失効, 403=権限不足, 404=チャンネルID誤り/Bot未参加）。要対応のため失敗として通知します。"; exit 1 ;;
+            esac
+          fi
           jq -c --arg token "$SHARED_TOKEN" 'if type=="array" then {action:"boardSync",token:$token,messages:[.[]|{id,content,timestamp,author:(.author.global_name // .author.username // ""),pinned:(.pinned // false),bot:(.author.bot // false),webhook:(has("webhook_id"))}]} else {action:"boardSync",token:$token,messages:[]} end' messages.json > payload.json
           echo "messages: $(jq '.messages|length' payload.json)"
           curl -sL -X POST "$APPS_SCRIPT_URL" -H "Content-Type: text/plain;charset=utf-8" --data @payload.json -o /dev/null -w "POST %{http_code}\n"
