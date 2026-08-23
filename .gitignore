@@ -8,5 +8,5 @@ docs/
 apps-script.gs
 scripts/
 tests-local/
-梱包ラベルを作る.command
+*.command
 output/
