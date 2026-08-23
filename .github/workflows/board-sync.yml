@@ -29,4 +29,9 @@ jobs:
           fi
           jq -c --arg token "$SHARED_TOKEN" 'if type=="array" then {action:"boardSync",token:$token,messages:[.[]|{id,content,timestamp,author:(.author.global_name // .author.username // ""),pinned:(.pinned // false),bot:(.author.bot // false),webhook:(has("webhook_id"))}]} else {action:"boardSync",token:$token,messages:[]} end' messages.json > payload.json
           echo "messages: $(jq '.messages|length' payload.json)"
-          curl -sL -X POST "$APPS_SCRIPT_URL" -H "Content-Type: text/plain;charset=utf-8" --data @payload.json -o /dev/null -w "POST %{http_code}\n"
+          # ★2026-08-23 修正：-X POST を外す。Apps Scriptは302で返事を別URLへ逃がすため、
+          #   -X POST のままだとリダイレクト先にもPOSTして405になり、本当の返事が見えなかった（8/22以前から）。
+          #   --data だけならcurlは最初だけPOST、302後はGETで返事を取りに行く。
+          RESP=$(curl -sL "$APPS_SCRIPT_URL" -H "Content-Type: text/plain;charset=utf-8" --data @payload.json -w "\nHTTP %{http_code}")
+          echo "Apps Script: $RESP"
+          echo "$RESP" | grep -q '"ok":true' || { echo "⚠️ Apps Scriptが ok:true を返しませんでした"; exit 1; }
