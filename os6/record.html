@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OS6 Farm control — 巡回記録</title>
+<link rel="icon" href="data:,">
+<!-- ─────────────────────────────────────────────────────────────
+  OS6：Farm control 段C「巡回入力画面」v0.1（2026-08-30）
+  ・スマホで「圃場→ハウス→畝」を選び、草丈・葉色・茎・土壌水分・病害虫・コメント・写真No・記録者を1畝30秒で記録
+  ・書き = os6Record（育成記録タブに追記）＋ 状態を選んだ時だけ os6UpsertBeds（畝の状態を更新）
+  ・前回の記録（同じ畝）を上に出す＝連続性。保存後は次の畝へ自動で進む
+  ・畝が未登録の区画でも「畝番号」で記録できる（現地設定の前でも巡回を止めない）
+  ・共通処理（設定・gviz・POST・未送信キュー）＝ os6-common.js
+───────────────────────────────────────────────────────────── -->
+<style>
+  :root{--g:#587565;--g2:#3d5248;--g3:#dae5dd;--bg:#f4f4f1;--ink:#2b2f2d;--mut:#6b7a72;--line:#c9d4cc;--warn:#b7791f;--bad:#a94442;--blue:#1a73e8;}
+  *{box-sizing:border-box} html,body{margin:0;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:16px}
+  header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;color:var(--g2)} header a{font-size:13px;color:var(--blue);text-decoration:none}
+  header select{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:#fff;flex:1 1 200px;min-width:0}
+  .badge{font-size:12px;color:var(--mut);margin-left:auto} .badge.q{color:var(--warn);font-weight:600} #btnResend{font:inherit;padding:4px 10px;border:1px solid var(--line);border-radius:6px;background:#fff}
+  main{max-width:720px;margin:0 auto;padding:12px 14px 40px}
+  h2{font-size:14px;color:var(--g2);margin:16px 0 8px;border-left:4px solid var(--g);padding-left:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px} .chips button{font:inherit;font-size:15px;padding:10px 14px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--ink);cursor:pointer;min-height:44px}
+  .chips button.on{background:var(--g);border-color:var(--g);color:#fff} .chips button small{display:block;font-size:11px;color:inherit;opacity:.8}
+  .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+  .seg button{font:inherit;font-size:14px;padding:12px 4px;border:0;border-right:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;min-height:48px} .seg button:last-child{border-right:0} .seg button.on{background:var(--g);color:#fff}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0} .row label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:4px;flex:1;min-width:140px}
+  .row input,.row textarea{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;min-height:44px}
+  .num{display:flex;align-items:center;gap:6px} .num input{width:110px;font-size:22px;text-align:center} .num button{font:inherit;font-size:20px;width:48px;height:48px;border:1px solid var(--line);border-radius:10px;background:#fff}
+  .btn{font:inherit;font-size:16px;padding:14px 18px;border:0;border-radius:12px;background:var(--g);color:#fff;cursor:pointer;min-height:52px} .btn.sub{background:#fff;color:var(--g2);border:1px solid var(--line)} .btn:disabled{opacity:.5}
+  .hint{font-size:12px;color:var(--mut);margin:4px 0}
+  .msg{margin:8px 0;padding:10px 12px;border-radius:8px;font-size:14px} .msg.ok{background:#e3efe6;color:#2e5b3f} .msg.err{background:#f2dfda;color:var(--bad)}
+  .prev{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.7} .prev b{color:var(--g2)}
+  .sticky{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 30%);padding:14px 0 6px;display:flex;gap:10px}
+  .sticky .btn{flex:1}
+  .chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;background:var(--g3);color:var(--g2)}
+</style>
+</head>
+<body>
+<header>
+  <h1>OS6 巡回記録</h1>
+  <select id="field"></select>
+  <a href="setup.html">現地設定へ</a>
+  <span id="badge" class="badge">読み込み中…</span>
+</header>
+<main>
+  <div id="msg"></div>
+  <h2>ハウス／区画</h2>
+  <div id="houses" class="chips"><span class="hint">読み込み中…</span></div>
+  <h2>畝</h2>
+  <div id="beds" class="chips"></div>
+  <div id="bedManual" class="row" style="display:none"><label>畝番号（この区画は畝が未登録。番号で記録できます）<div class="num"><button id="bnMinus">−</button><input id="bedNo" type="number" min="1" value="1"><button id="bnPlus">＋</button></div></label></div>
+  <div id="form" style="display:none">
+    <h2>記録 <span id="bedTitle" class="chip"></span></h2>
+    <div id="prev" class="prev">前回の記録：なし</div>
+    <div class="row"><label>草丈 cm<div class="num"><button id="hMinus">−</button><input id="height" type="number" min="0" step="1" inputmode="numeric" placeholder="—"><button id="hPlus">＋</button></div></label></div>
+    <div class="row"><label>葉色<div class="seg" id="leaf"></div></label></div>
+    <div class="row"><label>茎の太さ<div class="seg" id="stem"></div></label></div>
+    <div class="row"><label>土壌水分<div class="seg" id="soil"></div></label></div>
+    <div class="row"><label>病害虫<div class="seg" id="pest"></div></label></div>
+    <div id="pestKindWrap" class="row" style="display:none"><label>病害虫の種類<div class="chips" id="pestKind"></div><input id="pestKindText" placeholder="その他の場合はここに"></label></div>
+    <div class="row"><label>畝の状態（変える時だけ）<div class="seg" id="status"></div></label></div>
+    <div class="row"><label>コメント<textarea id="comment" rows="2" placeholder="例：下葉に黄化。追肥した"></textarea></label></div>
+    <div class="row"><label>写真No<input id="photo" placeholder="例：0830-03（DiscordのNo）"></label><label>記録者<input id="who" placeholder="名前"></label></div>
+    <div class="sticky"><button class="btn" id="save">記録して次の畝へ</button><button class="btn sub" id="saveStay">記録のみ</button></div>
+  </div>
+</main>
+
+<script src="os6-common.js?v=1"></script>
+<script>
+let DATA={fields:[],houses:[],beds:[],records:[]}, FIELD=null, HOUSE=null, BED=null; // BED = {id, label, registered}
+const LAST_KEY="gg_os6_last";
+const last = () => { try{ return JSON.parse(localStorage.getItem(LAST_KEY)||"{}"); }catch(e){ return {}; } };
+const setLast = o => localStorage.setItem(LAST_KEY, JSON.stringify(Object.assign(last(), o)));
+
+function seg(id, opts, def){ const el=$(id); el.innerHTML=opts.map(o=>`<button type="button" data-v="${esc(o)}" class="${o===def?"on":""}">${esc(o)}</button>`).join("");
+  el.querySelectorAll("button").forEach(b=>b.onclick=()=>{ const on=b.classList.contains("on") && el.dataset.optional==="1"; el.querySelectorAll("button").forEach(x=>x.classList.remove("on")); if(!on) b.classList.add("on"); if(id==="pest") togglePestKind(); }); }
+const segVal = id => { const b=$(id).querySelector("button.on"); return b? b.dataset.v : ""; };
+function togglePestKind(){ $("pestKindWrap").style.display = (segVal("pest") && segVal("pest")!=="なし")? "block":"none"; }
+
+async function loadAll(){
+  say("");
+  try{
+    const [F,H,B,R]=await Promise.all([readTab(CONFIG.TAB_FIELD),readTab(CONFIG.TAB_HOUSE),readTab(CONFIG.TAB_BED),readTab(CONFIG.TAB_RECORD)]);
+    DATA.fields=F.rows; DATA.houses=H.rows; DATA.beds=B.rows; DATA.records=R.rows;
+    const sel=$("field"); const keep=sel.value || last().field; sel.innerHTML=DATA.fields.map(f=>`<option value="${esc(fid(f))}">${esc(col(f,"正規名"))}</option>`).join("");
+    if(keep && DATA.fields.some(f=>fid(f)===keep)) sel.value=keep; FIELD=DATA.fields.find(f=>fid(f)===sel.value)||DATA.fields[0];
+    renderHouses(); renderBadge();
+  }catch(e){ say("読み込みエラー："+e.message,"err"); }
+}
+function renderHouses(){
+  const hs=DATA.houses.filter(h=>col(h,"圃場ID")===fid(FIELD));
+  const box=$("houses"); box.innerHTML = hs.length? hs.map(h=>`<button type="button" data-id="${esc(hid(h))}">${esc(col(h,"名称")||hid(h))}<small>${esc(col(h,"主品目")||"—")} ・ ${esc(col(h,"状態")||"未入力")}</small></button>`).join("") : `<span class="hint">この圃場にはハウス／区画がまだありません。<a href="setup.html">現地設定</a>で地図に描いてください。</span>`;
+  box.querySelectorAll("button").forEach(b=>b.onclick=()=>selectHouse(hs.find(h=>hid(h)===b.dataset.id)));
+  const keepH=last().house; const h0 = hs.find(h=>hid(h)===keepH) || null; HOUSE=null; BED=null; $("beds").innerHTML=""; $("bedManual").style.display="none"; $("form").style.display="none";
+  if(h0) selectHouse(h0);
+}
+function bedsOf(h){ const reg=DATA.beds.filter(b=>col(b,"区画ID")===hid(h)); const n=parseInt(col(h,"畝の本数"))||0;
+  const list=[]; for(let i=1;i<=Math.max(n,reg.length);i++){ const id=`${hid(h)}-${pad2(i)}`; const b=reg.find(x=>bid(x)===id); list.push({id, label:`${i}`, item:b? col(b,"品目"):"", status:b? col(b,"状態"):"", registered:!!b}); }
+  return list;
+}
+function selectHouse(h){
+  HOUSE=h; setLast({field:fid(FIELD), house:hid(h)});
+  $("houses").querySelectorAll("button").forEach(b=>b.classList.toggle("on", b.dataset.id===hid(h)));
+  const list=bedsOf(h); const box=$("beds");
+  if(list.length){ $("bedManual").style.display="none"; box.innerHTML=list.map(b=>`<button type="button" data-id="${esc(b.id)}">${esc(b.label)}<small>${esc(b.item||"—")}${b.status? " ・ "+esc(b.status):""}</small></button>`).join("");
+    box.querySelectorAll("button").forEach(b=>b.onclick=()=>selectBed(list.find(x=>x.id===b.dataset.id)));
+    const keepB=last().bed; const b0=list.find(b=>b.id===keepB)||list[0]; selectBed(b0); }
+  else { box.innerHTML=""; $("bedManual").style.display="flex"; selectBed(manualBed()); }
+}
+function manualBed(){ const n=Math.max(1, parseInt($("bedNo").value)||1); $("bedNo").value=n; return {id:`${hid(HOUSE)}-${pad2(n)}`, label:String(n), item:col(HOUSE,"主品目"), registered:false}; }
+$("bnMinus").onclick=()=>{ $("bedNo").value=Math.max(1,(parseInt($("bedNo").value)||1)-1); selectBed(manualBed()); };
+$("bnPlus").onclick=()=>{ $("bedNo").value=(parseInt($("bedNo").value)||1)+1; selectBed(manualBed()); };
+$("bedNo").onchange=()=>selectBed(manualBed());
+function selectBed(b){
+  BED=b; setLast({bed:b.id});
+  $("beds").querySelectorAll("button").forEach(x=>x.classList.toggle("on", x.dataset.id===b.id));
+  $("form").style.display="block"; $("bedTitle").textContent=`${col(HOUSE,"名称")||hid(HOUSE)} ／ 畝 ${b.label}${b.item? "（"+b.item+"）":""}${b.registered? "":" ・未登録"}`;
+  const recs=DATA.records.filter(r=>col(r,"畝ID")===b.id).sort((a,c)=>String(col(c,"日時")).localeCompare(String(col(a,"日時"))));
+  const p=recs[0];
+  $("prev").innerHTML = p? `前回の記録：<b>${esc(col(p,"日時"))}</b> ／ 草丈 <b>${esc(col(p,"草丈")||"—")}</b>cm ／ 葉色 ${esc(col(p,"葉色")||"—")} ／ 病害虫 ${esc(col(p,"病害虫（")||col(p,"病害虫")||"—")}${col(p,"病害虫の種類")? "（"+esc(col(p,"病害虫の種類"))+"）":""}${col(p,"コメント")? "<br>"+esc(col(p,"コメント")):""}<br><span class="hint">この畝の記録 ${recs.length}件</span>` : "前回の記録：なし（この畝は初めて）";
+  $("height").value=""; $("comment").value=""; $("photo").value=""; $("pestKindText").value="";
+  seg("leaf",CONFIG.LEAF,"標準"); seg("stem",CONFIG.STEM,"標準"); seg("soil",CONFIG.SOIL,"適正"); seg("pest",CONFIG.PEST,"なし"); $("status").dataset.optional="1"; seg("status",["順調","注意","害虫","遅延"],""); togglePestKind();
+  $("pestKind").innerHTML=CONFIG.PEST_KIND.map(k=>`<button type="button" data-v="${esc(k)}">${esc(k)}</button>`).join(""); $("pestKind").querySelectorAll("button").forEach(x=>x.onclick=()=>x.classList.toggle("on"));
+  if(!$("who").value) $("who").value=last().who||"";
+  window.scrollTo({top:Math.max(0,$("form").offsetTop-document.querySelector("header").offsetHeight-8), behavior:"smooth"}); // 固定ヘッダーの高さ分を空ける（スマホは3段になる）
+}
+$("hMinus").onclick=()=>{ $("height").value=Math.max(0,(parseInt($("height").value)||0)-1); }; $("hPlus").onclick=()=>{ $("height").value=(parseInt($("height").value)||0)+1; };
+
+async function save(advance){
+  if(!BED){ say("畝を選んでください","err"); return; }
+  const kinds=[...$("pestKind").querySelectorAll("button.on")].map(b=>b.dataset.v).concat($("pestKindText").value.trim()? [$("pestKindText").value.trim()]:[]);
+  const pest=segVal("pest");
+  const row={ "日時":nowStr(), "畝ID":BED.id, "草丈":$("height").value.trim(), "葉色":segVal("leaf"), "茎の太さ":segVal("stem"), "土壌水分":segVal("soil"), "病害虫（":pest, "病害虫の種類":(pest&&pest!=="なし")? kinds.join("・"):"", "コメント":$("comment").value.trim(), "写真No":$("photo").value.trim(), "記録者":$("who").value.trim() };
+  if(!row["草丈"] && !row["コメント"] && pest==="なし" && !row["写真No"]){ say("草丈・コメント・病害虫・写真Noのどれかを入れてください（空の記録は残しません）","err"); return; }
+  const st=segVal("status");
+  $("save").disabled=true; $("saveStay").disabled=true; setLast({who:row["記録者"]});
+  try{
+    const r=await post({action:"os6Record",row});
+    if(r.ok || r.queued){
+      if(st){ const r2=await post({action:"os6UpsertBeds",rows:[{"畝ID":BED.id,"区画ID":hid(HOUSE),"状態":st}]}); if(!(r2.ok||r2.queued)) say("記録は保存、畝の状態は未反映","err"); }
+      if(r.ok){ DATA.records.push(row); say(`記録しました：畝 ${BED.label}（${row["日時"]}）${st? " ・ 状態→"+st:""}`); }
+      if(advance){ const list=bedsOf(HOUSE); if(list.length){ const i=list.findIndex(b=>b.id===BED.id); if(i>=0 && i<list.length-1) selectBed(list[i+1]); else say(`この区画の畝は最後まで記録しました（${list.length}本）`); } else { $("bedNo").value=(parseInt($("bedNo").value)||1)+1; selectBed(manualBed()); } }
+      else selectBed(BED);
+    }
+  }catch(e){ say("保存エラー："+e.message,"err"); }
+  $("save").disabled=false; $("saveStay").disabled=false;
+}
+$("save").onclick=()=>save(true); $("saveStay").onclick=()=>save(false);
+$("field").onchange=()=>{ FIELD=DATA.fields.find(f=>fid(f)===$("field").value); setLast({field:fid(FIELD), house:"", bed:""}); renderHouses(); };
+loadAll();
+</script>
+</body>
+</html>
