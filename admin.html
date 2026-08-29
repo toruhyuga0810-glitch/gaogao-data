@@ -328,9 +328,13 @@
 <script>
 let ORDERS=[];
 const yen=n=>(n==null||n==='')?'–':'¥'+Math.floor(n).toLocaleString();   // 端数はfreee(line_amount_fraction:omit=切捨て)と同じ丸めで表示
-// 圃場番号→エリア名（表示用。値は「第N圃場」のまま）。jisseki/GASのFREEE_FARM_AREAと同期
+// 圃場番号→エリア・農家名（表示用。値は「第N圃場」のまま）。表記は仕様書の一元化ルール「第N圃場・エリア・農家名」。
+// 兄弟の対応表：GAS FREEE_FARM_AREA（納品書見出し）／scripts/sync_jisseki_from_freee.py FARM_MAP（実績）／価格表シート見出し「第N圃場：…」（ポータル表示）
 const FARM_AREA={1:'八郷',2:'鉾田',3:'土浦',4:'沖縄',5:'江戸崎',6:'牛久'};
-function farmLabel(f){ const m=String(f).match(/第(\d+)圃場/); const a=m?FARM_AREA[+m[1]]:''; return a?`${f}・${a}`:f; }
+const FARM_FARMER={1:'中村',3:'ペン',5:'パーン'};   // 2鉾田・4沖縄・6牛久は農家名未確定（確定したらここへ）
+const PFARM_SUB={};   // 価格表シート見出しの「：」右側（例 Yasato）。FARM_AREAに無い番号のフォールバック
+function farmArea(n){ return FARM_AREA[n] ? (FARM_AREA[n]+(FARM_FARMER[n]?'・'+FARM_FARMER[n]:'')) : (PFARM_SUB[n]||''); }
+function farmLabel(f){ const m=String(f).match(/第(\d+)圃場/); const a=m?farmArea(+m[1]):''; return a?`${f}・${a}`:f; }
 // 配送サイズ（v=GASのFREEE_SORYOと一致させる値／l=画面表示）。箱数を入れた分だけ納品書に載る
 const SHIP_SIZES=[{v:'60サイズ',l:'60'},{v:'80サイズ',l:'80'},{v:'100サイズ',l:'100'},{v:'140サイズ（20kg）',l:'140/20kg'},{v:'140サイズ（30kg）',l:'140/30kg'}];
 // 送信先の実メアド（GASのmailRecipientsから解錠後に取得。公開admin.htmlには埋め込まない）
@@ -1189,7 +1193,7 @@ async function loadPrices(){
     if(mhi>=0){
       const head=rows[mhi].map(s=>String(s).trim());
       const cJp=head.indexOf('日本名'), cCall=head.indexOf('呼称');
-      const farms=[]; head.forEach((c,ci)=>{ const m=c.match(/第(\d+)/); if(c.includes('圃場')&&c.includes('：')&&m) farms.push({ci,num:+m[1]}); });
+      const farms=[]; head.forEach((c,ci)=>{ const m=c.match(/第(\d+)/); if(c.includes('圃場')&&c.includes('：')&&m){ farms.push({ci,num:+m[1]}); PFARM_SUB[+m[1]]=(c.split('：')[1]||'').replace(/圃場$/,'').trim(); } });
       farms.sort((a,b)=>a.num-b.num);
       PFARMS=farms.map(f=>'第'+f.num+'圃場');
       PRICES=[];
@@ -1226,7 +1230,7 @@ async function loadPrices(){
 }
 function renderPrices(){
   let h='<thead><tr><th class="nm">品目</th>';
-  PFARMS.forEach(f=>h+='<th>'+esc(f)+'</th>');
+  PFARMS.forEach(f=>{ const m=String(f).match(/第(\d+)圃場/); const a=m?farmArea(+m[1]):''; h+='<th>'+esc(f)+(a?'<div class="muted" style="font-size:10.5px;font-weight:500;margin-top:2px">'+esc(a)+'</div>':'')+'</th>'; });
   h+='<th></th></tr></thead><tbody>';
   PRICES.forEach((it,idx)=>{
     h+='<tr data-idx="'+idx+'"><td class="nm"><b>'+esc(it.call)+'</b><div class="muted" style="font-size:10px">'+esc(it.jp)+'</div></td>';
