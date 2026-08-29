@@ -6,26 +6,42 @@
 <title>OS6 Farm control — 現地設定</title>
 <link rel="icon" href="data:,">
 <!-- ─────────────────────────────────────────────────────────────
-  OS6：Farm control 段B「現地設定画面」v0.1（2026-08-30）
+  OS6：Farm control 段B「現地設定画面」v0.2（2026-08-30）
   ・読み  = Googleスプレッドシート gviz（圃場／ハウス区画／畝・作付け／圃場別価格表）
   ・書き  = Apps Script WebApp POST（action: os6UpsertField / os6UpsertHouse / os6UpsertBeds）管理者トークン必須
   ・地図  = Leaflet + 国土地理院 航空写真タイル（出典表記で利用可・キー不要）
+  ・場所  = 地図アプリの型：住所・地名検索（国土地理院 住所検索API・鍵不要）／現在地（GPS）／ピンをドラッグ／
+            住所の自動取得（地理院 逆ジオコーダ＋市区町村表）。施設名の検索と番地つき住所は Apps Script の Google ジオコーダ（os6Geocode）で補う
   ・通信が無いときは localStorage に溜めて「未送信N件」を表示（黙った失敗の禁止）
   ・PC=2ペイン／タブレット=2ペイン／スマホ=縦積み
 ───────────────────────────────────────────────────────────── -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
 <style>
-  :root{--g:#587565;--g2:#3d5248;--g3:#dae5dd;--bg:#f4f4f1;--ink:#2b2f2d;--mut:#6b7a72;--line:#c9d4cc;--warn:#b7791f;--bad:#a94442;}
+  :root{--g:#587565;--g2:#3d5248;--g3:#dae5dd;--bg:#f4f4f1;--ink:#2b2f2d;--mut:#6b7a72;--line:#c9d4cc;--warn:#b7791f;--bad:#a94442;--blue:#1a73e8;}
   *{box-sizing:border-box} html,body{margin:0;height:100%;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:15px}
   header{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
   header h1{font-size:15px;margin:0;color:var(--g2);white-space:nowrap}
-  header select,header button{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff}
-  .badge{margin-left:auto;font-size:12px;color:var(--mut)} .badge.q{color:var(--warn);font-weight:600}
+  header select,header button{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;max-width:100%}
+  header select{min-width:0;flex:0 1 auto;text-overflow:ellipsis}
+  .badge{margin-left:auto;font-size:12px;color:var(--mut);white-space:nowrap} .badge.q{color:var(--warn);font-weight:600}
+  @media (max-width:900px){header{flex-wrap:wrap;row-gap:6px} header select{flex:1 1 60%} .badge{margin-left:0;flex-basis:100%}}
   .wrap{display:grid;grid-template-columns:1fr 420px;height:calc(100% - 46px)}
-  #map{height:100%;min-height:360px}
+  .mapwrap{position:relative;height:100%;min-height:360px} #map{height:100%}
   .panel{overflow:auto;background:#fff;border-left:1px solid var(--line);padding:12px 14px}
-  @media (max-width:900px){.wrap{grid-template-columns:1fr;grid-template-rows:52vh 1fr;height:auto}.panel{border-left:0;border-top:1px solid var(--line)}}
+  @media (max-width:900px){.wrap{grid-template-columns:1fr;grid-template-rows:56vh 1fr;height:auto}.panel{border-left:0;border-top:1px solid var(--line)}}
+  /* 地図の上に載せる検索バー（地図アプリの型）・現在地ボタン */
+  .searchbar{position:absolute;z-index:1000;top:10px;left:56px;right:10px;max-width:440px}
+  .searchbar .in{display:flex;background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.25);overflow:hidden}
+  .searchbar input{flex:1;font:inherit;font-size:15px;padding:10px 12px;border:0;outline:0;min-width:0}
+  .searchbar button{font:inherit;border:0;background:var(--g);color:#fff;padding:0 14px;cursor:pointer}
+  .qlist{background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.25);margin-top:6px;max-height:40vh;overflow:auto;display:none}
+  .qlist div{padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px} .qlist div:last-child{border-bottom:0} .qlist div:hover{background:var(--g3)}
+  .qlist small{display:block;color:var(--mut);font-size:11px} .qlist .note{color:var(--mut);cursor:default;font-size:12px} .qlist .note:hover{background:#fff}
+  .qlist .act{color:var(--blue);font-weight:600}
+  .locate{position:absolute;z-index:1000;right:10px;bottom:28px;width:46px;height:46px;border-radius:50%;border:0;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--g2)}
+  .locate.on{color:var(--blue)} .locate svg{width:24px;height:24px}
+  .locinfo{position:absolute;z-index:1000;right:62px;bottom:38px;font-size:11px;color:#fff;background:rgba(0,0,0,.55);padding:2px 8px;border-radius:999px;display:none}
   h2{font-size:14px;color:var(--g2);margin:14px 0 6px;border-left:4px solid var(--g);padding-left:8px}
   .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
   .kpi div{background:var(--g3);border-radius:6px;padding:8px;text-align:center}.kpi b{display:block;font-size:18px;color:var(--g2)}.kpi span{font-size:11px;color:var(--mut)}
@@ -38,25 +54,35 @@
   .chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;background:var(--g3);color:var(--g2)} .chip.warn{background:#f7ecd2;color:var(--warn)} .chip.bad{background:#f2dfda;color:var(--bad)} .chip.mut{background:#e6e6e2;color:#666}
   .hint{font-size:12px;color:var(--mut);margin:4px 0}
   .msg{margin:8px 0;padding:8px 10px;border-radius:6px;font-size:13px} .msg.ok{background:#e3efe6;color:#2e5b3f} .msg.err{background:#f2dfda;color:var(--bad)}
+  .loc{font-size:13px;margin:6px 0;line-height:1.7} .loc a{color:var(--blue)}
   .house-label{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-size:12px;color:var(--g2);white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.15)}
   .house-label small{display:block;color:var(--mut);font-size:10px}
-  .leaflet-container{font-family:inherit}
+  .leaflet-container{font-family:inherit} .leaflet-popup-content{margin:10px 12px;font-size:13px} .leaflet-popup-content .btn{padding:6px 10px;font-size:13px;margin-top:6px}
 </style>
 </head>
 <body>
 <header>
   <h1>OS6 現地設定</h1>
   <select id="field"></select>
-  <button id="btnCenter" title="いま見えている地図の中心を、この圃場の位置として保存">圃場の位置を保存</button>
+  <button id="btnNewField" title="新しい圃場を登録（場所は検索・現在地・ピンで決める）">＋ 新しい圃場</button>
   <span id="badge" class="badge">読み込み中…</span>
 </header>
 <div class="wrap">
-  <div id="map"></div>
+  <div class="mapwrap">
+    <div id="map"></div>
+    <div class="searchbar">
+      <div class="in"><input id="q" placeholder="住所・地名・座標で探す（例：かすみがうら市牛渡）" autocomplete="off" enterkeyhint="search"><button id="qGo">検索</button></div>
+      <div id="qList" class="qlist"></div>
+    </div>
+    <span id="locInfo" class="locinfo"></span>
+    <button id="btnLocate" class="locate" title="現在地（もう一度押すと追従をやめる）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+  </div>
   <aside class="panel">
     <div id="msg"></div>
     <div id="fieldInfo"></div>
+    <div id="posForm" style="display:none"></div>
     <div id="houseForm" style="display:none"></div>
-    <div id="houseDetail"><p class="hint">地図の左の「多角形」または「四角形」ツールでハウス／露地を囲んでください。囲うと面積が自動で出て、名前・畝の本数を入れて保存できます。保存済みのハウスは地図上で選べます。</p></div>
+    <div id="houseDetail"><p class="hint">上の検索バーで住所・地名を探すか、右下の◎で現在地へ。地図左の「多角形」「四角形」でハウス／露地を囲むと面積が自動で出て、名前・畝の本数を入れて保存できます。保存済みのハウスは地図上で選べます。</p></div>
   </aside>
 </div>
 
@@ -69,11 +95,13 @@ const CONFIG = {
   WEBAPP_URL: "https://script.google.com/macros/s/AKfycbygruSomnxo__KoY3BxEbwOrZEcrPVggI1tqOOA6btrJRqfo8mfvUbpT2RX8DZ8_j3e/exec",
   TAB_FIELD: "圃場", TAB_HOUSE: "ハウス区画", TAB_BED: "畝・作付け", TAB_PRICE: "圃場別価格表",
   DEFAULT_CENTER: [36.08, 140.20], DEFAULT_ZOOM: 13,   // 土浦市（緯度経度未設定の圃場の初期表示）
-  STATUS: ["順調","注意","害虫","遅延","未入力","休耕"], FORMS: ["露地","ハウス","遮光"],
+  STATUS: ["順調","注意","害虫","遅延","未入力","休耕"], FORMS: ["露地","ハウス","遮光"], OPS: ["主力","スポット","休止"],
+  GSI_SEARCH: "https://msearch.gsi.go.jp/address-search/AddressSearch?q=",
+  GSI_REVERSE: "https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat={lat}&lon={lng}",
+  GSI_MUNI: "https://maps.gsi.go.jp/js/muni.js",
 };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const today = () => { const d=new Date(); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`; };
 function say(t, cls){ $("msg").innerHTML = t ? `<div class="msg ${cls||"ok"}">${esc(t)}</div>` : ""; }
 
 // ───────── gviz 読み（CSV）─────────
@@ -91,9 +119,10 @@ async function readTab(tab){
   const head=rows[0].map(h=>h.trim()); const out=rows.slice(1).filter(r=>r.some(v=>v&&v.trim())).map(r=>{const o={}; head.forEach((h,i)=>o[h]=(r[i]||"").trim()); return o;});
   return {head, rows: out};
 }
-const col = (o, prefix) => { const k=Object.keys(o).find(k=>k.startsWith(prefix)); return k? o[k] : ""; };
+const col = (o, prefix) => { if(!o) return ""; const k=Object.keys(o).find(k=>k.startsWith(prefix)); return k? o[k] : ""; };
 
 // ───────── 書き（WebApp POST・トークン・未送信キュー）─────────
+const hasToken = () => !!localStorage.getItem("gg_os6_token");
 function token(){ let t=localStorage.getItem("gg_os6_token"); if(!t){ t=prompt("管理者パスワード（OS9の承認画面と同じ）を入力"); if(t) localStorage.setItem("gg_os6_token",t); } return t||""; }
 function queue(){ try{ return JSON.parse(localStorage.getItem("gg_os6_queue")||"[]"); }catch(e){ return []; } }
 function setQueue(q){ localStorage.setItem("gg_os6_queue", JSON.stringify(q)); renderBadge(); }
@@ -103,7 +132,11 @@ async function post(payload, {queueOnFail=true}={}){
   try{
     const r=await fetch(CONFIG.WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});
     const j=await r.json();
-    if(!j.ok){ if(j.error==="unauthorized"){ localStorage.removeItem("gg_os6_token"); throw new Error("パスワードが違います（もう一度保存すると再入力できます）"); } throw new Error(j.error||"保存に失敗"); }
+    if(!j.ok){
+      if(j.error==="unauthorized"){ localStorage.removeItem("gg_os6_token"); throw new Error("パスワードが違います（もう一度保存すると再入力できます）"); }
+      if(/unknown action: os6/.test(j.error||"")) throw new Error("Apps Script側にOS6の受付口がまだありません（「OS6 api」の貼付と doPost の1行追加・新バージョンのデプロイが必要）");
+      throw new Error(j.error||"保存に失敗");
+    }
     return j;
   }catch(e){
     if(queueOnFail && (e.name==="TypeError" || /Failed to fetch|NetworkError/.test(String(e)))){ const q=queue(); q.push({t:Date.now(),payload}); setQueue(q); say(`通信できないため手元に保存しました（未送信 ${q.length}件）。電波が戻ったら「再送」を押してください`, "err"); return {ok:false, queued:true}; }
@@ -112,10 +145,86 @@ async function post(payload, {queueOnFail=true}={}){
 }
 async function flush(){ const q=queue(); if(!q.length) return; let left=[]; for(const it of q){ try{ const r=await post(it.payload,{queueOnFail:false}); if(!r.ok) left.push(it);}catch(e){ left.push(it);} } setQueue(left); say(left.length? `${left.length}件がまだ送れません`: "未送信分をすべて送りました","ok"); if(!left.length) await loadAll(); }
 
+// ───────── 場所を探す・現在地・住所の自動取得（地図アプリの型）─────────
+const geo = {
+  // 住所・地名・座標 → 候補（国土地理院・鍵不要・都道府県〜大字レベル）
+  async search(q){
+    const m=q.match(/^\s*(-?\d{1,2}\.\d+)\s*[,、\s]\s*(-?\d{1,3}\.\d+)\s*$/); if(m) return [{name:`座標 ${m[1]}, ${m[2]}`, lat:+m[1], lng:+m[2], src:"座標"}];
+    const r=await fetch(CONFIG.GSI_SEARCH+encodeURIComponent(q)); if(!r.ok) throw new Error(`住所検索に失敗（HTTP ${r.status}）`);
+    const j=await r.json(); return (Array.isArray(j)?j:[]).slice(0,10).map(f=>({name:f.properties.title, lat:f.geometry.coordinates[1], lng:f.geometry.coordinates[0], src:"地理院"}));
+  },
+  // 施設名・店名・番地つき → Apps Script経由のGoogleジオコーダ（要パスワード・GAS側に os6Geocode がある時だけ）
+  async searchGoogle(q){ const r=await post({action:"os6Geocode", q},{queueOnFail:false}); return (r.items||[]).map(i=>({name:i.name, lat:+i.lat, lng:+i.lng, src:"Google"})); },
+  muni:null,
+  async loadMuni(){ if(this.muni) return this.muni;
+    window.GSI = window.GSI || {}; // muni.js は GSI.MUNI_ARRAY に代入するだけで GSI 自体は作らない
+    await new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=CONFIG.GSI_MUNI; s.onload=res; s.onerror=()=>rej(new Error("市区町村表を読めません")); document.head.appendChild(s); });
+    this.muni=(window.GSI&&GSI.MUNI_ARRAY)||{}; return this.muni; },
+  // 緯度経度 → 「茨城県かすみがうら市牛渡」（地理院 逆ジオコーダ＋市区町村表）
+  async reverse(lat,lng){
+    const [r,muni]=await Promise.all([fetch(CONFIG.GSI_REVERSE.replace("{lat}",lat).replace("{lng}",lng)).then(x=>x.json()), this.loadMuni()]);
+    const res=r&&r.results; if(!res||!res.muniCd) return ""; const m=String(muni[String(parseInt(res.muniCd,10))]||"").split(","); return (m[1]||"")+(m[3]||"")+(res.lv01Nm||"");
+  },
+  async reverseGoogle(lat,lng){ const r=await post({action:"os6ReverseGeocode",lat,lng},{queueOnFail:false}); return r.address||""; },
+  // まず地理院、パスワード保存済みなら Google の番地つき住所で上書き（失敗しても地理院の結果は残す）
+  async address(lat,lng){ let a=""; try{ a=await this.reverse(lat,lng); }catch(e){}
+    if(hasToken()){ try{ const g=await this.reverseGoogle(lat,lng); if(g) a=g; }catch(e){} } return a; }
+};
+let CAND=null; // 検索候補のピン（1本だけ）
+function showCandidates(list, note, action){
+  const box=$("qList"); box.innerHTML = list.map((c,i)=>`<div data-i="${i}">${esc(c.name)}<small>${esc(c.src)} ・ ${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</small></div>`).join("") + (note? `<div class="note">${esc(note)}</div>`:"");
+  box.querySelectorAll("div[data-i]").forEach(el=>{ el.onclick=()=>{ goTo(list[+el.dataset.i]); box.style.display="none"; }; });
+  if(action){ const b=document.createElement("div"); b.className="act"; b.textContent=action.label; b.onclick=action.fn; box.appendChild(b); }
+  box.style.display = box.innerHTML? "block":"none";
+}
+function useAsFieldPos(){ if(!CAND) return; const p=CAND.getLatLng(); MAP.removeLayer(CAND); CAND=null; openPosForm(FIELD, [p.lat,p.lng]); }
+function goTo(c){
+  MAP.flyTo([c.lat,c.lng], Math.max(MAP.getZoom(),16));
+  if(POS){ setPin(c.lat,c.lng); return; }
+  if(CAND) MAP.removeLayer(CAND);
+  CAND=L.marker([c.lat,c.lng]).addTo(MAP).bindPopup(`<b>${esc(c.name)}</b><br><button class="btn" id="candUse">ここを圃場の位置にする</button>`);
+  CAND.on("popupopen",()=>{ const b=$("candUse"); if(b) b.onclick=useAsFieldPos; });
+  CAND.openPopup();
+}
+async function runSearch(withGoogle){
+  const q=$("q").value.trim(); if(!q) return; $("qGo").disabled=true;
+  try{
+    let list=await geo.search(q), note="";
+    if(withGoogle || (hasToken() && !list.length)){ try{ list=list.concat(await geo.searchGoogle(q)); }catch(e){ note="Google検索："+e.message; } }
+    let action=null;
+    if(!list.length && !note) note = hasToken()? "見つかりません。市町村名から入れると当たりやすいです" : "見つかりません。施設名・店名で探すには「Googleで探す」（管理者パスワードが要ります）";
+    if(!list.length && !hasToken() && !withGoogle) action={label:"Googleで探す", fn:()=>runSearch(true)};
+    showCandidates(list, note, action);
+  }catch(e){ showCandidates([], e.message); }
+  $("qGo").disabled=false;
+}
+$("qGo").onclick=()=>runSearch(false); $("q").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); runSearch(false); } });
+document.addEventListener("click",e=>{ if(!e.target.closest(".searchbar")) $("qList").style.display="none"; });
+
+// 現在地（押すと追従開始・もう一度で停止）
+let WATCH=null, ME=null, MECIRC=null;
+function stopLocate(){ if(WATCH!==null) navigator.geolocation.clearWatch(WATCH); WATCH=null; $("btnLocate").classList.remove("on"); $("locInfo").style.display="none"; }
+$("btnLocate").onclick=()=>{
+  if(!navigator.geolocation){ say("この端末（ブラウザ）では位置情報が使えません","err"); return; }
+  if(WATCH!==null){ stopLocate(); return; }
+  $("btnLocate").classList.add("on"); $("locInfo").style.display="inline"; $("locInfo").textContent="現在地を取得中…"; let first=true;
+  WATCH=navigator.geolocation.watchPosition(p=>{
+    const lat=p.coords.latitude, lng=p.coords.longitude, acc=Math.round(p.coords.accuracy||0);
+    if(!ME){ ME=L.circleMarker([lat,lng],{radius:7,color:"#fff",weight:2,fillColor:"#1a73e8",fillOpacity:1}).addTo(MAP); MECIRC=L.circle([lat,lng],{radius:acc,color:"#1a73e8",weight:1,fillOpacity:.12}).addTo(MAP); }
+    else { ME.setLatLng([lat,lng]); MECIRC.setLatLng([lat,lng]).setRadius(acc); }
+    $("locInfo").textContent=`現在地 ±${acc}m`;
+    if(first){ first=false; MAP.flyTo([lat,lng], Math.max(MAP.getZoom(),17)); if(POS) setPin(lat,lng); }
+  }, e=>{
+    say(e.code===1? "位置情報が許可されていません。ブラウザ（またはiPadの設定→プライバシー→位置情報）でこのサイトを許可してください" : `現在地を取得できません（${e.message}）`,"err");
+    stopLocate();
+  }, {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
+};
+
 // ───────── 状態 ─────────
-let DATA={fields:[],houses:[],beds:[],items:[]}, MAP, LAYER, DRAWN, SEL=null, FIELD=null;
+let DATA={fields:[],houses:[],beds:[],items:[]}, MAP, LAYER, DRAWN, SEL=null, FIELD=null, PIN=null, POS=null; // POS = 位置設定モード {isNew,id,seq}
 const fid = f => col(f,"圃場ID"); const hid = h => col(h,"区画ID"); const bid = b => col(b,"畝ID");
 function chip(st){ const cls = st==="順調"?"":(st==="注意"||st==="遅延")?"warn":(st==="害虫")?"bad":"mut"; return `<span class="chip ${cls}">${esc(st||"未入力")}</span>`; }
+const navUrl = (lat,lng) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 
 async function loadAll(){
   say("");
@@ -140,23 +249,71 @@ function initMap(){
 }
 function areaOf(latlngs){ return Math.round(L.GeometryUtil.geodesicArea(latlngs)); }
 function renderField(){
-  LAYER.clearLayers(); DRAWN.clearLayers(); SEL=null; $("houseForm").style.display="none";
-  const lat=parseFloat(col(FIELD,"緯度")), lng=parseFloat(col(FIELD,"経度"));
+  LAYER.clearLayers(); DRAWN.clearLayers(); SEL=null; $("houseForm").style.display="none"; closePosForm();
+  if(!FIELD){ $("fieldInfo").innerHTML=`<p class="hint">圃場がまだありません。「＋ 新しい圃場」から登録してください。</p>`; renderHouseDetail(); return; }
+  const lat=parseFloat(col(FIELD,"緯度")), lng=parseFloat(col(FIELD,"経度")); const has=!isNaN(lat)&&!isNaN(lng);
   const houses=DATA.houses.filter(h=>col(h,"圃場ID")===fid(FIELD));
-  $("fieldInfo").innerHTML=`<h2>${esc(col(FIELD,"正規名"))}</h2><div class="kpi"><div><b>${houses.length}</b><span>ハウス・区画</span></div><div><b>${DATA.beds.filter(b=>houses.some(h=>hid(h)===col(b,"区画ID"))).length}</b><span>畝</span></div><div><b>${houses.reduce((s,h)=>s+(parseFloat(col(h,"面積"))||0),0).toLocaleString()}</b><span>㎡</span></div></div>`
-    + (isNaN(lat)? `<p class="hint">この圃場の位置はまだ未設定です。地図を圃場の場所へ動かして「圃場の位置を保存」を押してください（初回だけ）。</p>` : "");
+  $("fieldInfo").innerHTML=`<h2>${esc(col(FIELD,"正規名"))} <span class="chip">${esc(col(FIELD,"稼働")||"—")}</span></h2>
+   <div class="kpi"><div><b>${houses.length}</b><span>ハウス・区画</span></div><div><b>${DATA.beds.filter(b=>houses.some(h=>hid(h)===col(b,"区画ID"))).length}</b><span>畝</span></div><div><b>${houses.reduce((s,h)=>s+(parseFloat(col(h,"面積"))||0),0).toLocaleString()}</b><span>㎡</span></div></div>
+   <div class="loc">所在地：${esc(col(FIELD,"所在地")||"（未設定）")}<br>位置：${has? `${lat.toFixed(5)}, ${lng.toFixed(5)} ・ <a href="${navUrl(lat,lng)}" target="_blank" rel="noopener">ナビで開く</a>` : "（未設定）"}</div>
+   <div class="row"><button class="btn sub" id="btnPos">${has? "位置・所在地を直す" : "位置を設定する"}</button></div>`
+   + (has? "" : `<p class="hint">初回だけ：上の検索バーで住所を探す／右下の◎で現在地へ／ピンをドラッグ、のどれかで場所を合わせて保存します。</p>`);
+  $("btnPos").onclick=()=>openPosForm(FIELD, has? [lat,lng] : null);
   let bounds=[];
   houses.forEach(h=>{ let shape=null; try{ shape=JSON.parse(col(h,"図形")||"null"); }catch(e){}
     if(shape && shape.length>=3){ const poly=L.polygon(shape,{color:"#587565",weight:2,fillOpacity:.25}).addTo(LAYER);
       poly.bindTooltip(`<div class="house-label">${esc(col(h,"名称")||hid(h))}<small>${esc(col(h,"面積")||"?")}㎡ ・ ${esc(col(h,"状態")||"未入力")}</small></div>`,{permanent:true,direction:"center",className:"nolabel"});
       poly.on("click",()=>selectHouse(h)); bounds=bounds.concat(shape); }
   });
-  if(bounds.length) MAP.fitBounds(bounds,{padding:[30,30],maxZoom:18}); else if(!isNaN(lat)) MAP.setView([lat,lng],17);
+  if(bounds.length) MAP.fitBounds(bounds,{padding:[30,30],maxZoom:18}); else if(has) MAP.setView([lat,lng],17);
   renderHouseDetail();
 }
 
+// ───────── 圃場の位置・所在地（ピン）／新しい圃場 ─────────
+function nextFieldId(){ const n=DATA.fields.reduce((m,f)=>Math.max(m, parseInt(String(fid(f)).replace(/\D/g,""))||0),0)+1; return {id:`F${n}`, n}; }
+function setPin(lat,lng){
+  if(!PIN){ PIN=L.marker([lat,lng],{draggable:true,title:"ドラッグで位置を合わせる"}).addTo(MAP); PIN.on("dragend",onPinMoved); } else PIN.setLatLng([lat,lng]);
+  onPinMoved();
+}
+async function onPinMoved(){
+  if(!PIN||!POS) return; const p=PIN.getLatLng(); const seq=++POS.seq;
+  $("p_ll").textContent=`${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`; $("p_addrHint").textContent="住所を調べています…";
+  const a=await geo.address(p.lat.toFixed(6), p.lng.toFixed(6)); if(!POS||seq!==POS.seq) return; // 連続ドラッグは最後だけ反映
+  if(a){ $("p_addr").value=a; $("p_addrHint").textContent="自動取得（直せます）"; } else $("p_addrHint").textContent="住所を取得できませんでした（手入力できます）";
+}
+function closePosForm(){ POS=null; if(PIN){ MAP.removeLayer(PIN); PIN=null; } $("posForm").style.display="none"; }
+function openPosForm(field, latlng){
+  const isNew=!field; const {id,n}=isNew? nextFieldId() : {id:fid(field), n:null};
+  POS={isNew, id, seq:0}; $("houseForm").style.display="none"; SEL=null; renderHouseDetail();
+  const f=$("posForm"); f.style.display="block";
+  f.innerHTML=`<h2>${isNew? "新しい圃場を登録" : "圃場の位置・所在地"}</h2><div class="hint">圃場ID <b>${esc(id)}</b>。地図のピンをドラッグするか、検索・現在地でピンを動かして合わせてください。</div>
+   <div class="row"><label>正規名（第N圃場・エリア・農家名）<input id="p_name" value="${esc(isNew? `第${n}圃場・・` : col(field,"正規名"))}"></label></div>
+   <div class="row"><label>所在地<input id="p_addr" value="${esc(isNew? "" : col(field,"所在地"))}"><span class="hint" id="p_addrHint"></span></label></div>
+   <div class="row"><label>稼働<select id="p_ops"><option value="">—</option>${CONFIG.OPS.map(o=>`<option ${(!isNew&&col(field,"稼働")===o)?"selected":""}>${o}</option>`).join("")}</select></label><label>緯度, 経度<span id="p_ll" style="padding:7px 0">（ピン未設定）</span></label></div>
+   ${isNew? `<div class="row"><label>備考<input id="p_note" placeholder="例：区画①〜⑥・6棟"></label></div>` : ""}
+   <div class="row"><button class="btn sub" id="p_here">ピンを現在地へ</button><button class="btn sub" id="p_center">ピンを地図の中心へ</button></div>
+   <div class="row"><button class="btn" id="p_save">この位置で保存</button><button class="btn sub" id="p_cancel">やめる</button></div>`;
+  $("p_cancel").onclick=closePosForm;
+  $("p_center").onclick=()=>{ const c=MAP.getCenter(); setPin(c.lat,c.lng); };
+  $("p_here").onclick=()=>{ if(ME){ const p=ME.getLatLng(); setPin(p.lat,p.lng); MAP.flyTo(p, Math.max(MAP.getZoom(),17)); } else $("btnLocate").click(); };
+  if(latlng){ setPin(latlng[0],latlng[1]); MAP.setView(latlng, Math.max(MAP.getZoom(),16)); }
+  $("p_save").onclick=async()=>{
+    if(!PIN){ say("まずピンを置いてください（検索・現在地・「ピンを地図の中心へ」）","err"); return; }
+    const name=$("p_name").value.trim(); if(!name||/・・$/.test(name)){ say("正規名を「第N圃場・エリア・農家名」の形で入れてください","err"); return; }
+    const p=PIN.getLatLng(); const row={ "圃場ID":id, "正規名":name, "所在地":$("p_addr").value.trim(), "緯度":+p.lat.toFixed(6), "経度":+p.lng.toFixed(6), "稼働":$("p_ops").value };
+    if(isNew) row["備考"]=$("p_note").value.trim();
+    $("p_save").disabled=true;
+    try{ const r=await post({action:"os6UpsertField",row}); if(r.ok){ say(`${isNew? "圃場を登録しました" : "位置を保存しました"}：${name}`); closePosForm(); await loadAll(); $("field").value=id; FIELD=DATA.fields.find(x=>fid(x)===id)||FIELD; renderField(); } }
+    catch(e){ say("保存エラー："+e.message,"err"); } $("p_save").disabled=false;
+  };
+  document.querySelector(".panel").scrollTop=0;
+}
+$("btnNewField").onclick=()=>openPosForm(null, null);
+
 // ───────── ハウスの登録 ─────────
 function openHouseForm(layer){
+  if(!FIELD){ say("先に「＋ 新しい圃場」で圃場を登録してください","err"); DRAWN.clearLayers(); return; }
+  closePosForm();
   const ll=layer.getLatLngs()[0]; const area=areaOf(ll); const shape=ll.map(p=>[+p.lat.toFixed(6),+p.lng.toFixed(6)]);
   const n=DATA.houses.filter(h=>col(h,"圃場ID")===fid(FIELD)).length+1; const id=`${fid(FIELD)}-${n}`;
   const f=$("houseForm"); f.style.display="block";
@@ -169,12 +326,13 @@ function openHouseForm(layer){
     const row={ "区画ID":id,"圃場ID":fid(FIELD),"名称":$("h_name").value.trim(),"種別":$("h_type").value,"図形":JSON.stringify(shape),"面積":area,"畝の本数":$("h_beds").value,"遮光":$("h_shade").value,"加温":$("h_heat").value,"主品目":$("h_item").value,"状態":$("h_status").value };
     try{ const r=await post({action:"os6UpsertHouse",row}); if(r.ok){ say(`保存しました：${row["名称"]}（${area}㎡）`); f.style.display="none"; await loadAll(); const h=DATA.houses.find(x=>hid(x)===id); if(h) selectHouse(h);} }
     catch(e){ say("保存エラー："+e.message,"err"); } $("h_save").disabled=false; };
+  document.querySelector(".panel").scrollTop=0;
 }
 
 // ───────── 畝の編集 ─────────
-function selectHouse(h){ SEL=h; renderHouseDetail(); document.querySelector(".panel").scrollTop=0; }
+function selectHouse(h){ SEL=h; closePosForm(); renderHouseDetail(); document.querySelector(".panel").scrollTop=0; }
 function renderHouseDetail(){
-  const d=$("houseDetail"); if(!SEL){ if(DATA.houses.filter(h=>col(h,"圃場ID")===fid(FIELD)).length) d.innerHTML=`<p class="hint">地図上のハウスをタップすると、畝ごとの品目・株数・定植日を入力できます。</p>`; return; }
+  const d=$("houseDetail"); if(!SEL){ d.innerHTML = (FIELD && DATA.houses.filter(h=>col(h,"圃場ID")===fid(FIELD)).length)? `<p class="hint">地図上のハウスをタップすると、畝ごとの品目・株数・定植日を入力できます。</p>` : `<p class="hint">地図左の「多角形」「四角形」でハウス／露地を囲むと、面積が自動で出て保存できます。</p>`; return; }
   const n=parseInt(col(SEL,"畝の本数"))||0; const existing=DATA.beds.filter(b=>col(b,"区画ID")===hid(SEL));
   const rows=[]; for(let i=1;i<=Math.max(n,existing.length);i++){ const id=`${hid(SEL)}-${String(i).padStart(2,"0")}`; rows.push(existing.find(b=>bid(b)===id)||{"畝ID":id}); }
   d.innerHTML=`<h2>${esc(col(SEL,"名称")||hid(SEL))} ${chip(col(SEL,"状態"))}</h2>
@@ -197,9 +355,6 @@ function renderHouseDetail(){
     catch(e){ say("保存エラー："+e.message,"err"); } $("b_save").disabled=false; };
 }
 
-// ───────── 圃場の位置 ─────────
-$("btnCenter").onclick=async()=>{ if(!FIELD) return; const c=MAP.getCenter();
-  try{ const r=await post({action:"os6UpsertField",row:{"圃場ID":fid(FIELD),"緯度":+c.lat.toFixed(6),"経度":+c.lng.toFixed(6)}}); if(r.ok){ say("圃場の位置を保存しました"); await loadAll(); } }catch(e){ say("保存エラー："+e.message,"err"); } };
 $("field").onchange=()=>{ FIELD=DATA.fields.find(f=>fid(f)===$("field").value); renderField(); };
 
 // 起動
