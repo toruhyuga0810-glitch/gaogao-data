@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OS6 Farm control — 現地設定</title>
+<link rel="icon" href="data:,">
+<!-- ─────────────────────────────────────────────────────────────
+  OS6：Farm control 段B「現地設定画面」v0.1（2026-08-30）
+  ・読み  = Googleスプレッドシート gviz（圃場／ハウス区画／畝・作付け／圃場別価格表）
+  ・書き  = Apps Script WebApp POST（action: os6UpsertField / os6UpsertHouse / os6UpsertBeds）管理者トークン必須
+  ・地図  = Leaflet + 国土地理院 航空写真タイル（出典表記で利用可・キー不要）
+  ・通信が無いときは localStorage に溜めて「未送信N件」を表示（黙った失敗の禁止）
+  ・PC=2ペイン／タブレット=2ペイン／スマホ=縦積み
+───────────────────────────────────────────────────────────── -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+<style>
+  :root{--g:#587565;--g2:#3d5248;--g3:#dae5dd;--bg:#f4f4f1;--ink:#2b2f2d;--mut:#6b7a72;--line:#c9d4cc;--warn:#b7791f;--bad:#a94442;}
+  *{box-sizing:border-box} html,body{margin:0;height:100%;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:15px}
+  header{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  header h1{font-size:15px;margin:0;color:var(--g2);white-space:nowrap}
+  header select,header button{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff}
+  .badge{margin-left:auto;font-size:12px;color:var(--mut)} .badge.q{color:var(--warn);font-weight:600}
+  .wrap{display:grid;grid-template-columns:1fr 420px;height:calc(100% - 46px)}
+  #map{height:100%;min-height:360px}
+  .panel{overflow:auto;background:#fff;border-left:1px solid var(--line);padding:12px 14px}
+  @media (max-width:900px){.wrap{grid-template-columns:1fr;grid-template-rows:52vh 1fr;height:auto}.panel{border-left:0;border-top:1px solid var(--line)}}
+  h2{font-size:14px;color:var(--g2);margin:14px 0 6px;border-left:4px solid var(--g);padding-left:8px}
+  .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
+  .kpi div{background:var(--g3);border-radius:6px;padding:8px;text-align:center}.kpi b{display:block;font-size:18px;color:var(--g2)}.kpi span{font-size:11px;color:var(--mut)}
+  table{border-collapse:collapse;width:100%;font-size:13px} th,td{border:1px solid var(--line);padding:4px 5px;text-align:left;vertical-align:middle} th{background:var(--g3);color:var(--g2);font-weight:600;white-space:nowrap}
+  td input,td select{width:100%;font:inherit;font-size:13px;padding:4px;border:1px solid var(--line);border-radius:4px;background:#fff}
+  td input.n{width:64px} td input.d{width:120px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0} .row label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px;min-width:120px;flex:1}
+  .row input,.row select{font:inherit;padding:7px;border:1px solid var(--line);border-radius:6px}
+  .btn{font:inherit;padding:9px 14px;border:0;border-radius:8px;background:var(--g);color:#fff;cursor:pointer} .btn.sub{background:#fff;color:var(--g2);border:1px solid var(--line)} .btn:disabled{opacity:.5}
+  .chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;background:var(--g3);color:var(--g2)} .chip.warn{background:#f7ecd2;color:var(--warn)} .chip.bad{background:#f2dfda;color:var(--bad)} .chip.mut{background:#e6e6e2;color:#666}
+  .hint{font-size:12px;color:var(--mut);margin:4px 0}
+  .msg{margin:8px 0;padding:8px 10px;border-radius:6px;font-size:13px} .msg.ok{background:#e3efe6;color:#2e5b3f} .msg.err{background:#f2dfda;color:var(--bad)}
+  .house-label{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-size:12px;color:var(--g2);white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+  .house-label small{display:block;color:var(--mut);font-size:10px}
+  .leaflet-container{font-family:inherit}
+</style>
+</head>
+<body>
+<header>
+  <h1>OS6 現地設定</h1>
+  <select id="field"></select>
+  <button id="btnCenter" title="いま見えている地図の中心を、この圃場の位置として保存">圃場の位置を保存</button>
+  <span id="badge" class="badge">読み込み中…</span>
+</header>
+<div class="wrap">
+  <div id="map"></div>
+  <aside class="panel">
+    <div id="msg"></div>
+    <div id="fieldInfo"></div>
+    <div id="houseForm" style="display:none"></div>
+    <div id="houseDetail"><p class="hint">地図の左の「多角形」または「四角形」ツールでハウス／露地を囲んでください。囲うと面積が自動で出て、名前・畝の本数を入れて保存できます。保存済みのハウスは地図上で選べます。</p></div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script>
+// ───────── 設定（OS9と同じスプレッドシート・同じWebApp）─────────
+const CONFIG = {
+  SHEET_ID: "1hyNpkwXwF5JQE3pLY3DFhGGEX5228tQMbnBsyar7Ylg",
+  WEBAPP_URL: "https://script.google.com/macros/s/AKfycbygruSomnxo__KoY3BxEbwOrZEcrPVggI1tqOOA6btrJRqfo8mfvUbpT2RX8DZ8_j3e/exec",
+  TAB_FIELD: "圃場", TAB_HOUSE: "ハウス区画", TAB_BED: "畝・作付け", TAB_PRICE: "圃場別価格表",
+  DEFAULT_CENTER: [36.08, 140.20], DEFAULT_ZOOM: 13,   // 土浦市（緯度経度未設定の圃場の初期表示）
+  STATUS: ["順調","注意","害虫","遅延","未入力","休耕"], FORMS: ["露地","ハウス","遮光"],
+};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const today = () => { const d=new Date(); return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getDate()).padStart(2,"0")}`; };
+function say(t, cls){ $("msg").innerHTML = t ? `<div class="msg ${cls||"ok"}">${esc(t)}</div>` : ""; }
+
+// ───────── gviz 読み（CSV）─────────
+function parseCSV(text){
+  const rows=[]; let row=[], cur="", q=false;
+  for(let i=0;i<text.length;i++){ const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else if(c==='"') q=true; else if(c===","){row.push(cur);cur="";} else if(c==="\n"){row.push(cur);rows.push(row);row=[];cur="";} else if(c!=="\r") cur+=c; }
+  if(cur!==""||row.length){row.push(cur);rows.push(row);} return rows;
+}
+async function readTab(tab){
+  const url=`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+  const r=await fetch(url,{cache:"no-store"}); if(!r.ok) throw new Error(`${tab} を読めません（HTTP ${r.status}）`);
+  const rows=parseCSV(await r.text()); if(!rows.length) return {head:[],rows:[]};
+  const head=rows[0].map(h=>h.trim()); const out=rows.slice(1).filter(r=>r.some(v=>v&&v.trim())).map(r=>{const o={}; head.forEach((h,i)=>o[h]=(r[i]||"").trim()); return o;});
+  return {head, rows: out};
+}
+const col = (o, prefix) => { const k=Object.keys(o).find(k=>k.startsWith(prefix)); return k? o[k] : ""; };
+
+// ───────── 書き（WebApp POST・トークン・未送信キュー）─────────
+function token(){ let t=localStorage.getItem("gg_os6_token"); if(!t){ t=prompt("管理者パスワード（OS9の承認画面と同じ）を入力"); if(t) localStorage.setItem("gg_os6_token",t); } return t||""; }
+function queue(){ try{ return JSON.parse(localStorage.getItem("gg_os6_queue")||"[]"); }catch(e){ return []; } }
+function setQueue(q){ localStorage.setItem("gg_os6_queue", JSON.stringify(q)); renderBadge(); }
+function renderBadge(){ const n=queue().length; const b=$("badge"); b.className="badge"+(n?" q":""); b.textContent = n? `未送信 ${n}件（通信が戻ったら「再送」）` : "同期OK"; if(n && !$("btnResend")){ const bt=document.createElement("button"); bt.id="btnResend"; bt.textContent="再送"; bt.onclick=flush; b.after(bt);} if(!n && $("btnResend")) $("btnResend").remove(); }
+async function post(payload, {queueOnFail=true}={}){
+  payload.token = token();
+  try{
+    const r=await fetch(CONFIG.WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});
+    const j=await r.json();
+    if(!j.ok){ if(j.error==="unauthorized"){ localStorage.removeItem("gg_os6_token"); throw new Error("パスワードが違います（もう一度保存すると再入力できます）"); } throw new Error(j.error||"保存に失敗"); }
+    return j;
+  }catch(e){
+    if(queueOnFail && (e.name==="TypeError" || /Failed to fetch|NetworkError/.test(String(e)))){ const q=queue(); q.push({t:Date.now(),payload}); setQueue(q); say(`通信できないため手元に保存しました（未送信 ${q.length}件）。電波が戻ったら「再送」を押してください`, "err"); return {ok:false, queued:true}; }
+    throw e;
+  }
+}
+async function flush(){ const q=queue(); if(!q.length) return; let left=[]; for(const it of q){ try{ const r=await post(it.payload,{queueOnFail:false}); if(!r.ok) left.push(it);}catch(e){ left.push(it);} } setQueue(left); say(left.length? `${left.length}件がまだ送れません`: "未送信分をすべて送りました","ok"); if(!left.length) await loadAll(); }
+
+// ───────── 状態 ─────────
+let DATA={fields:[],houses:[],beds:[],items:[]}, MAP, LAYER, DRAWN, SEL=null, FIELD=null;
+const fid = f => col(f,"圃場ID"); const hid = h => col(h,"区画ID"); const bid = b => col(b,"畝ID");
+function chip(st){ const cls = st==="順調"?"":(st==="注意"||st==="遅延")?"warn":(st==="害虫")?"bad":"mut"; return `<span class="chip ${cls}">${esc(st||"未入力")}</span>`; }
+
+async function loadAll(){
+  say("");
+  try{
+    const [F,H,B,P]=await Promise.all([readTab(CONFIG.TAB_FIELD),readTab(CONFIG.TAB_HOUSE),readTab(CONFIG.TAB_BED),readTab(CONFIG.TAB_PRICE)]);
+    DATA.fields=F.rows; DATA.houses=H.rows; DATA.beds=B.rows;
+    DATA.items=P.rows.map(r=>r["呼称"]).filter(Boolean);
+    const sel=$("field"); const keep=sel.value; sel.innerHTML=DATA.fields.map(f=>`<option value="${esc(fid(f))}">${esc(col(f,"正規名"))}</option>`).join("");
+    if(keep) sel.value=keep; FIELD = DATA.fields.find(f=>fid(f)===sel.value) || DATA.fields[0];
+    renderField(); renderBadge();
+  }catch(e){ say("読み込みエラー：" + e.message + "（スプレッドシートの共有が「リンクを知っている全員」になっているか確認）","err"); }
+}
+
+// ───────── 地図 ─────────
+function initMap(){
+  MAP=L.map("map",{zoomControl:true}).setView(CONFIG.DEFAULT_CENTER, CONFIG.DEFAULT_ZOOM);
+  L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",{maxZoom:18,attribution:'出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>'}).addTo(MAP);
+  LAYER=L.featureGroup().addTo(MAP); DRAWN=L.featureGroup().addTo(MAP);
+  L.drawLocal.draw.toolbar.buttons.polygon="多角形で囲む（ハウス／露地）"; L.drawLocal.draw.toolbar.buttons.rectangle="四角形で囲む";
+  MAP.addControl(new L.Control.Draw({position:"topleft", draw:{polyline:false,circle:false,marker:false,circlemarker:false,polygon:{allowIntersection:false,showArea:true,metric:true},rectangle:{showArea:true,metric:true}}, edit:{featureGroup:DRAWN,edit:false,remove:false}}));
+  MAP.on(L.Draw.Event.CREATED, e=>{ DRAWN.clearLayers(); DRAWN.addLayer(e.layer); openHouseForm(e.layer); });
+}
+function areaOf(latlngs){ return Math.round(L.GeometryUtil.geodesicArea(latlngs)); }
+function renderField(){
+  LAYER.clearLayers(); DRAWN.clearLayers(); SEL=null; $("houseForm").style.display="none";
+  const lat=parseFloat(col(FIELD,"緯度")), lng=parseFloat(col(FIELD,"経度"));
+  const houses=DATA.houses.filter(h=>col(h,"圃場ID")===fid(FIELD));
+  $("fieldInfo").innerHTML=`<h2>${esc(col(FIELD,"正規名"))}</h2><div class="kpi"><div><b>${houses.length}</b><span>ハウス・区画</span></div><div><b>${DATA.beds.filter(b=>houses.some(h=>hid(h)===col(b,"区画ID"))).length}</b><span>畝</span></div><div><b>${houses.reduce((s,h)=>s+(parseFloat(col(h,"面積"))||0),0).toLocaleString()}</b><span>㎡</span></div></div>`
+    + (isNaN(lat)? `<p class="hint">この圃場の位置はまだ未設定です。地図を圃場の場所へ動かして「圃場の位置を保存」を押してください（初回だけ）。</p>` : "");
+  let bounds=[];
+  houses.forEach(h=>{ let shape=null; try{ shape=JSON.parse(col(h,"図形")||"null"); }catch(e){}
+    if(shape && shape.length>=3){ const poly=L.polygon(shape,{color:"#587565",weight:2,fillOpacity:.25}).addTo(LAYER);
+      poly.bindTooltip(`<div class="house-label">${esc(col(h,"名称")||hid(h))}<small>${esc(col(h,"面積")||"?")}㎡ ・ ${esc(col(h,"状態")||"未入力")}</small></div>`,{permanent:true,direction:"center",className:"nolabel"});
+      poly.on("click",()=>selectHouse(h)); bounds=bounds.concat(shape); }
+  });
+  if(bounds.length) MAP.fitBounds(bounds,{padding:[30,30],maxZoom:18}); else if(!isNaN(lat)) MAP.setView([lat,lng],17);
+  renderHouseDetail();
+}
+
+// ───────── ハウスの登録 ─────────
+function openHouseForm(layer){
+  const ll=layer.getLatLngs()[0]; const area=areaOf(ll); const shape=ll.map(p=>[+p.lat.toFixed(6),+p.lng.toFixed(6)]);
+  const n=DATA.houses.filter(h=>col(h,"圃場ID")===fid(FIELD)).length+1; const id=`${fid(FIELD)}-${n}`;
+  const f=$("houseForm"); f.style.display="block";
+  f.innerHTML=`<h2>新しいハウス／区画を保存</h2><div class="hint">面積 <b>${area.toLocaleString()}㎡</b>（図形から自動）・区画ID <b>${esc(id)}</b></div>
+   <div class="row"><label>名称<input id="h_name" value="${esc(col(FIELD,"正規名").split("・").pop()||"")} ${n}"></label><label>種別<select id="h_type"><option>ハウス</option><option>露地</option></select></label><label>畝の本数<input id="h_beds" type="number" min="0" value="12"></label></div>
+   <div class="row"><label>遮光%<input id="h_shade" type="number" min="0" max="100" placeholder="0"></label><label>加温<select id="h_heat"><option>無</option><option>有</option></select></label><label>主品目<select id="h_item"><option value="">—</option>${DATA.items.map(i=>`<option>${esc(i)}</option>`).join("")}</select></label><label>状態<select id="h_status">${CONFIG.STATUS.map(s=>`<option>${s}</option>`).join("")}</select></label></div>
+   <div class="row"><button class="btn" id="h_save">このハウスを保存</button><button class="btn sub" id="h_cancel">やめる</button></div>`;
+  $("h_cancel").onclick=()=>{ DRAWN.clearLayers(); f.style.display="none"; };
+  $("h_save").onclick=async()=>{ $("h_save").disabled=true;
+    const row={ "区画ID":id,"圃場ID":fid(FIELD),"名称":$("h_name").value.trim(),"種別":$("h_type").value,"図形":JSON.stringify(shape),"面積":area,"畝の本数":$("h_beds").value,"遮光":$("h_shade").value,"加温":$("h_heat").value,"主品目":$("h_item").value,"状態":$("h_status").value };
+    try{ const r=await post({action:"os6UpsertHouse",row}); if(r.ok){ say(`保存しました：${row["名称"]}（${area}㎡）`); f.style.display="none"; await loadAll(); const h=DATA.houses.find(x=>hid(x)===id); if(h) selectHouse(h);} }
+    catch(e){ say("保存エラー："+e.message,"err"); } $("h_save").disabled=false; };
+}
+
+// ───────── 畝の編集 ─────────
+function selectHouse(h){ SEL=h; renderHouseDetail(); document.querySelector(".panel").scrollTop=0; }
+function renderHouseDetail(){
+  const d=$("houseDetail"); if(!SEL){ if(DATA.houses.filter(h=>col(h,"圃場ID")===fid(FIELD)).length) d.innerHTML=`<p class="hint">地図上のハウスをタップすると、畝ごとの品目・株数・定植日を入力できます。</p>`; return; }
+  const n=parseInt(col(SEL,"畝の本数"))||0; const existing=DATA.beds.filter(b=>col(b,"区画ID")===hid(SEL));
+  const rows=[]; for(let i=1;i<=Math.max(n,existing.length);i++){ const id=`${hid(SEL)}-${String(i).padStart(2,"0")}`; rows.push(existing.find(b=>bid(b)===id)||{"畝ID":id}); }
+  d.innerHTML=`<h2>${esc(col(SEL,"名称")||hid(SEL))} ${chip(col(SEL,"状態"))}</h2>
+   <div class="kpi"><div><b>${esc(col(SEL,"面積")||"?")}</b><span>㎡</span></div><div><b>${n}</b><span>畝</span></div><div><b>${existing.reduce((s,b)=>s+(parseInt(col(b,"株数"))||0),0).toLocaleString()}</b><span>株（登録済）</span></div></div>
+   <div class="hint">畝の本数はハウス区画タブで変えられます。空の行は保存されません。</div>
+   <div style="overflow:auto"><table><thead><tr><th>畝</th><th>品目</th><th>品種</th><th>株数</th><th>定植日</th><th>作型</th><th>状態</th></tr></thead><tbody>
+   ${rows.map(b=>`<tr data-id="${esc(bid(b))}"><td>${esc(bid(b).split("-").pop())}</td>
+     <td><select class="b_item"><option value="">—</option>${DATA.items.map(i=>`<option ${col(b,"品目")===i?"selected":""}>${esc(i)}</option>`).join("")}</select></td>
+     <td><input class="b_var" value="${esc(col(b,"品種"))}"></td><td><input class="b_cnt n" type="number" min="0" value="${esc(col(b,"株数"))}"></td>
+     <td><input class="b_date d" placeholder="2026/09/10" value="${esc(col(b,"定植日"))}"></td>
+     <td><select class="b_form">${CONFIG.FORMS.map(f=>`<option ${col(b,"作型")===f?"selected":""}>${f}</option>`).join("")}</select></td>
+     <td><select class="b_st">${CONFIG.STATUS.map(s=>`<option ${(col(b,"状態")||"未入力")===s?"selected":""}>${s}</option>`).join("")}</select></td></tr>`).join("")}
+   </tbody></table></div>
+   <div class="row"><button class="btn" id="b_save">畝を保存（${rows.length}本）</button><button class="btn sub" id="b_fill">1行目を全行にコピー</button></div>`;
+  $("b_fill").onclick=()=>{ const trs=[...d.querySelectorAll("tbody tr")]; if(!trs.length) return; const src=trs[0]; trs.slice(1).forEach(tr=>{ ["b_item","b_var","b_cnt","b_date","b_form","b_st"].forEach(c=>{ tr.querySelector("."+c).value=src.querySelector("."+c).value; }); }); };
+  $("b_save").onclick=async()=>{ $("b_save").disabled=true;
+    const out=[...d.querySelectorAll("tbody tr")].map(tr=>({ "畝ID":tr.dataset.id,"区画ID":hid(SEL),"品目":tr.querySelector(".b_item").value,"品種":tr.querySelector(".b_var").value.trim(),"株数":tr.querySelector(".b_cnt").value,"定植日":tr.querySelector(".b_date").value.trim(),"作型":tr.querySelector(".b_form").value,"状態":tr.querySelector(".b_st").value })).filter(r=>r["品目"]||r["株数"]||r["定植日"]);
+    if(!out.length){ say("入力のある畝がありません","err"); $("b_save").disabled=false; return; }
+    try{ const r=await post({action:"os6UpsertBeds",rows:out}); if(r.ok){ say(`畝を保存しました（${out.length}本）`); await loadAll(); const h=DATA.houses.find(x=>hid(x)===hid(SEL)); if(h) selectHouse(h);} }
+    catch(e){ say("保存エラー："+e.message,"err"); } $("b_save").disabled=false; };
+}
+
+// ───────── 圃場の位置 ─────────
+$("btnCenter").onclick=async()=>{ if(!FIELD) return; const c=MAP.getCenter();
+  try{ const r=await post({action:"os6UpsertField",row:{"圃場ID":fid(FIELD),"緯度":+c.lat.toFixed(6),"経度":+c.lng.toFixed(6)}}); if(r.ok){ say("圃場の位置を保存しました"); await loadAll(); } }catch(e){ say("保存エラー："+e.message,"err"); } };
+$("field").onchange=()=>{ FIELD=DATA.fields.find(f=>fid(f)===$("field").value); renderField(); };
+
+// 起動
+initMap(); loadAll(); window.addEventListener("online", ()=>{ if(queue().length) flush(); });
+</script>
+</body>
+</html>
