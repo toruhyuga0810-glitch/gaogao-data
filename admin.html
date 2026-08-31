@@ -330,8 +330,8 @@ let ORDERS=[];
 const yen=n=>(n==null||n==='')?'–':'¥'+Math.floor(n).toLocaleString();   // 端数はfreee(line_amount_fraction:omit=切捨て)と同じ丸めで表示
 // 圃場番号→エリア・農家名（表示用。値は「第N圃場」のまま）。表記は仕様書の一元化ルール「第N圃場・エリア・農家名」。
 // 兄弟の対応表：GAS FREEE_FARM_AREA（納品書見出し）／scripts/sync_jisseki_from_freee.py FARM_MAP（実績）／価格表シート見出し「第N圃場：…」（ポータル表示）
-const FARM_AREA={1:'八郷',2:'鉾田',3:'土浦',4:'沖縄',5:'江戸崎',6:'牛久'};
-const FARM_FARMER={1:'中村',2:'トゥアン',3:'ペン',4:'宮古島マルセイ・川満',5:'パーン',6:'デーン'};   // 本人確定 2026-08-29（トゥアン＝Notion表記「トゥン」と同一）
+const FARM_AREA={1:'八郷',2:'鉾田',3:'土浦',4:'沖縄・宮古島',5:'江戸崎'};   // 6牛久は2026-08-29抹消（欠番）
+const FARM_FARMER={1:'中村',2:'トゥアン',3:'ペン',4:'マルセイ・川満',5:'パーン'};   // 本人確定 2026-08-29（鉾田はトゥアン表記で統一）
 const PFARM_SUB={};   // 価格表シート見出しの「：」右側（例 Yasato）。FARM_AREAに無い番号のフォールバック
 function farmArea(n){ return FARM_AREA[n] ? (FARM_AREA[n]+(FARM_FARMER[n]?'・'+FARM_FARMER[n]:'')) : (PFARM_SUB[n]||''); }
 function farmLabel(f){ const m=String(f).match(/第(\d+)圃場/); const a=m?farmArea(+m[1]):''; return a?`${f}・${a}`:f; }
