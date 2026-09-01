@@ -81,6 +81,7 @@
     <div id="msg"></div>
     <div id="fieldInfo"></div>
     <div id="posForm" style="display:none"></div>
+    <div id="placeForm" style="display:none"></div>
     <div id="houseForm" style="display:none"></div>
     <div id="houseDetail"><p class="hint">上の検索バーで住所・地名を探すか、右下の◎で現在地へ。地図左の「多角形」「四角形」でハウス／露地を囲むと面積が自動で出て、名前・畝の本数を入れて保存できます。保存済みのハウスは地図上で選べます。</p></div>
   </aside>
@@ -88,7 +89,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-<script src="os6-common.js?v=1"></script>
+<script src="os6-common.js?v=2"></script>
 <script>
 // ───────── 場所を探す・現在地・住所の自動取得（地図アプリの型）─────────
 const geo = {
@@ -129,10 +130,44 @@ function useAsFieldPos(){ if(!CAND) return; const p=CAND.getLatLng(); MAP.remove
 // 候補ピンを立てる（検索の選択・地図の長押し/右クリック）。住所は後から自動で埋める
 function dropCand(c){
   if(CAND) MAP.removeLayer(CAND);
-  CAND=L.marker([c.lat,c.lng]).addTo(MAP).bindPopup(`<b>${esc(c.name)}</b><br><span class="hint" id="candAddr">住所を調べています…</span><br><button class="btn" id="candUse">ここを圃場の位置にする</button>`);
-  CAND.on("popupopen",()=>{ const b=$("candUse"); if(b) b.onclick=useAsFieldPos; });
-  CAND.openPopup();
+  CAND=L.marker([c.lat,c.lng]).addTo(MAP).bindPopup(`<b>${esc(c.name)}</b><br><span class="hint" id="candAddr">住所を調べています…</span><br>
+    <button class="btn" id="candUse">ここを圃場の位置にする</button> <button class="btn sub" id="candSave">場所帳に保存</button><br>
+    <a class="hint" href="${navUrl(c.lat,c.lng)}" target="_blank" rel="noopener">ナビで開く</a>`);
+  const bind=()=>{ const b=$("candUse"); if(b) b.onclick=useAsFieldPos; const s=$("candSave"); if(s) s.onclick=()=>openPlaceForm(c); };
+  CAND.on("popupopen",bind); CAND.openPopup(); bind();
   geo.address((+c.lat).toFixed(6), (+c.lng).toFixed(6)).then(a=>{ const el=$("candAddr"); if(el) el.textContent = a || "（住所が取れない地点）"; }).catch(()=>{});
+}
+// 自社の場所（圃場・ハウス・場所帳）を検索の最上位に出す。使うほど「自分の地図」になる
+function matchOwn(q){
+  const n=q.toLowerCase(); if(n.length<1 || /^https?:/.test(n)) return [];
+  const list=[];
+  DATA.fields.forEach(f=>{ const la=parseFloat(col(f,"緯度")), ln=parseFloat(col(f,"経度"));
+    if(!isNaN(la)&&!isNaN(ln)&&(String(col(f,"正規名"))+String(col(f,"所在地"))).toLowerCase().includes(n)) list.push({name:col(f,"正規名"), lat:la, lng:ln, src:"自社・圃場"}); });
+  DATA.houses.forEach(h=>{ try{ const sh=JSON.parse(col(h,"図形")||"null");
+    if(sh&&sh.length>=3&&String(col(h,"名称")).toLowerCase().includes(n)){ const la=sh.reduce((s,p)=>s+p[0],0)/sh.length, ln=sh.reduce((s,p)=>s+p[1],0)/sh.length; list.push({name:col(h,"名称")+"（ハウス）", lat:la, lng:ln, src:"自社"}); } }catch(e){} });
+  (DATA.places||[]).forEach(pl=>{ const la=parseFloat(col(pl,"緯度")), ln=parseFloat(col(pl,"経度"));
+    if(!isNaN(la)&&!isNaN(ln)&&(String(col(pl,"名称"))+String(col(pl,"種別"))+String(col(pl,"メモ"))).toLowerCase().includes(n)) list.push({name:col(pl,"名称")+(col(pl,"種別")? "・"+col(pl,"種別"):""), lat:la, lng:ln, src:"自社・場所帳"}); });
+  return list.slice(0,6);
+}
+function nextPlaceId(){ return "P"+((DATA.places||[]).reduce((m,p)=>Math.max(m,parseInt(String(col(p,"場所ID")).replace(/\D/g,""))||0),0)+1); }
+function openPlaceForm(c){
+  closePosForm(); $("houseForm").style.display="none";
+  const got=$("candAddr")? $("candAddr").textContent : ""; const addr=/調べています|取れない/.test(got)? "" : got;
+  const f=$("placeForm"); f.style.display="block";
+  f.innerHTML=`<h2>場所帳に保存</h2><div class="hint">保存すると、次からは検索で名前を打つだけでここに飛べます（自社の場所が候補の最上位に出ます）。</div>
+   <div class="row"><label>名称<input id="pl_name" placeholder="例：JA土浦 ◯◯支所／富沢商店"></label><label>種別<select id="pl_type">${["JA","直売所","市場","取引先","倉庫","施設","その他"].map(t=>`<option>${t}</option>`).join("")}</select></label></div>
+   <div class="row"><label>住所<input id="pl_addr" value="${esc(addr)}"></label></div>
+   <div class="row"><label>メモ<input id="pl_note" placeholder="例：入口は北側・担当◯◯さん"></label></div>
+   <div class="row"><button class="btn" id="pl_save">保存</button><button class="btn sub" id="pl_cancel">やめる</button></div>`;
+  $("pl_cancel").onclick=()=>{ f.style.display="none"; };
+  $("pl_save").onclick=async()=>{
+    const name=$("pl_name").value.trim(); if(!name){ say("名称を入れてください","err"); return; }
+    $("pl_save").disabled=true;
+    const row={ "場所ID":nextPlaceId(), "名称":name, "種別":$("pl_type").value, "緯度":+(+c.lat).toFixed(6), "経度":+(+c.lng).toFixed(6), "住所":$("pl_addr").value.trim(), "メモ":$("pl_note").value.trim() };
+    try{ const r=await post({action:"os6UpsertPlace",row}); if(r.ok){ say(`場所帳に保存しました：${name}`); f.style.display="none"; if(CAND){ MAP.removeLayer(CAND); CAND=null; } await loadAll(); } }
+    catch(e){ say("保存エラー："+e.message,"err"); } $("pl_save").disabled=false;
+  };
+  document.querySelector(".panel").scrollTop=0;
 }
 function goTo(c){
   MAP.flyTo([c.lat,c.lng], Math.max(MAP.getZoom(),16));
@@ -143,14 +178,21 @@ async function runSearch(withGoogle, live){
   const q=$("q").value.trim(); if(!q){ $("qList").style.display="none"; return; } $("qGo").disabled=true;
   const seq=++SEARCH_SEQ;
   try{
-    let list=await geo.search(q), note="";
+    let list=matchOwn(q), note="";
+    try{ list=list.concat(await geo.search(q)); }catch(e){ note=e.message; }
     if(seq!==SEARCH_SEQ) return; // 入力が先へ進んでいたら古い結果は捨てる
     if(withGoogle || (!live && hasToken() && !list.length)){ try{ list=list.concat(await geo.searchGoogle(q)); }catch(e){ note="Google検索："+e.message; } }
+    // 短縮リンク（maps.app.goo.gl 等）は Apps Script が辿って座標にする（検索ボタン／Enterのときだけ）
+    if(!live && !list.length && /^https?:\/\//i.test(q)){
+      if(hasToken()){ try{ const r=await post({action:"os6ResolveLink",url:q},{queueOnFail:false}); if(r.ok) list=[{name:`リンクの地点 ${(+r.lat).toFixed(5)}, ${(+r.lng).toFixed(5)}`, lat:+r.lat, lng:+r.lng, src:"マップのリンク"}]; }catch(e){ note="リンク展開："+e.message; } }
+      else note="短縮リンクの展開には管理者パスワードが要ります（下の「パスワードを入れて展開」を押してください）";
+    }
     if(seq!==SEARCH_SEQ) return;
     let action=null;
+    if(!list.length && /^https?:\/\//i.test(q) && !hasToken()) action={label:"パスワードを入れて展開", fn:()=>{ token(); runSearch(false); }};
     if(!list.length && live){ $("qList").style.display="none"; $("qGo").disabled=false; return; } // 入力途中は静かに
     if(!list.length && !note) note = hasToken()? "見つかりません。市町村名から入れると当たりやすいです。地図の長押し（右クリック）でも指定できます" : "見つかりません。施設名・店名で探すには「Googleで探す」（管理者パスワードが要ります）。地図の長押し（右クリック）でも指定できます";
-    if(!list.length && !hasToken() && !withGoogle) action={label:"Googleで探す", fn:()=>runSearch(true)};
+    if(!list.length && !hasToken() && !withGoogle && !action) action={label:"Googleで探す", fn:()=>runSearch(true)};
     showCandidates(list, note, action);
   }catch(e){ if(seq===SEARCH_SEQ) showCandidates([], e.message); }
   $("qGo").disabled=false;
@@ -189,8 +231,8 @@ const navUrl = (lat,lng) => `https://www.google.com/maps/dir/?api=1&destination=
 async function loadAll(){
   say("");
   try{
-    const [F,H,B,P]=await Promise.all([readTab(CONFIG.TAB_FIELD),readTab(CONFIG.TAB_HOUSE),readTab(CONFIG.TAB_BED),readTab(CONFIG.TAB_PRICE)]);
-    DATA.fields=F.rows; DATA.houses=H.rows; DATA.beds=B.rows;
+    const [F,H,B,P,PL]=await Promise.all([readTab(CONFIG.TAB_FIELD),readTab(CONFIG.TAB_HOUSE),readTab(CONFIG.TAB_BED),readTab(CONFIG.TAB_PRICE),readTab("場所").catch(()=>({rows:[]}))]);
+    DATA.fields=F.rows; DATA.houses=H.rows; DATA.beds=B.rows; DATA.places=PL.rows;
     DATA.items=P.rows.map(r=>r["呼称"]).filter(Boolean);
     const sel=$("field"); const keep=sel.value; sel.innerHTML=DATA.fields.map(f=>`<option value="${esc(fid(f))}">${esc(col(f,"正規名"))}</option>`).join("");
     if(keep) sel.value=keep; FIELD = DATA.fields.find(f=>fid(f)===sel.value) || DATA.fields[0];
@@ -244,7 +286,7 @@ async function onPinMoved(){
   const a=await geo.address(p.lat.toFixed(6), p.lng.toFixed(6)); if(!POS||seq!==POS.seq) return; // 連続ドラッグは最後だけ反映
   if(a){ $("p_addr").value=a; $("p_addrHint").textContent="自動取得（直せます）"; } else $("p_addrHint").textContent="住所を取得できませんでした（手入力できます）";
 }
-function closePosForm(){ POS=null; if(PIN){ MAP.removeLayer(PIN); PIN=null; } $("posForm").style.display="none"; }
+function closePosForm(){ POS=null; if(PIN){ MAP.removeLayer(PIN); PIN=null; } $("posForm").style.display="none"; $("placeForm").style.display="none"; }
 function openPosForm(field, latlng){
   const isNew=!field; const {id,n}=isNew? nextFieldId() : {id:fid(field), n:null};
   POS={isNew, id, seq:0}; $("houseForm").style.display="none"; SEL=null; renderHouseDetail();

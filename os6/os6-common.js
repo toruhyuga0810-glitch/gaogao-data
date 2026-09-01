@@ -32,11 +32,12 @@ function parseCSV(text){
 }
 async function readTab(tab){
   // シート非公開化（2026-09-02）：GAS読み出しAPI（sheetData）が正・gvizはフォールバック
-  let rows=null;
+  let rows=null, gasErr=null;
   try{
     const g=await fetch(`${CONFIG.WEBAPP_URL}?action=sheet&name=${encodeURIComponent(tab)}&t=${Date.now()}`,{cache:"no-store"});
-    if(g.ok){ const j=await g.json(); if(j&&j.ok&&Array.isArray(j.rows)) rows=j.rows; }
+    if(g.ok){ const j=await g.json(); if(j&&j.ok&&Array.isArray(j.rows)) rows=j.rows; else if(j&&j.error) gasErr=j.error; }
   }catch(e){}
+  if(!rows && gasErr) throw new Error(`${tab} を読めません（${gasErr}）`); // GASが答えた失敗はそのまま返す（無いタブ等。gvizへは落ちない）
   if(!rows){
     const url=`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
     const r=await fetch(url,{cache:"no-store"}); if(!r.ok) throw new Error(`${tab} を読めません（HTTP ${r.status}）`);
