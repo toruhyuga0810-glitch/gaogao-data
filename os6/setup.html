@@ -71,7 +71,7 @@
   <div class="mapwrap">
     <div id="map"></div>
     <div class="searchbar">
-      <div class="in"><input id="q" placeholder="住所・地名・座標で探す（例：かすみがうら市牛渡）" autocomplete="off" enterkeyhint="search"><button id="qGo">検索</button></div>
+      <div class="in"><input id="q" placeholder="住所・地名を入力すると候補が出ます（マップのリンク・座標も可）" autocomplete="off" enterkeyhint="search"><button id="qGo">検索</button></div>
       <div id="qList" class="qlist"></div>
     </div>
     <span id="locInfo" class="locinfo"></span>
@@ -95,6 +95,9 @@ const geo = {
   // 住所・地名・座標 → 候補（国土地理院・鍵不要・都道府県〜大字レベル）
   async search(q){
     const m=q.match(/^\s*(-?\d{1,2}\.\d+)\s*[,、\s]\s*(-?\d{1,3}\.\d+)\s*$/); if(m) return [{name:`座標 ${m[1]}, ${m[2]}`, lat:+m[1], lng:+m[2], src:"座標"}];
+    // Googleマップ・Appleマップの共有リンクを貼ったら、その地点へ（@lat,lng ／ q=・ll=・destination=lat,lng）
+    const u=q.match(/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/) || q.match(/[?&](?:q|ll|center|destination|sll)=(-?\d{1,2}\.\d+)(?:%2C|,)(-?\d{1,3}\.\d+)/);
+    if(u) return [{name:`リンクの地点 ${(+u[1]).toFixed(5)}, ${(+u[2]).toFixed(5)}`, lat:+u[1], lng:+u[2], src:"マップのリンク"}];
     const r=await fetch(CONFIG.GSI_SEARCH+encodeURIComponent(q)); if(!r.ok) throw new Error(`住所検索に失敗（HTTP ${r.status}）`);
     const j=await r.json(); return (Array.isArray(j)?j:[]).slice(0,10).map(f=>({name:f.properties.title, lat:f.geometry.coordinates[1], lng:f.geometry.coordinates[0], src:"地理院"}));
   },
@@ -123,27 +126,40 @@ function showCandidates(list, note, action){
   box.style.display = box.innerHTML? "block":"none";
 }
 function useAsFieldPos(){ if(!CAND) return; const p=CAND.getLatLng(); MAP.removeLayer(CAND); CAND=null; openPosForm(FIELD, [p.lat,p.lng]); }
+// 候補ピンを立てる（検索の選択・地図の長押し/右クリック）。住所は後から自動で埋める
+function dropCand(c){
+  if(CAND) MAP.removeLayer(CAND);
+  CAND=L.marker([c.lat,c.lng]).addTo(MAP).bindPopup(`<b>${esc(c.name)}</b><br><span class="hint" id="candAddr">住所を調べています…</span><br><button class="btn" id="candUse">ここを圃場の位置にする</button>`);
+  CAND.on("popupopen",()=>{ const b=$("candUse"); if(b) b.onclick=useAsFieldPos; });
+  CAND.openPopup();
+  geo.address((+c.lat).toFixed(6), (+c.lng).toFixed(6)).then(a=>{ const el=$("candAddr"); if(el) el.textContent = a || "（住所が取れない地点）"; }).catch(()=>{});
+}
 function goTo(c){
   MAP.flyTo([c.lat,c.lng], Math.max(MAP.getZoom(),16));
   if(POS){ setPin(c.lat,c.lng); return; }
-  if(CAND) MAP.removeLayer(CAND);
-  CAND=L.marker([c.lat,c.lng]).addTo(MAP).bindPopup(`<b>${esc(c.name)}</b><br><button class="btn" id="candUse">ここを圃場の位置にする</button>`);
-  CAND.on("popupopen",()=>{ const b=$("candUse"); if(b) b.onclick=useAsFieldPos; });
-  CAND.openPopup();
+  dropCand(c);
 }
-async function runSearch(withGoogle){
-  const q=$("q").value.trim(); if(!q) return; $("qGo").disabled=true;
+async function runSearch(withGoogle, live){
+  const q=$("q").value.trim(); if(!q){ $("qList").style.display="none"; return; } $("qGo").disabled=true;
+  const seq=++SEARCH_SEQ;
   try{
     let list=await geo.search(q), note="";
-    if(withGoogle || (hasToken() && !list.length)){ try{ list=list.concat(await geo.searchGoogle(q)); }catch(e){ note="Google検索："+e.message; } }
+    if(seq!==SEARCH_SEQ) return; // 入力が先へ進んでいたら古い結果は捨てる
+    if(withGoogle || (!live && hasToken() && !list.length)){ try{ list=list.concat(await geo.searchGoogle(q)); }catch(e){ note="Google検索："+e.message; } }
+    if(seq!==SEARCH_SEQ) return;
     let action=null;
-    if(!list.length && !note) note = hasToken()? "見つかりません。市町村名から入れると当たりやすいです" : "見つかりません。施設名・店名で探すには「Googleで探す」（管理者パスワードが要ります）";
+    if(!list.length && live){ $("qList").style.display="none"; $("qGo").disabled=false; return; } // 入力途中は静かに
+    if(!list.length && !note) note = hasToken()? "見つかりません。市町村名から入れると当たりやすいです。地図の長押し（右クリック）でも指定できます" : "見つかりません。施設名・店名で探すには「Googleで探す」（管理者パスワードが要ります）。地図の長押し（右クリック）でも指定できます";
     if(!list.length && !hasToken() && !withGoogle) action={label:"Googleで探す", fn:()=>runSearch(true)};
     showCandidates(list, note, action);
-  }catch(e){ showCandidates([], e.message); }
+  }catch(e){ if(seq===SEARCH_SEQ) showCandidates([], e.message); }
   $("qGo").disabled=false;
 }
-$("qGo").onclick=()=>runSearch(false); $("q").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); runSearch(false); } });
+let SEARCH_SEQ=0, QT=null;
+$("qGo").onclick=()=>runSearch(false); $("q").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); clearTimeout(QT); runSearch(false); } });
+// 地図アプリの型：入力しながら候補を出す（IME変換中は待つ・2文字から・0.3秒の間を置く）
+$("q").addEventListener("input",e=>{ if(e.isComposing) return; clearTimeout(QT); const q=$("q").value.trim(); if(q.length<2){ $("qList").style.display="none"; return; } QT=setTimeout(()=>runSearch(false,true),300); });
+$("q").addEventListener("compositionend",()=>{ clearTimeout(QT); if($("q").value.trim().length>=2) QT=setTimeout(()=>runSearch(false,true),200); });
 document.addEventListener("click",e=>{ if(!e.target.closest(".searchbar")) $("qList").style.display="none"; });
 
 // 現在地（押すと追従開始・もう一度で停止）
@@ -190,6 +206,9 @@ function initMap(){
   L.drawLocal.draw.toolbar.buttons.polygon="多角形で囲む（ハウス／露地）"; L.drawLocal.draw.toolbar.buttons.rectangle="四角形で囲む";
   MAP.addControl(new L.Control.Draw({position:"topleft", draw:{polyline:false,circle:false,marker:false,circlemarker:false,polygon:{allowIntersection:false,showArea:true,metric:true},rectangle:{showArea:true,metric:true}}, edit:{featureGroup:DRAWN,edit:false,remove:false}}));
   MAP.on(L.Draw.Event.CREATED, e=>{ DRAWN.clearLayers(); DRAWN.addLayer(e.layer); openHouseForm(e.layer); });
+  // 地図アプリの型：位置設定中はタップした場所にピンが動く／それ以外は長押し（PCは右クリック）で候補ピン
+  MAP.on("click", e=>{ if(POS) setPin(e.latlng.lat, e.latlng.lng); });
+  MAP.on("contextmenu", e=>{ if(POS) setPin(e.latlng.lat, e.latlng.lng); else dropCand({name:"指定した地点", lat:e.latlng.lat, lng:e.latlng.lng, src:"地図"}); });
 }
 function areaOf(latlngs){ return Math.round(L.GeometryUtil.geodesicArea(latlngs)); }
 function renderField(){
@@ -230,7 +249,7 @@ function openPosForm(field, latlng){
   const isNew=!field; const {id,n}=isNew? nextFieldId() : {id:fid(field), n:null};
   POS={isNew, id, seq:0}; $("houseForm").style.display="none"; SEL=null; renderHouseDetail();
   const f=$("posForm"); f.style.display="block";
-  f.innerHTML=`<h2>${isNew? "新しい圃場を登録" : "圃場の位置・所在地"}</h2><div class="hint">圃場ID <b>${esc(id)}</b>。地図のピンをドラッグするか、検索・現在地でピンを動かして合わせてください。</div>
+  f.innerHTML=`<h2>${isNew? "新しい圃場を登録" : "圃場の位置・所在地"}</h2><div class="hint">圃場ID <b>${esc(id)}</b>。地図を<b>タップした場所にピンが動きます</b>（ドラッグ・検索・現在地でも可）。</div>
    <div class="row"><label>正規名（第N圃場・エリア・農家名）<input id="p_name" value="${esc(isNew? `第${n}圃場・・` : col(field,"正規名"))}"></label></div>
    <div class="row"><label>所在地<input id="p_addr" value="${esc(isNew? "" : col(field,"所在地"))}"><span class="hint" id="p_addrHint"></span></label></div>
    <div class="row"><label>稼働<select id="p_ops"><option value="">—</option>${CONFIG.OPS.map(o=>`<option ${(!isNew&&col(field,"稼働")===o)?"selected":""}>${o}</option>`).join("")}</select></label><label>緯度, 経度<span id="p_ll" style="padding:7px 0">（ピン未設定）</span></label></div>
