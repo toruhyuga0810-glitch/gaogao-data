@@ -386,6 +386,11 @@ function parseCSV(text){
 }
 function gvizURL(sheet){ return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&headers=1&t=${Date.now()}`; }
 async function fetchSheet(sheet){
+  // シート非公開化（2026-09-02）：GAS読み出しAPIが正・gvizはフォールバック（orders.jsと手動同期）
+  try{
+    const r=await fetch(`${CONFIG.ORDER_WEBAPP_URL}?action=sheet&name=${encodeURIComponent(sheet)}&t=${Date.now()}`,{cache:'no-store'});
+    if(r.ok){ const j=await r.json(); if(j&&j.ok&&Array.isArray(j.rows)) return j.rows; }
+  }catch(e){}
   const res=await fetch(gvizURL(sheet),{cache:'no-store'});
   if(!res.ok) throw new Error('「'+sheet+'」の取得に失敗 ('+res.status+')');
   return parseCSV(await res.text());

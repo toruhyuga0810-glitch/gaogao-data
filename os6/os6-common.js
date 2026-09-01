@@ -31,9 +31,17 @@ function parseCSV(text){
   if(cur!==""||row.length){row.push(cur);rows.push(row);} return rows;
 }
 async function readTab(tab){
-  const url=`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
-  const r=await fetch(url,{cache:"no-store"}); if(!r.ok) throw new Error(`${tab} を読めません（HTTP ${r.status}）`);
-  const rows=parseCSV(await r.text()); if(!rows.length) return {head:[],rows:[]};
+  // シート非公開化（2026-09-02）：GAS読み出しAPI（sheetData）が正・gvizはフォールバック
+  let rows=null;
+  try{
+    const g=await fetch(`${CONFIG.WEBAPP_URL}?action=sheet&name=${encodeURIComponent(tab)}&t=${Date.now()}`,{cache:"no-store"});
+    if(g.ok){ const j=await g.json(); if(j&&j.ok&&Array.isArray(j.rows)) rows=j.rows; }
+  }catch(e){}
+  if(!rows){
+    const url=`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`;
+    const r=await fetch(url,{cache:"no-store"}); if(!r.ok) throw new Error(`${tab} を読めません（HTTP ${r.status}）`);
+    rows=parseCSV(await r.text());
+  } if(!rows.length) return {head:[],rows:[]};
   const head=rows[0].map(h=>h.trim()); const out=rows.slice(1).filter(r=>r.some(v=>v&&v.trim())).map(r=>{const o={}; head.forEach((h,i)=>o[h]=(r[i]||"").trim()); return o;});
   return {head, rows: out};
 }
