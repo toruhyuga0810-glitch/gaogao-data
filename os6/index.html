@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OS6 Farm control — 俯瞰</title>
+<link rel="icon" href="data:,">
+<!-- ─────────────────────────────────────────────────────────────
+  OS6：Farm control 段D「俯瞰画面」v0.1（2026-09-02）
+  ・読み専用（パスワード不要）。読み＝GAS読み出しAPI（os6-common.js readTab）
+  ・構成＝モックアップ2枚の再現：左に圃場マップ（区画は状態色）／右パネルは 全体→圃場→区画 の3段
+    区画を選ぶと：畝の表（品目・株数・定植日・最新草丈・状態）＋草丈推移（SVG・canvas不使用=規約§4）＋観察からの自動提案
+  ・「AI提案」＝いまは育成記録から導く規則ベース（病害虫・水分・葉色・記録間隔・収穫見込み）。
+    判断層（climate_fit・weather_now・栽培マニュアル閾値）の接続は段E（CLAUDE.md §変数レイヤー）
+  ・実データが無い間の確認用：?demo=1 でデモデータ表示（バナー明示・シートには書かない）
+  ・チャート配色＝デザイン基準§10（細いマークは深色版・強調はローズ）
+───────────────────────────────────────────────────────────── -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+  :root{--g:#587565;--g2:#3d5248;--g3:#dae5dd;--bg:#f4f4f1;--ink:#2b2f2d;--mut:#6b7a72;--line:#c9d4cc;--warn:#b7791f;--bad:#a94442;--blue:#1a73e8;--rose:#D14A63;}
+  *{box-sizing:border-box} html,body{margin:0;height:100%;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:15px}
+  header{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  header h1{font-size:15px;margin:0;color:var(--g2);white-space:nowrap}
+  header a.nav{font-size:13px;color:var(--g2);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:5px 9px;background:#fff;white-space:nowrap}
+  header a.nav:hover{background:var(--g3)}
+  .badge{margin-left:auto;font-size:12px;color:var(--mut);white-space:nowrap}
+  .demo{background:#f7ecd2;color:var(--warn);font-size:12px;padding:4px 12px;text-align:center;border-bottom:1px solid #e8d9b0}
+  @media (max-width:900px){header{flex-wrap:wrap;row-gap:6px} .badge{margin-left:0;flex-basis:100%}}
+  .wrap{display:grid;grid-template-columns:1fr 440px;height:calc(100% - 46px)}
+  .mapwrap{position:relative;height:100%;min-height:360px} #map{height:100%}
+  .panel{overflow:auto;background:#fff;border-left:1px solid var(--line);padding:12px 14px}
+  @media (max-width:900px){.wrap{grid-template-columns:1fr;grid-template-rows:44vh 1fr;height:auto}.panel{border-left:0;border-top:1px solid var(--line)}}
+  h2{font-size:14px;color:var(--g2);margin:14px 0 6px;border-left:4px solid var(--g);padding-left:8px}
+  .crumb{font-size:12px;color:var(--mut);margin:2px 0 8px} .crumb a{color:var(--blue);text-decoration:none;cursor:pointer}
+  .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
+  .kpi div{background:var(--g3);border-radius:6px;padding:8px;text-align:center}.kpi b{display:block;font-size:18px;color:var(--g2)}.kpi span{font-size:11px;color:var(--mut)}
+  table{border-collapse:collapse;width:100%;font-size:13px} th,td{border:1px solid var(--line);padding:4px 6px;text-align:left;vertical-align:middle} th{background:var(--g3);color:var(--g2);font-weight:600;white-space:nowrap}
+  .chip{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;background:var(--g3);color:var(--g2);white-space:nowrap}
+  .chip.warn{background:#f7ecd2;color:var(--warn)} .chip.bad{background:#f2dfda;color:var(--bad)} .chip.mut{background:#e6e6e2;color:#666}
+  .hint{font-size:12px;color:var(--mut);margin:4px 0;line-height:1.7}
+  .msg{margin:8px 0;padding:8px 10px;border-radius:6px;font-size:13px} .msg.ok{background:#e3efe6;color:#2e5b3f} .msg.err{background:#f2dfda;color:var(--bad)}
+  .card{border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin:7px 0;cursor:pointer;background:#fff}
+  .card:hover{background:#f8faf8} .card b{color:var(--g2)} .card .sub{font-size:12px;color:var(--mut);margin-top:2px;line-height:1.6}
+  .alert{display:flex;gap:8px;align-items:flex-start;border-left:4px solid var(--warn);background:#fdf9ef;border-radius:0 6px 6px 0;padding:7px 10px;margin:6px 0;font-size:13px;line-height:1.55}
+  .alert.bad{border-left-color:var(--bad);background:#fbf1ef} .alert.info{border-left-color:var(--g);background:#f2f6f3}
+  .alert .where{color:var(--mut);font-size:11px;display:block}
+  .chart{border:1px solid var(--line);border-radius:8px;padding:8px;margin:8px 0;background:#fff}
+  .chart svg{width:100%;height:auto;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--mut);margin:4px 2px}
+  .legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
+  .btn{font:inherit;padding:9px 14px;border:0;border-radius:8px;background:var(--g);color:#fff;cursor:pointer;text-decoration:none;display:inline-block;font-size:14px}
+  .btn.sub{background:#fff;color:var(--g2);border:1px solid var(--line)}
+  .field-label,.house-label{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-size:12px;color:var(--g2);white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+  .leaflet-container{font-family:inherit}
+</style>
+</head>
+<body>
+<header>
+  <h1>OS6 俯瞰</h1>
+  <a class="nav" href="setup.html">現地設定</a>
+  <a class="nav" href="record.html">巡回記録</a>
+  <span id="badge" class="badge">読み込み中…</span>
+</header>
+<div id="demoBar" class="demo" style="display:none">デモデータを表示しています（URLの ?demo=1）。実データは「現地設定」で圃場を登録すると、この画面にそのまま映ります。</div>
+<div class="wrap">
+  <div class="mapwrap"><div id="map"></div></div>
+  <aside class="panel">
+    <div id="msg"></div>
+    <div id="view"></div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="os6-common.js?v=2"></script>
+<script>
+"use strict";
+const DEMO = new URLSearchParams(location.search).get("demo") === "1";
+const DATA = { fields:[], houses:[], beds:[], records:[], tasks:[] };
+let MAP=null, LAYERS={fields:null, houses:null};
+let SEL = { type:"all", id:null };          // all | field | house
+const SERIES_COLORS = ["#D14A63","#587565","#8C8770","#C08A63","#C96F6F"]; // デザイン基準§10：細いマークは深色版
+const STATUS_CHIP = s => s==="順調"?"":(s==="注意"||s==="遅延")?"warn":s==="害虫"?"bad":"mut";
+const STATUS_COLOR = s => s==="順調"?"#587565":(s==="注意"||s==="遅延")?"#b7791f":s==="害虫"?"#a94442":"#8a8f8b";
+
+// ───────── デモデータ（?demo=1 のときだけ。シートには一切書かない） ─────────
+function demoData(){
+  const F=[{ "圃場ID":"F1","正規名（第N圃場・エリア・農家名）":"第1圃場・土浦（デモ）","所在地（市町村）":"茨城県土浦市","緯度":"36.0839","経度":"140.2472","総面積m2":"1800","稼働（主力/スポット/休止）":"主力" },
+           { "圃場ID":"F2","正規名（第N圃場・エリア・農家名）":"第2圃場・八郷（デモ）","所在地（市町村）":"茨城県石岡市","緯度":"36.2110","経度":"140.2320","総面積m2":"900","稼働（主力/スポット/休止）":"スポット" }];
+  const poly=(la,ln,w,h)=>JSON.stringify([[la,ln],[la+w,ln],[la+w,ln+h],[la,ln+h]]);
+  const H=[{ "区画ID":"F1-1","圃場ID":"F1","名称":"Aハウス（デモ）","種別（ハウス/露地）":"ハウス","図形（緯度経度の配列JSON）":poly(36.0839,140.2472,.0006,.0004),"面積m2（自動）":"290","畝の本数":"4","遮光%":"30","加温（有/無）":"無","主品目":"パクチー","状態（順調/注意/害虫/遅延/未入力/休耕）":"注意" },
+           { "区画ID":"F1-2","圃場ID":"F1","名称":"B露地（デモ）","種別（ハウス/露地）":"露地","図形（緯度経度の配列JSON）":poly(36.0847,140.2472,.0005,.0006),"面積m2（自動）":"370","畝の本数":"6","主品目":"空芯菜","状態（順調/注意/害虫/遅延/未入力/休耕）":"害虫" }];
+  const B=[{ "畝ID":"F1-1-01","区画ID":"F1-1","品目（呼称）":"パクチー","品種":"-","株数":"400","定植日":"2026/08/18","作型（露地/ハウス/遮光）":"遮光","収穫開始見込み":"2026/09/20","状態":"順調" },
+           { "畝ID":"F1-1-02","区画ID":"F1-1","品目（呼称）":"パクチーファラン","品種":"-","株数":"200","定植日":"2026/08/22","作型（露地/ハウス/遮光）":"遮光","収穫開始見込み":"2026/10/05","状態":"注意" },
+           { "畝ID":"F1-2-01","区画ID":"F1-2","品目（呼称）":"空芯菜","品種":"-","株数":"300","定植日":"2026/08/12","作型（露地/ハウス/遮光）":"露地","収穫開始見込み":"2026/09/08","状態":"害虫" }];
+  const R=[]; const seed={"F1-1-01":[4,7,11,15],"F1-1-02":[3,4,6,7],"F1-2-01":[6,12,19,26]};
+  const days=["2026/08/22 09:10","2026/08/25 08:50","2026/08/29 09:20","2026/09/01 08:40"];
+  Object.keys(seed).forEach(bid0=>{ seed[bid0].forEach((h,i)=>{ R.push({ "日時":days[i],"畝ID":bid0,"草丈cm":String(h),
+    "葉色（薄い/やや薄い/標準/やや濃い/濃い）": bid0==="F1-1-02"&&i>=2?"やや薄い":"標準",
+    "土壌水分（乾燥/やや乾燥/適正/やや湿り/湿りすぎ）": bid0==="F1-1-01"&&i===3?"やや乾燥":"適正",
+    "病害虫（なし/少量/中程度/多い）": bid0==="F1-2-01"&&i>=2?(i===3?"中程度":"少量"):"なし",
+    "病害虫の種類": bid0==="F1-2-01"&&i>=2?"アブラムシ":"", "記録者":"デモ" }); }); });
+  const T=[{ "日付":"2026/09/03","畝ID":"F1-1-01","作業種（観察/灌水/防除/追肥/定植/収穫）":"灌水","内容":"朝のうちに","状態（予定/完了/遅延/中止）":"予定","担当":"-" },
+           { "日付":"2026/08/31","畝ID":"F1-2-01","作業種（観察/灌水/防除/追肥/定植/収穫）":"防除","内容":"アブラムシ","状態（予定/完了/遅延/中止）":"遅延","担当":"-" }];
+  return {fields:F,houses:H,beds:B,records:R,tasks:T};
+}
+
+// ───────── 読み込み ─────────
+const withTimeout=(p,ms,label)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error(`${label} が時間切れ（${ms/1000}秒）`)),ms))]);
+async function loadAll(){
+  if(DEMO){ Object.assign(DATA, demoData()); $("demoBar").style.display=""; finishLoad("デモ"); return; }
+  // GASへ同時に5本投げると1本が返らないことがある（実測 2026-09-02）→ 順番に読む＋時間切れを明示（黙った失敗の禁止）
+  const wants=[["fields",CONFIG.TAB_FIELD],["houses",CONFIG.TAB_HOUSE],["beds",CONFIG.TAB_BED],["records",CONFIG.TAB_RECORD],["tasks",CONFIG.TAB_TASK]];
+  const failed=[];
+  for(const [key,tab] of wants){
+    $("badge").textContent=`読み込み中…（${tab}）`;
+    try{ DATA[key]=(await withTimeout(readTab(tab),15000,tab)).rows; }
+    catch(e){ failed.push(`${tab}（${e&&e.message||"読込失敗"}）`); }
+  }
+  if(failed.length) say(`読めなかったタブ：${failed.join("・")}。再読み込みで直ることがあります`,"err");
+  finishLoad(nowStr());
+}
+function finishLoad(when){
+  $("badge").textContent=`最終読込 ${when}／圃場${DATA.fields.length}・区画${DATA.houses.length}・畝${DATA.beds.length}・記録${DATA.records.length}件`;
+  renderMap(); render();
+}
+
+// ───────── 導出（最新記録・アラート） ─────────
+const fname = f => col(f,"正規名")||fid(f);
+const housesOf = fId => DATA.houses.filter(h=>col(h,"圃場ID")===fId);
+const bedsOf   = hId => DATA.beds.filter(b=>col(b,"区画ID")===hId);
+const recsOf   = bId => DATA.records.filter(r=>col(r,"畝ID")===bId).slice().sort((a,b)=>col(a,"日時").localeCompare(col(b,"日時")));
+const latestOf = bId => { const r=recsOf(bId); return r.length? r[r.length-1] : null; };
+const fieldOfHouse = h => DATA.fields.find(f=>fid(f)===col(h,"圃場ID"));
+const houseOfBed   = b => DATA.houses.find(h=>hid(h)===col(b,"区画ID"));
+function daysAgo(s){ const d=new Date(String(s).replace(/-/g,"/")); return isNaN(d)? null : Math.floor((Date.now()-d.getTime())/86400000); }
+
+// 観察からの自動提案（規則ベース。判断層=climate_fit等の接続は段E）
+function computeAlerts(){
+  const out=[];
+  const add=(level,text,b,extra)=>{ const h=b?houseOfBed(b):null, f=h?fieldOfHouse(h):null;
+    out.push({level,text,where:[f?fname(f):"",h?col(h,"名称")||hid(h):"",b?bid(b):""].filter(Boolean).join(" › ")+(extra||""),
+              fieldId:f?fid(f):null,houseId:h?hid(h):null}); };
+  DATA.beds.forEach(b=>{
+    const item=col(b,"品目")||bid(b), last=latestOf(bid(b));
+    if(last){
+      const pest=col(last,"病害虫（")||col(last,"病害虫");
+      if(pest==="多い"||pest==="中程度") add(pest==="多い"?"bad":"warn",`${item}：病害虫が「${pest}」（${col(last,"病害虫の種類")||"種類未記入"}）。防除を検討`,b);
+      const soil=col(last,"土壌水分");
+      if(soil==="乾燥"||soil==="やや乾燥") add("warn",`${item}：土壌が「${soil}」。灌水を検討`,b);
+      if(soil==="湿りすぎ") add("warn",`${item}：土壌が「湿りすぎ」。排水・灌水間隔を確認`,b);
+      const leaf=col(last,"葉色");
+      if(leaf==="薄い"||leaf==="やや薄い") add("info",`${item}：葉色が「${leaf}」。追肥・日照を確認`,b);
+      const ago=daysAgo(col(last,"日時"));
+      if(ago!=null&&ago>=7) add("info",`${item}：最終記録から${ago}日。次の巡回で記録を`,b);
+    } else if(col(b,"定植日")) add("info",`${col(b,"品目")||bid(b)}：巡回記録がまだ1件もありません`,b);
+    const harv=col(b,"収穫開始見込み"); if(harv){ const d=daysAgo(harv); if(d!=null&&d<=0&&d>=-14) add("info",`${item}：収穫開始見込みまで${-d}日（${harv}）`,b); }
+  });
+  DATA.tasks.forEach(t=>{ const st=col(t,"状態"); if(st==="遅延"){ const b=DATA.beds.find(x=>bid(x)===col(t,"畝ID"));
+    add("warn",`作業「${col(t,"作業種")||"?"}」が遅延（予定 ${col(t,"日付")}）${col(t,"内容")?"："+col(t,"内容"):""}`,b); } });
+  const rank={bad:0,warn:1,info:2}; out.sort((a,b)=>rank[a.level]-rank[b.level]);
+  return out;
+}
+
+// ───────── 地図 ─────────
+function renderMap(){
+  if(!MAP){
+    MAP=L.map("map",{zoomControl:true}).setView(CONFIG.DEFAULT_CENTER,CONFIG.DEFAULT_ZOOM);
+    L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",{maxZoom:18,attribution:"地理院タイル（シームレス空中写真）"}).addTo(MAP);
+  }
+  if(LAYERS.fields) MAP.removeLayer(LAYERS.fields);
+  if(LAYERS.houses) MAP.removeLayer(LAYERS.houses);
+  LAYERS.fields=L.layerGroup().addTo(MAP); LAYERS.houses=L.layerGroup().addTo(MAP);
+  const bounds=[];
+  DATA.fields.forEach(f=>{
+    const la=parseFloat(col(f,"緯度")), ln=parseFloat(col(f,"経度")); if(isNaN(la)||isNaN(ln)) return;
+    bounds.push([la,ln]);
+    const mk=L.marker([la,ln]).addTo(LAYERS.fields);
+    mk.bindTooltip(`<span class="field-label">${esc(fname(f))}</span>`,{permanent:true,direction:"top",offset:[0,-38],className:"noskin"});
+    mk.on("click",()=>{ SEL={type:"field",id:fid(f)}; render(); });
+  });
+  DATA.houses.forEach(h=>{
+    let pts=null; try{ pts=JSON.parse(col(h,"図形")||"null"); }catch(e){}
+    if(!Array.isArray(pts)||pts.length<3) return;
+    const st=col(h,"状態"), pg=L.polygon(pts,{color:STATUS_COLOR(st),weight:2,fillOpacity:.28}).addTo(LAYERS.houses);
+    pts.forEach(p=>bounds.push(p));
+    pg.bindTooltip(`<span class="house-label">${esc(col(h,"名称")||hid(h))}<small>${esc(st||"未入力")}</small></span>`,{permanent:false,direction:"center"});
+    pg.on("click",()=>{ SEL={type:"house",id:hid(h)}; render(); });
+    h.__poly=pg;
+  });
+  if(bounds.length) MAP.fitBounds(bounds,{padding:[46,46],maxZoom:17});
+}
+function focusHouse(h){ if(h&&h.__poly) MAP.fitBounds(h.__poly.getBounds(),{padding:[60,60],maxZoom:19}); }
+function focusField(f){ const hs=housesOf(fid(f)).filter(h=>h.__poly); if(hs.length){ let bd=hs[0].__poly.getBounds(); hs.forEach(h=>bd=bd.extend(h.__poly.getBounds())); MAP.fitBounds(bd,{padding:[60,60],maxZoom:18}); }
+  else { const la=parseFloat(col(f,"緯度")), ln=parseFloat(col(f,"経度")); if(!isNaN(la)) MAP.flyTo([la,ln],16); } }
+
+// ───────── SVG 草丈推移（canvas不使用・規約§4） ─────────
+function chartSVG(series){ // series=[{name,color,points:[{t:Date,v:num}]}]
+  const all=series.flatMap(s=>s.points); if(!all.length) return `<p class="hint">草丈の記録がまだありません。巡回記録で草丈を入れると、ここに推移が出ます。</p>`;
+  const W=560,H=230,L=34,R=52,T=14,B=26;   // 右余白は「値cm」ラベル分だけ（品目名は凡例へ＝長い名前が切れない）
+  const ts=all.map(p=>p.t.getTime()), vs=all.map(p=>p.v);
+  let t0=Math.min(...ts), t1=Math.max(...ts); if(t0===t1){t0-=86400000;t1+=86400000;}
+  const vmax=Math.max(10,Math.ceil(Math.max(...vs)*1.15));
+  const X=t=>L+(t-t0)/(t1-t0)*(W-L-R), Y=v=>T+(1-v/vmax)*(H-T-B);
+  const fd=d=>`${d.getMonth()+1}/${d.getDate()}`;
+  let g="";
+  for(let i=0;i<=2;i++){ const v=Math.round(vmax*i/2), y=Y(v);
+    g+=`<line x1="${L}" y1="${y}" x2="${W-R}" y2="${y}" stroke="#e4e8e4" stroke-width="1"/><text x="${L-5}" y="${y+4}" font-size="10" fill="#6b7a72" text-anchor="end">${v}</text>`; }
+  g+=`<text x="${L}" y="${H-8}" font-size="10" fill="#6b7a72">${fd(new Date(t0))}</text><text x="${W-R}" y="${H-8}" font-size="10" fill="#6b7a72" text-anchor="end">${fd(new Date(t1))}</text>`;
+  series.forEach(s=>{
+    if(!s.points.length) return;
+    const pts=s.points.map(p=>`${X(p.t.getTime()).toFixed(1)},${Y(p.v).toFixed(1)}`).join(" ");
+    const lastP=s.points[s.points.length-1];
+    g+=`<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s.points.forEach(p=>{ g+=`<circle cx="${X(p.t.getTime()).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="3" fill="${s.color}"/>`; });
+    g+=`<text x="${(X(lastP.t.getTime())+6).toFixed(1)}" y="${(Y(lastP.v)+4).toFixed(1)}" font-size="11" font-weight="600" fill="${s.color}">${lastP.v}cm</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="草丈推移">${g}</svg>`;
+}
+function houseChart(hId){
+  const series=bedsOf(hId).map((b,i)=>({ name:`${col(b,"品目")||bid(b)}`, color:SERIES_COLORS[i%SERIES_COLORS.length],
+    points:recsOf(bid(b)).map(r=>({t:new Date(col(r,"日時").replace(/-/g,"/")),v:parseFloat(col(r,"草丈"))})).filter(p=>!isNaN(p.t)&&!isNaN(p.v)) }));
+  const legend=series.filter(s=>s.points.length).map(s=>`<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join("");
+  return `<div class="chart">${chartSVG(series)}</div>${legend?`<div class="legend">${legend}</div>`:""}`;
+}
+
+// ───────── 右パネル（全体 → 圃場 → 区画） ─────────
+function alertsHTML(list,limit){
+  if(!list.length) return `<p class="hint">いまの記録から目立つ注意点はありません。</p>`;
+  return list.slice(0,limit||99).map(a=>`<div class="alert ${a.level==="bad"?"bad":a.level==="info"?"info":""}"><div>${esc(a.text)}<span class="where">${esc(a.where)}</span></div></div>`).join("")
+    + (list.length>(limit||99)? `<p class="hint">ほか ${list.length-limit}件（各圃場・区画を開くと絞り込まれます）</p>` : "");
+}
+function render(){
+  const v=$("view"), A=computeAlerts();
+  if(!DATA.fields.length){
+    v.innerHTML=`<h2>まだ圃場がありません</h2>
+      <p class="hint">「現地設定」で圃場の位置を決め、ハウス・露地を地図に描いて畝と品目を入れると、この俯瞰にそのまま映ります。デモの完成形は <a href="?demo=1">?demo=1</a> で確認できます。</p>
+      <a class="btn" href="setup.html">現地設定をひらく</a>`;
+    return;
+  }
+  if(SEL.type==="house"){
+    const h=DATA.houses.find(x=>hid(x)===SEL.id);
+    if(!h){ SEL={type:"all"}; return render(); }
+    const f=fieldOfHouse(h), beds=bedsOf(hid(h));
+    const hA=A.filter(a=>a.houseId===hid(h));
+    focusHouse(h);
+    v.innerHTML=`
+      <div class="crumb"><a data-go="all">全体</a> › <a data-go="field" data-id="${esc(f?fid(f):"")}">${esc(f?fname(f):"圃場")}</a> › ${esc(col(h,"名称")||hid(h))}</div>
+      <h2>${esc(col(h,"名称")||hid(h))} <span class="chip ${STATUS_CHIP(col(h,"状態"))}">${esc(col(h,"状態")||"未入力")}</span></h2>
+      <p class="hint">${esc(col(h,"種別")||"")}／面積 ${esc(col(h,"面積")||"?")}m²／畝 ${esc(col(h,"畝の本数")||beds.length)}本${col(h,"遮光")?`／遮光${esc(col(h,"遮光"))}%`:""}${col(h,"加温")==="有"?"／加温あり":""}</p>
+      <h2>畝と作付け</h2>
+      ${beds.length? `<table><tr><th>畝</th><th>品目</th><th>株数</th><th>定植日</th><th>最新草丈</th><th>状態</th></tr>
+        ${beds.map(b=>{ const last=latestOf(bid(b)); const ago=last? daysAgo(col(last,"日時")) : null;
+          return `<tr><td>${esc(bid(b).split("-").pop())}</td><td>${esc(col(b,"品目")||"-")}</td><td>${esc(col(b,"株数")||"-")}</td><td>${esc(col(b,"定植日")||"-")}</td>
+          <td>${last? esc(col(last,"草丈"))+"cm <small style='color:var(--mut)'>("+(ago===0?"今日":ago+"日前")+")</small>" : "記録なし"}</td>
+          <td><span class="chip ${STATUS_CHIP(col(b,"状態"))}">${esc(col(b,"状態")||"未入力")}</span></td></tr>`; }).join("")}</table>`
+        : `<p class="hint">この区画にはまだ畝がありません（現地設定で追加できます）。</p>`}
+      <h2>草丈の推移</h2>
+      ${houseChart(hid(h))}
+      <h2>観察からの提案</h2>
+      ${alertsHTML(hA)}
+      <p class="hint">この提案は巡回記録（病害虫・土壌水分・葉色・記録間隔・収穫見込み）から機械的に出しています。気候・栽培条件（判断層）との接続は段Eで入ります。</p>
+      <p><a class="btn" href="record.html">この区画を巡回記録する</a> <a class="btn sub" href="setup.html">区画を編集</a></p>`;
+    wireCrumbs(v);
+    return;
+  }
+  if(SEL.type==="field"){
+    const f=DATA.fields.find(x=>fid(x)===SEL.id);
+    if(!f){ SEL={type:"all"}; return render(); }
+    const hs=housesOf(fid(f)), fA=A.filter(a=>a.fieldId===fid(f));
+    const beds=hs.flatMap(h=>bedsOf(hid(h)));
+    const stocks=beds.reduce((s,b)=>s+(parseInt(col(b,"株数"))||0),0);
+    focusField(f);
+    v.innerHTML=`
+      <div class="crumb"><a data-go="all">全体</a> › ${esc(fname(f))}</div>
+      <h2>${esc(fname(f))} <span class="chip ${col(f,"稼働")==="主力"?"":"mut"}">${esc(col(f,"稼働")||"")}</span></h2>
+      <p class="hint">${esc(col(f,"所在地")||"")}${col(f,"総面積")?`／総面積 ${esc(col(f,"総面積"))}m²`:""}</p>
+      <div class="kpi"><div><b>${hs.length}</b><span>区画</span></div><div><b>${beds.length}</b><span>畝</span></div><div><b>${stocks||"-"}</b><span>株数合計</span></div></div>
+      <h2>区画</h2>
+      ${hs.length? hs.map(h=>{ const bn=bedsOf(hid(h)).length;
+        return `<div class="card" data-go="house" data-id="${esc(hid(h))}"><b>${esc(col(h,"名称")||hid(h))}</b>
+          <span class="chip ${STATUS_CHIP(col(h,"状態"))}" style="float:right">${esc(col(h,"状態")||"未入力")}</span>
+          <div class="sub">${esc(col(h,"種別")||"")}／${esc(col(h,"面積")||"?")}m²／畝${bn}本${col(h,"主品目")?`／主品目 ${esc(col(h,"主品目"))}`:""}</div></div>`; }).join("")
+        : `<p class="hint">この圃場にはまだ区画がありません。「現地設定」で地図に描けます。</p>`}
+      <h2>観察からの提案</h2>
+      ${alertsHTML(fA)}`;
+    wireCrumbs(v);
+    return;
+  }
+  // 全体
+  const stocks=DATA.beds.reduce((s,b)=>s+(parseInt(col(b,"株数"))||0),0);
+  $("view").innerHTML=`
+    <div class="kpi"><div><b>${DATA.fields.length}</b><span>圃場</span></div><div><b>${DATA.houses.length}</b><span>区画</span></div><div><b>${DATA.beds.length}</b><span>畝（株数計 ${stocks||"-"}）</span></div></div>
+    <h2>注意がいるところ</h2>
+    ${alertsHTML(A,6)}
+    <h2>圃場</h2>
+    ${DATA.fields.map(f=>{ const hs=housesOf(fid(f));
+      const worst=["害虫","遅延","注意"].find(s=>hs.some(h=>col(h,"状態")===s));
+      const lastRec=hs.flatMap(h=>bedsOf(hid(h))).map(b=>latestOf(bid(b))).filter(Boolean).map(r=>col(r,"日時")).sort().pop();
+      return `<div class="card" data-go="field" data-id="${esc(fid(f))}"><b>${esc(fname(f))}</b>
+        ${worst?`<span class="chip ${STATUS_CHIP(worst)}" style="float:right">${esc(worst)}あり</span>`:`<span class="chip" style="float:right">順調</span>`}
+        <div class="sub">${esc(col(f,"所在地")||"")}／区画${hs.length}・畝${hs.flatMap(h=>bedsOf(hid(h))).length}${lastRec?`／最終記録 ${esc(lastRec.slice(0,10))}`:"／記録なし"}　<span class="chip ${col(f,"稼働")==="主力"?"":"mut"}">${esc(col(f,"稼働")||"")}</span></div></div>`; }).join("")}
+    <p class="hint">圃場や地図上の区画を押すと詳細（畝の表・草丈推移・提案）が開きます。</p>`;
+  wireCrumbs($("view"));
+}
+function wireCrumbs(root){
+  root.querySelectorAll("[data-go]").forEach(el=>{ el.addEventListener("click",()=>{
+    const go=el.getAttribute("data-go"), id=el.getAttribute("data-id");
+    if(go==="all") SEL={type:"all"}; else SEL={type:go,id};
+    render();
+  }); });
+}
+loadAll().catch(e=>say(String(e.message||e),"err"));
+</script>
+</body>
+</html>
