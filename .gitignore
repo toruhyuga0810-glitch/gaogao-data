@@ -10,3 +10,4 @@ scripts/
 tests-local/
 *.command
 output/
+gas_clasp/
