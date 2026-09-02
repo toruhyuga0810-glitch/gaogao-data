@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OS6 Farm control — かんたん登録</title>
+<link rel="icon" href="data:,">
+<!-- ─────────────────────────────────────────────────────────────
+  OS6：Farm control 段B' かんたん登録ウィザード v0.5（2026-09-02・DR起点の再設計）
+  ・DRの結論＝「描かせる」から「答えさせる」へ。ピン1タップ＋質問（ハウス/露地・畝の本数）で登録が完了し、
+    区画の形はテンプレート長方形（サイズ選択＋向きスライダー）で自動生成する。境界の精密化は上級（setup.html）へ退避
+    根拠＝アグリノート「ピン1本の圃場登録」公式許容・GrowVeg/Tend/SmartFarm「畝は地図に描かず図式で持つ」・
+          fieldmargin実演20圃場5分／詳細＝docs/DR_圃場管理UX_2026-09-02_生データ.json
+  ・1画面1問×6ステップ（圃場→区画名と種別→位置→畝の本数→主品目(任意)→確認）。スマホ最優先・大ボタン
+  ・書き込み＝os6UpsertField / os6UpsertHouse / os6UpsertBeds（既存GAS API・管理者パスワード）
+───────────────────────────────────────────────────────────── -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+  :root{--g:#587565;--g2:#3d5248;--g3:#dae5dd;--bg:#f4f4f1;--ink:#2b2f2d;--mut:#6b7a72;--line:#c9d4cc;--warn:#b7791f;--bad:#a94442;--blue:#1a73e8;}
+  *{box-sizing:border-box} html,body{margin:0;min-height:100%;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:16px}
+  header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  header h1{font-size:15px;margin:0;color:var(--g2)}
+  header a{margin-left:auto;font-size:13px;color:var(--mut);text-decoration:none}
+  .dots{display:flex;gap:6px;justify-content:center;margin:14px 0 4px}
+  .dots i{width:10px;height:10px;border-radius:50%;background:#d6ddd7}.dots i.on{background:var(--g)}.dots i.done{background:var(--g2)}
+  .step{max-width:560px;margin:0 auto;padding:10px 16px 90px;display:none}
+  .step.show{display:block}
+  h2{font-size:20px;color:var(--g2);margin:12px 0 4px;text-align:center}
+  .lead{font-size:13px;color:var(--mut);text-align:center;margin:0 0 14px;line-height:1.7}
+  .bigbtns{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+  .bigbtn{font:inherit;font-size:18px;font-weight:600;padding:26px 10px;border:2px solid var(--line);border-radius:14px;background:#fff;color:var(--g2);cursor:pointer;text-align:center}
+  .bigbtn small{display:block;font-size:12px;font-weight:400;color:var(--mut);margin-top:6px}
+  .bigbtn.on{border-color:var(--g);background:var(--g3)}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:12px 0}
+  .chipbtn{font:inherit;font-size:16px;padding:14px 18px;border:2px solid var(--line);border-radius:12px;background:#fff;cursor:pointer;min-height:52px}
+  .chipbtn.on{border-color:var(--g);background:var(--g3);font-weight:600}
+  input[type=text]{font:inherit;font-size:18px;width:100%;padding:14px;border:2px solid var(--line);border-radius:12px;background:#fff}
+  .stepper{display:flex;align-items:center;justify-content:center;gap:18px;margin:18px 0}
+  .stepper button{font-size:30px;width:72px;height:72px;border-radius:50%;border:2px solid var(--line);background:#fff;color:var(--g2);cursor:pointer}
+  .stepper b{font-size:44px;min-width:80px;text-align:center;color:var(--g2)}
+  .mapbox{position:relative;height:52vh;min-height:300px;border-radius:12px;overflow:hidden;border:1px solid var(--line)} #map{height:100%}
+  .mapsearch{position:absolute;z-index:1000;top:8px;left:8px;right:8px;display:flex;background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.25);overflow:hidden}
+  .mapsearch input{flex:1;font:inherit;font-size:15px;padding:11px 12px;border:0;outline:0;min-width:0}
+  .mapsearch button{font:inherit;border:0;background:var(--g);color:#fff;padding:0 16px}
+  .qlist{position:absolute;z-index:1000;top:56px;left:8px;right:8px;background:#fff;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.25);max-height:36vh;overflow:auto;display:none}
+  .qlist div{padding:11px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}.qlist div:last-child{border-bottom:0}
+  .gps{position:absolute;z-index:1000;right:10px;bottom:10px;width:52px;height:52px;border-radius:50%;border:0;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3);cursor:pointer;color:var(--g2);font-size:22px}
+  .maphint{position:absolute;z-index:1000;left:50%;transform:translateX(-50%);bottom:12px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;padding:4px 12px;border-radius:999px;pointer-events:none}
+  .sizerow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0}
+  .sizerow .chipbtn{font-size:14px;padding:10px 14px;min-height:44px}
+  .rot{display:flex;align-items:center;gap:10px;margin:8px 2px} .rot input{flex:1}
+  .rot span{font-size:13px;color:var(--mut);white-space:nowrap}
+  .navbar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);display:flex;gap:10px;padding:12px 16px calc(12px + env(safe-area-inset-bottom));z-index:30}
+  .nav-back{font:inherit;font-size:16px;padding:14px 18px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--g2);cursor:pointer}
+  .nav-next{font:inherit;font-size:17px;font-weight:600;flex:1;padding:14px;border:0;border-radius:12px;background:var(--g);color:#fff;cursor:pointer}
+  .nav-next:disabled{opacity:.4}
+  .skip{display:block;text-align:center;margin:10px auto 0;font-size:14px;color:var(--mut);background:none;border:0;text-decoration:underline;cursor:pointer}
+  .sum{background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 16px;margin:12px 0}
+  .sum div{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #eef1ee;font-size:15px}.sum div:last-child{border-bottom:0}
+  .sum span{color:var(--mut)} .sum b{color:var(--g2);text-align:right}
+  .msg{margin:10px 0;padding:10px 12px;border-radius:8px;font-size:14px;line-height:1.6} .msg.ok{background:#e3efe6;color:#2e5b3f} .msg.err{background:#f2dfda;color:var(--bad)}
+  .donebtns{display:grid;gap:10px;margin:16px 0}
+  .donebtns a,.donebtns button{font:inherit;font-size:16px;padding:16px;border-radius:12px;text-align:center;text-decoration:none;cursor:pointer}
+  .p1{background:var(--g);color:#fff;border:0}.p2{background:#fff;color:var(--g2);border:1px solid var(--line)}
+  .hint{font-size:12px;color:var(--mut);text-align:center;margin:8px 0;line-height:1.7}
+  .grid-preview{display:grid;gap:4px;margin:10px auto;max-width:320px}
+  .grid-preview i{background:var(--g3);border:1px solid var(--line);border-radius:4px;height:34px;display:flex;align-items:center;justify-content:center;font-style:normal;font-size:11px;color:var(--g2)}
+  .leaflet-container{font-family:inherit}
+</style>
+</head>
+<body>
+<header><h1>かんたん登録</h1><a href="index.html">俯瞰へ戻る</a></header>
+<div class="dots" id="dots"></div>
+<div id="msg" style="max-width:560px;margin:0 auto;padding:0 16px"></div>
+
+<!-- ① 圃場 -->
+<section class="step" data-s="0">
+  <h2>どこの圃場ですか？</h2>
+  <p class="lead">登録する区画（ハウス・露地）が属する圃場を選んでください</p>
+  <div class="chips" id="fieldChips"></div>
+  <div id="newFieldBox" style="display:none">
+    <input type="text" id="newFieldName" placeholder="圃場の名前（例：第1圃場・土浦）">
+    <p class="hint">名前は「第N圃場・エリア・農家名」の形だとあとで探しやすくなります</p>
+  </div>
+</section>
+
+<!-- ② 区画名＋種別 -->
+<section class="step" data-s="1">
+  <h2>どんな区画ですか？</h2>
+  <p class="lead">種類を選ぶと、名前の候補を自動で入れます（変えてもかまいません）</p>
+  <div class="bigbtns">
+    <button class="bigbtn" data-kind="ハウス">ハウス<small>ビニールハウス・温室</small></button>
+    <button class="bigbtn" data-kind="露地">露地<small>屋根のない畑</small></button>
+  </div>
+  <input type="text" id="houseName" placeholder="区画の名前（例：Aハウス）">
+</section>
+
+<!-- ③ 位置 -->
+<section class="step" data-s="2">
+  <h2>場所はどこですか？</h2>
+  <p class="lead">地図をタップするか、◎で今いる場所に置けます。だいたいで大丈夫です（あとから直せます）</p>
+  <div class="mapbox">
+    <div id="map"></div>
+    <div class="mapsearch"><input id="q" placeholder="住所・地名で探す" autocomplete="off"><button id="qGo">検索</button></div>
+    <div id="qList" class="qlist"></div>
+    <button id="btnGps" class="gps" title="今いる場所">◎</button>
+    <span class="maphint" id="mapHint">地図をタップして位置を決める</span>
+  </div>
+  <div id="sizeBox" style="display:none">
+    <div class="sizerow" id="sizeRow"></div>
+    <div class="rot"><span>向き</span><input type="range" id="rot" min="0" max="180" value="0"><span id="rotV">0°</span></div>
+    <p class="hint">長方形はあくまで目印です。正確な形にしたいときは、あとで「上級（手動で描く）」から直せます</p>
+  </div>
+</section>
+
+<!-- ④ 畝の本数 -->
+<section class="step" data-s="3">
+  <h2>畝は何本ありますか？</h2>
+  <p class="lead">この本数で記録用のマス目を自動で作ります（あとから増減できます）</p>
+  <div class="stepper">
+    <button id="bMinus">−</button><b id="bedN">4</b><button id="bPlus">＋</button>
+  </div>
+  <div class="grid-preview" id="bedPreview"></div>
+</section>
+
+<!-- ⑤ 主品目（任意） -->
+<section class="step" data-s="4">
+  <h2>主に何を育てますか？</h2>
+  <p class="lead">選ぶと全部の畝に仮で入ります（畝ごとの変更はあとからできます）</p>
+  <div class="chips" id="cropChips"></div>
+  <input type="text" id="cropFree" placeholder="この中に無ければ入力（例：ホーラパー）">
+  <button class="skip" id="cropSkip">あとで決める（スキップ）</button>
+</section>
+
+<!-- ⑥ 確認 -->
+<section class="step" data-s="5">
+  <h2>この内容で登録します</h2>
+  <div class="sum" id="summary"></div>
+  <p class="hint">保存には管理者パスワード（OS9の承認画面と同じ）を1回だけ聞きます</p>
+</section>
+
+<!-- 完了 -->
+<section class="step" data-s="6">
+  <h2 id="doneTitle">登録できました</h2>
+  <p class="lead" id="doneLead"></p>
+  <div class="donebtns">
+    <button class="p1" id="btnMore">続けてもう1区画を登録する</button>
+    <a class="p2" href="index.html">俯瞰で見る</a>
+    <a class="p2" href="record.html">巡回記録をつけにいく</a>
+  </div>
+</section>
+
+<div class="navbar" id="navbar">
+  <button class="nav-back" id="btnBack">戻る</button>
+  <button class="nav-next" id="btnNext" disabled>次へ</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="os6-common.js?v=2"></script>
+<script>
+"use strict";
+const DATA={fields:[],houses:[],beds:[]};
+const W={fieldMode:null,fieldId:null,fieldName:"",houseName:"",kind:null,lat:null,lng:null,w:5.4,h:18,angle:0,beds:4,crop:""};
+let STEP=0,MAP=null,PIN=null,RECT=null;
+const STEPS=7,LASTQ=5;
+const SIZES={ "ハウス":[[4.5,18,"4.5×18m"],[5.4,18,"5.4×18m"],[5.4,27,"5.4×27m"],[6,30,"6×30m"]],
+              "露地":[[5,20,"5×20m"],[10,20,"10×20m"],[10,30,"10×30m"],[20,30,"20×30m"]] };
+
+function dots(){ $("dots").innerHTML=Array.from({length:LASTQ+1},(_,i)=>`<i class="${i<STEP?"done":i===STEP?"on":""}"></i>`).join(""); }
+function show(n){
+  STEP=n;
+  document.querySelectorAll(".step").forEach(s=>s.classList.toggle("show",+s.dataset.s===n));
+  $("navbar").style.display = n>=6 ? "none":"flex";
+  $("dots").style.display = n>=6 ? "none":"flex";
+  $("btnBack").style.visibility = n===0? "hidden":"visible";
+  $("btnNext").textContent = n===5? "登録する" : "次へ";
+  dots(); validate();
+  if(n===2){ setTimeout(()=>{ initMap(); MAP.invalidateSize(); },60); }
+  if(n===3) bedPreview();
+  if(n===5) summary();
+  window.scrollTo(0,0);
+}
+function validate(){
+  let ok=false;
+  if(STEP===0) ok = W.fieldMode==="existing" ? !!W.fieldId : !!$("newFieldName").value.trim();
+  if(STEP===1) ok = !!W.kind && !!$("houseName").value.trim();
+  if(STEP===2) ok = W.lat!=null;
+  if(STEP===3) ok = W.beds>=1;
+  if(STEP===4) ok = true;
+  if(STEP===5) ok = true;
+  $("btnNext").disabled=!ok;
+}
+
+/* ── ①圃場 ── */
+function renderFields(){
+  const box=$("fieldChips"); box.innerHTML="";
+  DATA.fields.forEach(f=>{
+    const b=document.createElement("button"); b.className="chipbtn"; b.textContent=col(f,"正規名")||fid(f);
+    b.onclick=()=>{ W.fieldMode="existing"; W.fieldId=fid(f); W.fieldName=col(f,"正規名")||fid(f);
+      const la=parseFloat(col(f,"緯度")),ln=parseFloat(col(f,"経度")); if(!isNaN(la)){W.lat=W.lat??la;W.lng=W.lng??ln;}
+      box.querySelectorAll(".chipbtn").forEach(x=>x.classList.toggle("on",x===b)); $("newFieldBox").style.display="none"; validate(); };
+    box.appendChild(b);
+  });
+  const nb=document.createElement("button"); nb.className="chipbtn"; nb.textContent="＋ 新しい圃場";
+  nb.onclick=()=>{ W.fieldMode="new"; W.fieldId=null;
+    box.querySelectorAll(".chipbtn").forEach(x=>x.classList.toggle("on",x===nb));
+    $("newFieldBox").style.display=""; $("newFieldName").focus(); validate(); };
+  box.appendChild(nb);
+  if(!DATA.fields.length){ nb.click(); }
+}
+$("newFieldName") && ($("newFieldName").oninput=validate);
+
+/* ── ②区画名＋種別 ── */
+document.querySelectorAll("[data-kind]").forEach(b=>b.onclick=()=>{
+  W.kind=b.dataset.kind;
+  document.querySelectorAll("[data-kind]").forEach(x=>x.classList.toggle("on",x===b));
+  if(!$("houseName").value.trim() || /^[A-Z](ハウス|露地)$/.test($("houseName").value.trim())){
+    const sameField = W.fieldId? DATA.houses.filter(h=>col(h,"圃場ID")===W.fieldId) : [];
+    $("houseName").value = String.fromCharCode(65+sameField.length) + W.kind;
+  }
+  const p=SIZES[W.kind][W.kind==="ハウス"?1:1]; W.w=p[0]; W.h=p[1];
+  validate();
+});
+$("houseName").oninput=validate;
+
+/* ── ③位置（タップ＝主経路・GPS・検索） ── */
+function initMap(){
+  if(MAP) return;
+  const c=(W.lat!=null)?[W.lat,W.lng]:CONFIG.DEFAULT_CENTER;
+  MAP=L.map("map").setView(c,(W.lat!=null)?17:13);
+  L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",{maxZoom:18,attribution:"地理院タイル"}).addTo(MAP);
+  MAP.on("click",e=>setPin(e.latlng.lat,e.latlng.lng));
+  renderSizes();
+  if(W.lat!=null&&W.fieldMode==="existing") setPin(W.lat,W.lng,true);
+}
+function setPin(la,ln,noMove){
+  W.lat=la; W.lng=ln;
+  if(!PIN){ PIN=L.marker([la,ln],{draggable:true}).addTo(MAP); PIN.on("dragend",()=>{const p=PIN.getLatLng(); W.lat=p.lat; W.lng=p.lng; drawRect();}); }
+  else PIN.setLatLng([la,ln]);
+  if(!noMove) MAP.flyTo([la,ln],18);   // 最大ズームまで寄せてテンプレ長方形をはっきり見せる
+  $("mapHint").textContent="ピンはドラッグでも動かせます";
+  $("sizeBox").style.display=""; drawRect(); validate();
+}
+function rectCorners(){
+  if(W.lat==null) return null;
+  const mLat=1/111320, mLng=1/(111320*Math.cos(W.lat*Math.PI/180));
+  const a=W.angle*Math.PI/180, hw=W.w/2, hh=W.h/2;
+  return [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([x,y])=>{
+    const rx=x*Math.cos(a)-y*Math.sin(a), ry=x*Math.sin(a)+y*Math.cos(a);
+    return [W.lat+ry*mLat, W.lng+rx*mLng];
+  });
+}
+function drawRect(){
+  const pts=rectCorners(); if(!pts) return;
+  if(RECT) RECT.setLatLngs(pts); else RECT=L.polygon(pts,{color:"#ffffff",weight:3,fillColor:"#587565",fillOpacity:.55}).addTo(MAP);
+}
+function renderSizes(){
+  const row=$("sizeRow"); row.innerHTML="";
+  (SIZES[W.kind]||SIZES["露地"]).forEach(([w,h,label],i)=>{
+    const b=document.createElement("button"); b.className="chipbtn"+((w===W.w&&h===W.h)?" on":""); b.textContent=label;
+    b.onclick=()=>{ W.w=w;W.h=h; row.querySelectorAll(".chipbtn").forEach(x=>x.classList.remove("on")); b.classList.add("on"); drawRect(); };
+    row.appendChild(b);
+  });
+}
+$("rot").oninput=e=>{ W.angle=+e.target.value; $("rotV").textContent=W.angle+"°"; drawRect(); };
+$("btnGps").onclick=()=>{
+  if(!navigator.geolocation) return say("この端末では現在地を取得できません","err");
+  $("btnGps").textContent="…";
+  navigator.geolocation.getCurrentPosition(
+    p=>{ $("btnGps").textContent="◎"; setPin(p.coords.latitude,p.coords.longitude); },
+    ()=>{ $("btnGps").textContent="◎"; say("現在地を取得できませんでした（位置情報の許可を確認）","err"); },
+    {enableHighAccuracy:true,timeout:8000});
+};
+async function search(q){
+  try{
+    const r=await fetch(CONFIG.GSI_SEARCH+encodeURIComponent(q)); const j=await r.json();
+    const list=$("qList"); list.innerHTML="";
+    (j||[]).slice(0,6).forEach(it=>{
+      const d=document.createElement("div"); d.textContent=it.properties.title;
+      d.onclick=()=>{ list.style.display="none"; const [ln,la]=it.geometry.coordinates; MAP.flyTo([la,ln],16); $("mapHint").textContent="地図をタップして位置を決める"; };
+      list.appendChild(d);
+    });
+    if(!j||!j.length){ const d=document.createElement("div"); d.textContent="見つかりませんでした"; list.appendChild(d); }
+    list.style.display="block";
+  }catch(e){ say("検索できませんでした（通信を確認）","err"); }
+}
+$("qGo").onclick=()=>{ const q=$("q").value.trim(); if(q) search(q); };
+$("q").addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.isComposing){ e.preventDefault(); $("qGo").click(); } });
+
+/* ── ④畝 ── */
+function bedPreview(){
+  const n=W.beds, g=$("bedPreview");
+  g.style.gridTemplateColumns=`repeat(${Math.min(n,6)},1fr)`;
+  g.innerHTML=Array.from({length:n},(_,i)=>`<i>${String(i+1).padStart(2,"0")}</i>`).join("");
+  $("bedN").textContent=n;
+}
+$("bMinus").onclick=()=>{ if(W.beds>1){W.beds--;bedPreview();} };
+$("bPlus").onclick=()=>{ if(W.beds<24){W.beds++;bedPreview();} };
+
+/* ── ⑤主品目 ── */
+function renderCrops(){
+  const known=[...new Set(DATA.beds.map(b=>col(b,"品目")).filter(Boolean))];
+  const base=known.length?known:["パクチー","空芯菜","ガパオ","ホーラパー","カナー","パクチーファラン"];
+  const box=$("cropChips"); box.innerHTML="";
+  base.slice(0,8).forEach(c=>{
+    const b=document.createElement("button"); b.className="chipbtn"; b.textContent=c;
+    b.onclick=()=>{ W.crop=c; $("cropFree").value=""; box.querySelectorAll(".chipbtn").forEach(x=>x.classList.toggle("on",x===b)); };
+    box.appendChild(b);
+  });
+}
+$("cropFree").oninput=e=>{ W.crop=e.target.value.trim(); $("cropChips").querySelectorAll(".chipbtn").forEach(x=>x.classList.remove("on")); };
+$("cropSkip").onclick=()=>{ W.crop=""; next(); };
+
+/* ── ⑥確認・保存 ── */
+function summary(){
+  $("summary").innerHTML=`
+    <div><span>圃場</span><b>${esc(W.fieldMode==="new"? $("newFieldName").value.trim() : W.fieldName)}${W.fieldMode==="new"?"（新規）":""}</b></div>
+    <div><span>区画</span><b>${esc($("houseName").value.trim())}（${esc(W.kind)}）</b></div>
+    <div><span>大きさ</span><b>${W.w}×${W.h}m（約${Math.round(W.w*W.h)}m²）・向き${W.angle}°</b></div>
+    <div><span>畝</span><b>${W.beds}本（マス目を自動作成）</b></div>
+    <div><span>主品目</span><b>${esc(W.crop||"あとで決める")}</b></div>`;
+}
+async function save(){
+  $("btnNext").disabled=true; $("btnNext").textContent="保存中…";
+  try{
+    let fId=W.fieldId;
+    if(W.fieldMode==="new"){
+      const maxN=DATA.fields.reduce((m,f)=>Math.max(m,parseInt(String(fid(f)).replace(/\D/g,""))||0),0);
+      fId="F"+(maxN+1);
+      const rf=await post({action:"os6UpsertField",row:{"圃場ID":fId,"正規名（第N圃場・エリア・農家名）":$("newFieldName").value.trim(),"緯度":W.lat,"経度":W.lng,"稼働（主力/スポット/休止）":"主力"}},{queueOnFail:false});
+      if(!rf.ok) throw new Error(rf.error||"圃場の保存に失敗");
+    }
+    const same=DATA.houses.filter(h=>col(h,"圃場ID")===fId);
+    const maxH=same.reduce((m,h)=>Math.max(m,parseInt(String(hid(h)).split("-")[1])||0),0);
+    const hId=`${fId}-${maxH+1}`;
+    const rh=await post({action:"os6UpsertHouse",row:{"区画ID":hId,"圃場ID":fId,"名称":$("houseName").value.trim(),"種別（ハウス/露地）":W.kind,
+      "図形（緯度経度の配列JSON）":JSON.stringify(rectCorners().map(p=>[+p[0].toFixed(6),+p[1].toFixed(6)])),
+      "面積m2（自動）":Math.round(W.w*W.h),"畝の本数":W.beds,"間口m":W.w,"奥行m":W.h,"主品目":W.crop||"","状態（順調/注意/害虫/遅延/未入力/休耕）":"未入力"}},{queueOnFail:false});
+    if(!rh.ok) throw new Error(rh.error||"区画の保存に失敗");
+    const rows=Array.from({length:W.beds},(_,i)=>({ "畝ID":`${hId}-${String(i+1).padStart(2,"0")}`,"区画ID":hId,"品目（呼称）":W.crop||"","状態":"未入力" }));
+    const rb=await post({action:"os6UpsertBeds",rows},{queueOnFail:false});
+    if(!rb.ok) throw new Error((rb.errors||[]).join("・")||rb.error||"畝の保存に失敗");
+    $("doneLead").textContent=`${$("houseName").value.trim()}（畝${W.beds}本）を登録しました。俯瞰と巡回記録にすぐ出ます。`;
+    show(6); say("");
+  }catch(e){
+    say(String(e.message||e),"err");
+    $("btnNext").disabled=false; $("btnNext").textContent="登録する";
+  }
+}
+$("btnMore").onclick=()=>{
+  W.houseName=""; W.kind=null; W.crop=""; W.beds=4; W.angle=0; $("rot").value=0; $("rotV").textContent="0°";
+  $("houseName").value=""; document.querySelectorAll("[data-kind]").forEach(x=>x.classList.remove("on"));
+  if(RECT){ MAP.removeLayer(RECT); RECT=null; }
+  loadAll().then(()=>show(1));
+};
+
+/* ── ナビ ── */
+function next(){
+  if(STEP===0 && W.fieldMode==="new") W.fieldName=$("newFieldName").value.trim();
+  if(STEP===5) return save();
+  show(STEP+1);
+}
+$("btnNext").onclick=next;
+$("btnBack").onclick=()=>{ if(STEP>0) show(STEP-1); };
+
+const withTimeout=(p,ms,label)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error(`${label} が時間切れ`)),ms))]);
+async function loadAll(){
+  // GASへは順番に読む（並列だと1本が返らないことがある＝規約§2・2026-09-02実測）
+  try{
+    DATA.fields=(await withTimeout(readTab(CONFIG.TAB_FIELD),15000,"圃場")).rows;
+    DATA.houses=(await withTimeout(readTab(CONFIG.TAB_HOUSE),15000,"区画")).rows;
+    DATA.beds  =(await withTimeout(readTab(CONFIG.TAB_BED),15000,"畝")).rows;
+  }catch(e){ say(`読み込みに失敗しました（${e.message}）。新しい圃場としてなら登録できます`,"err"); }
+  renderFields(); renderCrops(); renderBadgeSafe();
+}
+function renderBadgeSafe(){ try{ renderBadge(); }catch(e){} }
+loadAll().then(()=>show(0));
+</script>
+</body>
+</html>
