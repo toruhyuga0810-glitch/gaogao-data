@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OS6 圃場管理</title>
+<link rel="icon" href="data:,">
+<!-- ─────────────────────────────────────────────────────────────
+  OS6：Farm control 新シェル S1（2026-09-03・設計書v2＝docs/OS6_設計書v2_2026-09-03.md が正本）
+  ・UIの正本＝本人モックアップ2枚。サイドバーで繋がった「1つのアプリ」
+  ・S1＝シェル（サイドバー・検索・期間・通知ベル・記録者切替）＋専用ダッシュボード＋圃場管理
+    （実配置の図式マップSVG＝区画の緯度経度から相対配置を再現・写真タイル不使用）
+    ＋右パネル（KPI・品目表・収穫タイムライン・概算kg）
+  ・収穫予測＝第1段：品目マスター（無ければ内蔵の仮係数）×株数の「概算kg」。実績学習はS2〜S4
+  ・読み＝GAS読み出しAPI（順番読み＋15秒時間切れ＝規約§2）。?demo=1 でモック相当のデモデータ
+  ・区画詳細（畝グリッド・生育入力）はS2。ここではプレースホルダ遷移
+───────────────────────────────────────────────────────────── -->
+<style>
+  :root{--g:#587565;--g2:#3d5248;--g3:#dae5dd;--bg:#f4f4f1;--ink:#2b2f2d;--mut:#6b7a72;--line:#d5dcd6;--warn:#b7791f;--bad:#a94442;--blue:#1a73e8;
+        --ok-bg:#e3efe6;--ok-fg:#2e5b3f;--warn-bg:#f7ecd2;--bad-bg:#f2dfda;--mut-bg:#e6e6e2;}
+  *{box-sizing:border-box} html,body{margin:0;height:100%;font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN",system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:14px}
+  a{color:var(--blue)}
+  .app{display:grid;grid-template-columns:212px 1fr;height:100vh}
+  /* ── サイドバー ── */
+  .side{background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 10px;gap:2px}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--g2);font-size:15px;padding:4px 10px 14px}
+  .brand .logo{width:26px;height:26px;border-radius:7px;background:var(--g);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+  .nav{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;color:var(--ink);cursor:pointer;font-size:14px;border:0;background:none;text-align:left;width:100%}
+  .nav svg{width:18px;height:18px;flex:none;color:var(--mut)}
+  .nav.on{background:var(--g3);color:var(--g2);font-weight:600}.nav.on svg{color:var(--g2)}
+  .nav:hover{background:#f2f5f2}
+  .side .grow{flex:1}
+  /* ── ヘッダー ── */
+  .main{display:flex;flex-direction:column;min-width:0;height:100vh}
+  header{display:flex;align-items:center;gap:12px;padding:10px 18px;background:#fff;border-bottom:1px solid var(--line);flex:none}
+  header h1{font-size:17px;margin:0;color:var(--ink);font-weight:700;white-space:nowrap}
+  .searchbox{position:relative;margin-left:auto}
+  .searchbox input{font:inherit;width:230px;max-width:38vw;padding:8px 12px 8px 30px;border:1px solid var(--line);border-radius:9px;background:#f7f8f7}
+  .searchbox .ic{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--mut)}
+  .slist{position:absolute;top:40px;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.12);max-height:40vh;overflow:auto;display:none;z-index:60}
+  .slist div{padding:9px 12px;cursor:pointer;border-bottom:1px solid #f0f2f0;font-size:13px}.slist div:hover{background:var(--g3)}.slist small{color:var(--mut);display:block;font-size:11px}
+  .period{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}
+  .bell{position:relative;border:1px solid var(--line);background:#fff;border-radius:9px;width:38px;height:38px;cursor:pointer;color:var(--g2);display:flex;align-items:center;justify-content:center}
+  .bell b{position:absolute;top:-6px;right:-6px;background:var(--bad);color:#fff;border-radius:999px;font-size:10px;min-width:17px;height:17px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+  .who{font:inherit;display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:9px;padding:5px 10px;cursor:pointer}
+  .who .av{width:26px;height:26px;border-radius:50%;background:var(--g3);color:var(--g2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+  .who small{display:block;color:var(--mut);font-size:10px;text-align:left}
+  /* ── 本文 ── */
+  .body{flex:1;overflow:auto;padding:16px 18px}
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start}
+  @media (max-width:1080px){.cols{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .card h2{font-size:14px;margin:0 0 10px;color:var(--ink);font-weight:700;display:flex;align-items:center;gap:8px}
+  .card h2 .sub{font-weight:400;color:var(--mut);font-size:12px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+  .kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .kpi b{display:block;font-size:22px;color:var(--ink)}.kpi span{font-size:11px;color:var(--mut)}
+  .kpi small{display:block;font-size:10px;color:var(--warn);margin-top:2px}
+  .chip{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;background:var(--ok-bg);color:var(--ok-fg);white-space:nowrap}
+  .chip.warn{background:var(--warn-bg);color:var(--warn)} .chip.bad{background:var(--bad-bg);color:var(--bad)} .chip.mut{background:var(--mut-bg);color:#666}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th{color:var(--mut);font-weight:600;font-size:11px;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:8px;border-bottom:1px solid #f0f2f0;vertical-align:middle}
+  tr.click{cursor:pointer} tr.click:hover td{background:#f8faf8}
+  .alert{display:flex;gap:8px;border-left:4px solid var(--warn);background:#fdf9ef;border-radius:0 8px 8px 0;padding:8px 10px;margin:6px 0;font-size:13px;line-height:1.55}
+  .alert.bad{border-left-color:var(--bad);background:#fbf1ef} .alert.info{border-left-color:var(--g);background:#f2f6f3}
+  .alert .where{color:var(--mut);font-size:11px;display:block}
+  .hint{font-size:12px;color:var(--mut);line-height:1.7}
+  .msg{margin:8px 0;padding:8px 10px;border-radius:8px;font-size:13px}.msg.err{background:var(--bad-bg);color:var(--bad)}
+  /* ── 図式マップ ── */
+  .mapcard{position:relative;padding:0;overflow:hidden}
+  .maphead{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg button{font:inherit;font-size:12px;padding:7px 12px;border:0;background:#fff;cursor:pointer;color:var(--mut)}
+  .seg button.on{background:var(--g3);color:var(--g2);font-weight:600}
+  .fieldsel{font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:#fff;max-width:200px}
+  .legend{position:absolute;right:14px;bottom:44px;background:rgba(255,255,255,.95);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:11px;z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+  .legend b{display:block;font-size:11px;color:var(--ink);margin-bottom:4px}
+  .legend div{display:flex;align-items:center;gap:6px;margin:3px 0;color:var(--mut)}
+  .legend i{width:10px;height:10px;border-radius:50%}
+  .canvaswrap{background:#e9eee9;min-height:430px;position:relative}
+  .canvaswrap svg{display:block;width:100%;height:auto}
+  .zoom{position:absolute;left:14px;bottom:44px;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:9px;overflow:hidden;z-index:5}
+  .zoom button{font-size:18px;width:34px;height:34px;border:0;background:#fff;cursor:pointer;color:var(--g2)}
+  .mapfoot{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;font-size:11px;color:var(--mut)}
+  .plot-label{font-weight:700;fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:2px}
+  .plot-sub{fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.3);stroke-width:2px}
+  /* ── タイムライン ── */
+  .tl{margin-top:6px}
+  .tl-head,.tl-row{display:grid;grid-template-columns:86px 1fr;gap:8px;align-items:center}
+  .tl-weeks{display:grid;grid-template-columns:repeat(6,1fr);font-size:10px;color:var(--mut)}
+  .tl-track{position:relative;height:14px;background:#f0f2f0;border-radius:7px;overflow:hidden}
+  .tl-grow{position:absolute;top:0;bottom:0;background:#cfe0d4;border-radius:7px}
+  .tl-harv{position:absolute;top:0;bottom:0;background:var(--g);border-radius:7px}
+  .tl-name{font-size:12px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tl-date{font-size:10px;color:var(--g2);font-weight:600;white-space:nowrap}
+  .tl-legend{display:flex;gap:14px;font-size:11px;color:var(--mut);margin-top:8px}
+  .tl-legend i{display:inline-block;width:16px;height:8px;border-radius:4px;margin-right:4px;vertical-align:middle}
+  /* ── ベルのパネル・モバイル ── */
+  .drop{position:fixed;top:58px;right:16px;width:min(380px,92vw);background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.16);padding:12px;z-index:80;display:none;max-height:70vh;overflow:auto}
+  .tabbar{display:none}
+  @media (max-width:860px){
+    .app{grid-template-columns:1fr}
+    .side{display:none}
+    .main{height:auto;min-height:100vh}
+    .body{padding:12px 12px 76px}
+    header{flex-wrap:wrap;row-gap:8px;padding:10px 12px}
+    .searchbox{order:9;margin-left:0;flex-basis:100%}.searchbox input{width:100%;max-width:none}
+    .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);z-index:70;padding-bottom:env(safe-area-inset-bottom)}
+    .tabbar button{flex:1;font:inherit;font-size:10px;padding:8px 2px;border:0;background:none;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:3px}
+    .tabbar button.on{color:var(--g2);font-weight:600}
+    .tabbar svg{width:20px;height:20px}
+  }
+  .empty{padding:26px;text-align:center}
+  .btn{font:inherit;display:inline-block;padding:10px 16px;border:0;border-radius:10px;background:var(--g);color:#fff;cursor:pointer;text-decoration:none;font-size:14px}
+  .btn.sub{background:#fff;color:var(--g2);border:1px solid var(--line)}
+  .demo{background:var(--warn-bg);color:var(--warn);font-size:12px;padding:5px 14px;text-align:center;flex:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="logo">OS6</span>圃場管理</div>
+    <button class="nav" data-v="dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>ダッシュボード</button>
+    <button class="nav" data-v="farm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="15" width="7" height="6" rx="1"/><rect x="14" y="15" width="7" height="6" rx="1"/></svg>圃場管理</button>
+    <button class="nav" data-v="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>作付計画</button>
+    <button class="nav" data-v="forecast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l5-6 4 4 6-8 3 4"/></svg>収穫予測</button>
+    <div class="grow"></div>
+    <button class="nav" data-v="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14 3h-4l-.6 2.7a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 002 1.2L10 21h4l.6-2.7a7 7 0 002-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>設定</button>
+  </aside>
+  <div class="main">
+    <div id="demoBar" class="demo" style="display:none">デモデータを表示中（?demo=1）。実データは登録するとそのまま映ります。</div>
+    <header>
+      <h1 id="title">ダッシュボード</h1>
+      <div class="searchbox"><span class="ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></span>
+        <input id="q" placeholder="圃場名・品目で検索" autocomplete="off"><div id="qList" class="slist"></div></div>
+      <select id="period" class="period">
+        <option value="7">今週</option><option value="14" selected>2週間</option><option value="30">1ヶ月</option><option value="60">2ヶ月</option>
+      </select>
+      <button id="bell" class="bell" title="注意がいるところ"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg><b id="bellN" style="display:none">0</b></button>
+      <button id="who" class="who" title="記録する人を切り替え"><span class="av" id="whoAv">徹</span><span><span id="whoName">徹</span><small id="whoRole">管理者</small></span></button>
+    </header>
+    <div class="body" id="body"></div>
+  </div>
+</div>
+<div class="drop" id="bellDrop"></div>
+<nav class="tabbar" id="tabbar">
+  <button data-v="dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>ダッシュ</button>
+  <button data-v="farm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="15" width="7" height="6" rx="1"/><rect x="14" y="15" width="7" height="6" rx="1"/></svg>圃場</button>
+  <button data-v="plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg>計画</button>
+  <button data-v="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 00-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 00-2-1.2L14 3h-4l-.6 2.7a7 7 0 00-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 005 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1a7 7 0 002 1.2L10 21h4l.6-2.7a7 7 0 002-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>設定</button>
+</nav>
+
+<script src="os6-common.js?v=2"></script>
+<script>
+"use strict";
+/* ══ 状態・定数 ══ */
+const DEMO = new URLSearchParams(location.search).get("demo")==="1";
+const DATA = {fields:[],houses:[],beds:[],records:[],tasks:[],yields:[],harvests:[]};
+let VIEW="dash", SEL={fieldId:null,houseId:null}, PERIOD=14, ZOOM=1;
+const USERS=["徹","父","母"], ROLES={"徹":"管理者","父":"作業者","母":"作業者"};
+let USER = localStorage.getItem("gg_os6_user")||"徹";
+// 株あたり概算収量g（仮・出典未検証のプレースホルダ。シート「品目マスター」があればそちらで上書き＝設計書v2 §7.5）
+const YIELD_FALLBACK={"パクチー":80,"パクチーファラン":60,"空芯菜":150,"ガパオ":150,"ホーラパー":150,"カナー":200,"バイマックル":50};
+const STATUS_CHIP=s=>s==="順調"?"":(s==="注意"||s==="遅延")?"warn":s==="害虫"?"bad":"mut";
+const STATUS_FILL=s=>({"順調":"#7fa98c","注意":"#d9b45f","害虫":"#c47a6d","遅延":"#d9b45f","休耕":"#b9beba"})[s]||"#9fb3a5";
+const fname=f=>col(f,"正規名")||fid(f);
+const housesOf=fId=>DATA.houses.filter(h=>col(h,"圃場ID")===fId);
+const bedsOf=hId=>DATA.beds.filter(b=>col(b,"区画ID")===hId);
+const recsOf=bId=>DATA.records.filter(r=>col(r,"畝ID")===bId).slice().sort((a,b)=>col(a,"日時").localeCompare(col(b,"日時")));
+const latestOf=bId=>{const r=recsOf(bId);return r.length?r[r.length-1]:null;};
+const houseOfBed=b=>DATA.houses.find(h=>hid(h)===col(b,"区画ID"));
+const fieldOfHouse=h=>h&&DATA.fields.find(f=>fid(f)===col(h,"圃場ID"));
+const D=s=>{const d=new Date(String(s||"").replace(/-/g,"/"));return isNaN(d)?null:d;};
+const daysAgo=s=>{const d=D(s);return d?Math.floor((Date.now()-d)/86400000):null;};
+const daysUntil=s=>{const d=D(s);return d?Math.ceil((d-Date.now())/86400000):null;};
+const fmtMD=d=>`${d.getMonth()+1}/${d.getDate()}`;
+/* 概算収量：品目マスター（あれば）→ 内蔵仮係数 */
+function yieldPer(item){
+  const row=DATA.yields.find(y=>col(y,"品目")===item);
+  if(row){const v=parseFloat(col(row,"株あたり概算収量")); if(!isNaN(v)) return {g:v, prov:col(row,"出典")||"品目マスター"};}
+  if(YIELD_FALLBACK[item]!=null) return {g:YIELD_FALLBACK[item], prov:"仮"};
+  return null;
+}
+const bedKg=b=>{const y=yieldPer(col(b,"品目")); const n=parseInt(col(b,"株数"))||0; return y? n*y.g/1000 : null;};
+
+/* ══ アラート（v0.1の規則ベースを継承） ══ */
+function computeAlerts(){
+  const out=[]; const add=(level,text,b)=>{const h=b?houseOfBed(b):null,f=h?fieldOfHouse(h):null;
+    out.push({level,text,where:[f?fname(f):"",h?col(h,"名称")||hid(h):""].filter(Boolean).join(" › "),fieldId:f?fid(f):null,houseId:h?hid(h):null});};
+  DATA.beds.forEach(b=>{
+    const item=col(b,"品目")||bid(b), last=latestOf(bid(b));
+    if(last){
+      const pest=col(last,"病害虫（")||col(last,"病害虫");
+      if(pest==="多い"||pest==="中程度") add(pest==="多い"?"bad":"warn",`${item}：病害虫「${pest}」（${col(last,"病害虫の種類")||"種類未記入"}）。防除を検討`,b);
+      const soil=col(last,"土壌水分");
+      if(soil==="乾燥"||soil==="やや乾燥") add("warn",`${item}：土壌が「${soil}」。灌水を検討`,b);
+      if(soil==="湿りすぎ") add("warn",`${item}：土壌が「湿りすぎ」。排水を確認`,b);
+      const leaf=col(last,"葉色"); if(leaf==="薄い"||leaf==="やや薄い") add("info",`${item}：葉色「${leaf}」。追肥・日照を確認`,b);
+      const ago=daysAgo(col(last,"日時")); if(ago!=null&&ago>=7) add("info",`${item}：最終記録から${ago}日。巡回で記録を`,b);
+    } else if(col(b,"定植日")) add("info",`${item}：巡回記録がまだありません`,b);
+    const harv=col(b,"収穫開始見込み"); if(harv){const d=daysUntil(harv); if(d!=null&&d>=0&&d<=7) add("info",`${item}：収穫開始まで${d===0?"今日":d+"日"}（${harv}）`,b);}
+  });
+  DATA.tasks.forEach(t=>{ if(col(t,"状態")==="遅延"){const b=DATA.beds.find(x=>bid(x)===col(t,"畝ID"));
+    add("warn",`作業「${col(t,"作業種")||"?"}」が遅延（予定 ${col(t,"日付")}）${col(t,"内容")?"："+col(t,"内容"):""}`,b);} });
+  const rank={bad:0,warn:1,info:2}; out.sort((a,b)=>rank[a.level]-rank[b.level]); return out;
+}
+
+/* ══ デモデータ（モック相当の圃場を再現・シートへは書かない） ══ */
+function demoData(){
+  const F=[{"圃場ID":"F1","正規名（第N圃場・エリア・農家名）":"第1圃場・土浦（デモ）","所在地（市町村）":"茨城県土浦市","緯度":"36.0839","経度":"140.2472","稼働（主力/スポット/休止）":"主力"}];
+  const rect=(la,ln,w,h)=>JSON.stringify([[la,ln],[la,ln+h],[la-w,ln+h],[la-w,ln]]);
+  const mk=(id,name,kind,la,ln,w,h,item,st,beds,area)=>({"区画ID":id,"圃場ID":"F1","名称":name,"種別（ハウス/露地）":kind,"図形（緯度経度の配列JSON）":rect(la,ln,w,h),"面積m2（自動）":area,"畝の本数":beds,"主品目":item,"状態（順調/注意/害虫/遅延/未入力/休耕）":st});
+  const H=[ mk("F1-1","露地区画1","露地",36.08760,140.24560,.00030,.00048,"空芯菜","順調",8,1200),
+            mk("F1-2","露地区画2","露地",36.08760,140.24616,.00030,.00034,"パクチー","注意",6,800),
+            mk("F1-3","Aハウス","ハウス",36.08718,140.24560,.00016,.00030,"ガパオ","順調",4,290),
+            mk("F1-4","Bハウス","ハウス",36.08718,140.24598,.00016,.00030,"ホーラパー","順調",12,290),
+            mk("F1-5","Cハウス","ハウス",36.08718,140.24636,.00016,.00030,"カナー","注意",4,290),
+            mk("F1-6","Dハウス","ハウス",36.08694,140.24560,.00013,.00024,"","休耕",0,200),
+            mk("F1-7","育苗ハウス","ハウス",36.08694,140.24592,.00010,.00020,"パクチー","順調",2,120) ];
+  const bed=(id,hid,item,n,pl,hs,he,st)=>({"畝ID":id,"区画ID":hid,"品目（呼称）":item,"株数":String(n),"定植日":pl,"収穫開始見込み":hs,"収穫終了見込み":he,"状態":st});
+  const B=[ bed("F1-4-01","F1-4","ガパオ",320,"2026/08/05","2026/09/08","2026/10/20","順調"),
+            bed("F1-4-02","F1-4","ホーラパー",640,"2026/08/08","2026/09/12","2026/10/25","順調"),
+            bed("F1-4-03","F1-4","カナー",800,"2026/08/10","2026/09/24","2026/10/30","順調"),
+            bed("F1-4-04","F1-4","パクチー",480,"2026/08/12","2026/09/10","2026/09/30","注意"),
+            bed("F1-4-05","F1-4","バイマックル",320,"2026/07/20","2026/09/28","2026/11/10","順調"),
+            bed("F1-1-01","F1-1","空芯菜",300,"2026/08/12","2026/09/06","2026/10/10","順調"),
+            bed("F1-2-01","F1-2","パクチー",200,"2026/08/20","2026/09/26","2026/10/20","注意"),
+            bed("F1-3-01","F1-3","ガパオ",260,"2026/08/15","2026/09/20","2026/10/30","順調"),
+            bed("F1-5-01","F1-5","カナー",300,"2026/08/18","2026/09/30","2026/11/05","注意") ];
+  const R=[]; const days=["2026/08/24 09:10","2026/08/28 08:50","2026/09/01 09:20"];
+  const grow={"F1-4-01":[18,24,28],"F1-4-02":[20,25,29],"F1-4-04":[10,14,18],"F1-1-01":[12,20,27],"F1-2-01":[4,7,10]};
+  Object.keys(grow).forEach(bid0=>grow[bid0].forEach((h,i)=>R.push({"日時":days[i],"畝ID":bid0,"草丈cm":String(h),
+    "葉色（薄い/やや薄い/標準/やや濃い/濃い）":bid0==="F1-2-01"&&i===2?"やや薄い":"標準",
+    "土壌水分（乾燥/やや乾燥/適正/やや湿り/湿りすぎ）":bid0==="F1-4-04"&&i===2?"やや乾燥":"適正",
+    "病害虫（なし/少量/中程度/多い）":bid0==="F1-4-04"&&i>=1?"少量":"なし","病害虫の種類":bid0==="F1-4-04"&&i>=1?"アブラムシ":"","記録者":"デモ"})));
+  const T=[{"日付":"2026/09/04","畝ID":"F1-4-04","作業種（観察/灌水/防除/追肥/定植/収穫）":"防除","内容":"アブラムシ","状態（予定/完了/遅延/中止）":"予定","担当":"父"},
+           {"日付":"2026/09/01","畝ID":"F1-1-01","作業種（観察/灌水/防除/追肥/定植/収穫）":"灌水","内容":"","状態（予定/完了/遅延/中止）":"遅延","担当":"母"}];
+  return {fields:F,houses:H,beds:B,records:R,tasks:T,yields:[],harvests:[]};
+}
+
+/* ══ 読み込み（順番読み＋時間切れ＝規約§2） ══ */
+const withTimeout=(p,ms,l)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error(`${l} 時間切れ`)),ms))]);
+async function loadAll(){
+  if(DEMO){ Object.assign(DATA,demoData()); $("demoBar").style.display=""; render(); return; }
+  const wants=[["fields","圃場"],["houses","ハウス区画"],["beds","畝・作付け"],["records","育成記録"],["tasks","作業予定"],["yields","品目マスター"],["harvests","収穫実績"]];
+  const failed=[];
+  for(const [k,tab] of wants){
+    try{ DATA[k]=(await withTimeout(readTab(tab),15000,tab)).rows; }
+    catch(e){ if(k==="yields"||k==="harvests") continue; /* S2で作るタブ＝無くて正常 */ failed.push(`${tab}（${e.message||"読込失敗"}）`); }
+  }
+  DATA.__failed=failed; render();
+}
+
+/* ══ シェル（ナビ・検索・期間・ベル・記録者） ══ */
+const TITLES={dash:"ダッシュボード",farm:"圃場管理インターフェース",plan:"作付計画",forecast:"収穫予測",settings:"設定"};
+function go(v,sel){ VIEW=v; if(sel) SEL={...SEL,...sel}; document.querySelectorAll("[data-v]").forEach(b=>b.classList.toggle("on",b.dataset.v===v)); $("title").textContent=TITLES[v]||v; $("bellDrop").style.display="none"; render(); }
+document.querySelectorAll("[data-v]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.v)));
+$("period").onchange=e=>{ PERIOD=+e.target.value; render(); };
+function setUser(u){ USER=u; localStorage.setItem("gg_os6_user",u); $("whoAv").textContent=u; $("whoName").textContent=u; $("whoRole").textContent=ROLES[u]||"作業者"; }
+$("who").onclick=()=>setUser(USERS[(USERS.indexOf(USER)+1)%USERS.length]);
+setUser(USER);
+$("bell").onclick=()=>{
+  const d=$("bellDrop"); if(d.style.display==="block"){d.style.display="none";return;}
+  d.style.top=(document.querySelector("header").getBoundingClientRect().bottom+8)+"px";  // ヘッダーに重ねない（重なると下のボタンが押せなくなる）
+  const A=computeAlerts();
+  d.innerHTML=`<h2 style="font-size:14px;margin:2px 4px 8px">注意がいるところ（${A.length}）</h2>`+(A.length?A.map(a=>alertHTML(a)).join(""):`<p class="hint" style="padding:4px">いまの記録から目立つ注意点はありません。</p>`);
+  d.style.display="block"; wireAlerts(d);
+};
+function alertHTML(a){ return `<div class="alert ${a.level==="bad"?"bad":a.level==="info"?"info":""}" ${a.houseId?`data-house="${esc(a.houseId)}"`:""} style="cursor:${a.houseId?"pointer":"default"}"><div>${esc(a.text)}<span class="where">${esc(a.where)}</span></div></div>`; }
+function wireAlerts(root){ root.querySelectorAll("[data-house]").forEach(el=>el.addEventListener("click",()=>{ const h=DATA.houses.find(x=>hid(x)===el.dataset.house); go("farm",{fieldId:h?col(h,"圃場ID"):null,houseId:el.dataset.house}); })); }
+/* 検索：圃場・区画・品目 */
+$("q").addEventListener("input",e=>{
+  const q=e.target.value.trim(), list=$("qList"); if(!q){list.style.display="none";return;}
+  const hits=[];
+  DATA.fields.forEach(f=>{ if(fname(f).includes(q)) hits.push({t:fname(f),s:"圃場",go:()=>go("farm",{fieldId:fid(f),houseId:null})}); });
+  DATA.houses.forEach(h=>{ if((col(h,"名称")||"").includes(q)) hits.push({t:col(h,"名称"),s:"区画 › "+(fieldOfHouse(h)?fname(fieldOfHouse(h)):""),go:()=>go("farm",{fieldId:col(h,"圃場ID"),houseId:hid(h)})}); });
+  const items=[...new Set(DATA.beds.map(b=>col(b,"品目")).filter(Boolean))];
+  items.forEach(it=>{ if(it.includes(q)){ const b=DATA.beds.find(x=>col(x,"品目")===it), h=b&&houseOfBed(b);
+    hits.push({t:it,s:"品目 › "+(h?col(h,"名称"):""),go:()=>go("farm",{fieldId:h?col(h,"圃場ID"):null,houseId:h?hid(h):null})}); }});
+  list.innerHTML=hits.slice(0,8).map((x,i)=>`<div data-i="${i}">${esc(x.t)}<small>${esc(x.s)}</small></div>`).join("")||`<div>該当なし<small>圃場・区画・品目名で探せます</small></div>`;
+  list.style.display="block";
+  list.querySelectorAll("[data-i]").forEach(el=>el.addEventListener("click",()=>{ list.style.display="none"; $("q").value=""; hits[+el.dataset.i].go(); }));
+});
+document.addEventListener("click",e=>{ if(!e.target.closest(".searchbox")) $("qList").style.display="none"; if(!e.target.closest("#bell")&&!e.target.closest("#bellDrop")) $("bellDrop").style.display="none"; });
+
+/* ══ 図式マップ（実配置＝緯度経度→ローカル座標） ══ */
+function fieldSVG(fId,width){
+  const hs=housesOf(fId).map(h=>{ let pts=null; try{pts=JSON.parse(col(h,"図形")||"null");}catch(e){}
+    return {h,pts:(Array.isArray(pts)&&pts.length>=3)?pts:null}; });
+  const drawn=hs.filter(x=>x.pts);
+  if(!drawn.length) return {html:`<div class="empty"><p class="hint">この圃場にはまだ図形つきの区画がありません。「かんたん登録」で追加できます。</p><a class="btn" href="wizard.html">＋ 区画を登録</a></div>`};
+  const lat0=drawn.flatMap(x=>x.pts).reduce((s,p)=>s+p[0],0)/drawn.flatMap(x=>x.pts).length;
+  const toXY=p=>[ (p[1])*111320*Math.cos(lat0*Math.PI/180), -(p[0])*111320 ];
+  let minX=1e15,maxX=-1e15,minY=1e15,maxY=-1e15;
+  const shapes=drawn.map(x=>{ const xy=x.pts.map(toXY);
+    xy.forEach(([px,py])=>{minX=Math.min(minX,px);maxX=Math.max(maxX,px);minY=Math.min(minY,py);maxY=Math.max(maxY,py);});
+    return {h:x.h,xy}; });
+  const pad=18, W=maxX-minX||1, Hh=maxY-minY||1;
+  const vw=width||760, scale=(vw-pad*2)/W, vh=Math.max(320,Math.min(640,Hh*scale+pad*2));
+  const sc=Math.min(scale,(vh-pad*2)/Hh);
+  const ox=(vw-W*sc)/2-minX*sc, oy=(vh-Hh*sc)/2-minY*sc;
+  const body=shapes.map(({h,xy})=>{
+    const id=hid(h), st=col(h,"状態"), sel=SEL.houseId===id;
+    // 実配置＝位置は緯度経度どおり・大きさは読める最小サイズまで拡大（実寸だと区画が点になる）
+    let scr=xy.map(([px,py])=>[px*sc+ox,py*sc+oy]);
+    const cx=scr.reduce((s,p)=>s+p[0],0)/scr.length, cy=scr.reduce((s,p)=>s+p[1],0)/scr.length;
+    const bw=Math.max(...scr.map(p=>p[0]))-Math.min(...scr.map(p=>p[0])), bh=Math.max(...scr.map(p=>p[1]))-Math.min(...scr.map(p=>p[1]));
+    const mag=Math.min(6,Math.max(1,110/(bw||1),74/(bh||1)));
+    if(mag>1) scr=scr.map(([px,py])=>[cx+(px-cx)*mag, cy+(py-cy)*mag]);
+    const P=p=>`${p[0].toFixed(1)},${p[1].toFixed(1)}`;
+    const kind=col(h,"種別"), fill=kind==="ハウス"?"#f3f5f2":"#8fae97";
+    const area=col(h,"面積")?`${col(h,"面積")}m²`:"";
+    const chipC={"":"#7fa98c","順調":"#7fa98c","注意":"#d9a13f","害虫":"#c05f4e","遅延":"#d9a13f","休耕":"#9aa09b","未入力":"#9aa09b"}[st]||"#9aa09b";
+    return `<g class="plot" data-house="${esc(id)}" style="cursor:pointer">
+      <polygon points="${scr.map(P).join(" ")}" fill="${fill}" stroke="${sel?"#2e7d4f":STATUS_FILL(st)}" stroke-width="${sel?4:2}" ${sel?'filter="url(#glow)"':""} rx="6"/>
+      <text x="${cx}" y="${cy-8}" text-anchor="middle" font-size="13" class="plot-label" fill="${kind==="ハウス"?"#3d5248":"#fff"}" stroke="${kind==="ハウス"?"rgba(255,255,255,.8)":"rgba(0,0,0,.35)"}">${esc(col(h,"名称")||id)}</text>
+      <text x="${cx}" y="${cy+7}" text-anchor="middle" font-size="10" class="plot-sub" fill="${kind==="ハウス"?"#6b7a72":"#eef"}" stroke="${kind==="ハウス"?"rgba(255,255,255,.8)":"rgba(0,0,0,.3)"}">${esc(area)}</text>
+      <g transform="translate(${cx},${cy+22})"><rect x="-26" y="-9" width="52" height="16" rx="8" fill="${chipC}"/><text text-anchor="middle" y="3" font-size="9" fill="#fff">${esc(st||"未入力")}</text></g>
+    </g>`;
+  }).join("");
+  const html=`<svg viewBox="0 0 ${vw} ${vh}" style="transform:scale(${ZOOM});transform-origin:center">
+    <defs><filter id="glow"><feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#2e7d4f" flood-opacity=".8"/></filter></defs>${body}</svg>`;
+  return {html};
+}
+
+/* ══ 収穫タイムライン（期間セレクタ連動） ══ */
+function timelineHTML(beds){
+  const t0=new Date(); t0.setHours(0,0,0,0); t0.setDate(t0.getDate()-t0.getDay()+1); // 今週の月曜
+  const span=Math.max(PERIOD,28)/7*7*86400000*1.5, t1=new Date(t0.getTime()+span);
+  const weeks=[]; for(let d=new Date(t0); d<t1; d.setDate(d.getDate()+7)) weeks.push(fmtMD(new Date(d)));
+  const rows=beds.filter(b=>col(b,"品目")).map(b=>{
+    const pl=D(col(b,"定植日")), hs=D(col(b,"収穫開始見込み")), he=D(col(b,"収穫終了見込み"))|| (hs&&new Date(hs.getTime()+14*86400000));
+    if(!pl&&!hs) return "";
+    const X=d=>Math.max(0,Math.min(100,(d-t0)/(t1-t0)*100));
+    const growL=pl?X(pl):0, growR=hs?X(hs):100, harvR=he?X(he):Math.min(100,growR+10);
+    const dLabel=hs?fmtMD(hs):"";
+    return `<div class="tl-row" style="margin:7px 0"><span class="tl-name">${esc(col(b,"品目"))}</span>
+      <div style="display:flex;align-items:center;gap:6px"><div class="tl-track" style="flex:1">
+        <div class="tl-grow" style="left:${growL}%;width:${Math.max(0,growR-growL)}%"></div>
+        <div class="tl-harv" style="left:${growR}%;width:${Math.max(2,harvR-growR)}%"></div>
+      </div><span class="tl-date">${esc(dLabel)}</span></div></div>`;
+  }).filter(Boolean).join("");
+  if(!rows) return `<p class="hint">定植日・収穫見込みが入ると、ここにタイムラインが出ます。</p>`;
+  return `<div class="tl"><div class="tl-head"><span></span><div class="tl-weeks">${weeks.slice(0,6).map(w=>`<span>${w}</span>`).join("")}</div></div>${rows}
+    <div class="tl-legend"><span><i style="background:#cfe0d4"></i>生育中</span><span><i style="background:var(--g)"></i>収穫予定期間</span></div></div>`;
+}
+
+/* ══ 右パネル（選択区画） ══ */
+function panelHTML(h){
+  const beds=bedsOf(hid(h));
+  const stocks=beds.reduce((s,b)=>s+(parseInt(col(b,"株数"))||0),0);
+  const kgs=beds.map(bedKg).filter(v=>v!=null);
+  const kg=kgs.length?Math.round(kgs.reduce((a,b)=>a+b,0)):null;
+  const next=beds.map(b=>D(col(b,"収穫開始見込み"))).filter(Boolean).sort((a,b)=>a-b)[0];
+  const rows=beds.filter(b=>col(b,"品目")).map(b=>{
+    const kgv=bedKg(b), du=daysUntil(col(b,"収穫開始見込み"));
+    return `<tr><td>${esc(col(b,"品目"))}</td><td>${esc(col(b,"株数")||"-")}株</td>
+      <td>${kgv!=null?Math.round(kgv)+"kg":"—"}</td><td>${du!=null?(du<=0?"収穫期":du+"日"):"—"}</td>
+      <td><span class="chip ${STATUS_CHIP(col(b,"状態"))}">${esc(col(b,"状態")||"未入力")}</span></td></tr>`;
+  }).join("");
+  return `<div class="card">
+    <h2 style="font-size:17px">選択中: ${esc(col(h,"名称")||hid(h))} <span class="chip ${STATUS_CHIP(col(h,"状態"))}" style="margin-left:auto">${esc(col(h,"状態")||"未入力")}</span></h2>
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+      <div class="kpi"><b>${stocks.toLocaleString()}</b><span>総株数</span></div>
+      <div class="kpi"><b>${kg!=null?kg:"—"}<span style="font-size:12px"> kg</span></b><span>予想収穫合計</span><small>概算（実績で学習・S4）</small></div>
+      <div class="kpi"><b style="font-size:15px">${next?fmtMD(next):"—"}</b><span>次回収穫予定${next?`（あと${Math.max(0,daysUntil(next))}日）`:""}</span></div>
+    </div>
+    ${rows?`<table><tr><th>品目</th><th>株数</th><th>予想収穫</th><th>収穫まで</th><th>状態</th></tr>${rows}</table>`:`<p class="hint">畝・品目が未登録です。かんたん登録で追加できます。</p>`}
+    <h2 style="margin-top:16px">収穫タイムライン <span class="sub">（${esc(col(h,"名称")||"")}）</span></h2>
+    ${timelineHTML(beds)}
+    <p style="margin:14px 0 2px"><button class="btn" data-plot="${esc(hid(h))}">詳細情報を表示 →</button></p>
+    <p class="hint">畝ごとの詳細・生育入力・提案は「区画詳細」画面（S2）で入ります。</p>
+  </div>`;
+}
+
+/* ══ 画面：圃場管理 ══ */
+function renderFarm(){
+  if(!DATA.fields.length){ $("body").innerHTML=emptyHTML(); return; }
+  if(!SEL.fieldId||!DATA.fields.some(f=>fid(f)===SEL.fieldId)) SEL.fieldId=fid(DATA.fields[0]);
+  const hs=housesOf(SEL.fieldId);
+  if(!SEL.houseId||!hs.some(h=>hid(h)===SEL.houseId)) SEL.houseId=hs.length?hid(hs[0]):null;
+  const selH=DATA.houses.find(h=>hid(h)===SEL.houseId);
+  const map=fieldSVG(SEL.fieldId, 760);
+  $("body").innerHTML=`
+    ${DATA.__failed&&DATA.__failed.length?`<div class="msg err">読めなかったタブ：${esc(DATA.__failed.join("・"))}</div>`:""}
+    <div class="cols">
+      <div class="card mapcard">
+        <div class="maphead">
+          <div class="seg"><button class="on">圃場マップ</button><button title="S3で入ります" disabled>一覧表示</button></div>
+          <select class="fieldsel" id="fieldSel">${DATA.fields.map(f=>`<option value="${esc(fid(f))}" ${fid(f)===SEL.fieldId?"selected":""}>${esc(fname(f))}</option>`).join("")}</select>
+          <span class="hint" style="margin-left:auto">区画をタップで選択</span>
+        </div>
+        <div class="legend"><b>ステータス</b>
+          <div><i style="background:#7fa98c"></i>順調</div><div><i style="background:#d9a13f"></i>注意</div>
+          <div><i style="background:#c05f4e"></i>害虫</div><div><i style="background:#9aa09b"></i>休耕・未入力</div></div>
+        <div class="canvaswrap" id="canvas">${map.html}</div>
+        <div class="zoom"><button id="zin">＋</button><button id="zout">−</button></div>
+        <div class="mapfoot"><span>最終読込: ${nowStr()}</span><span>図式表示（実配置）・位置の確認は<a href="setup.html">地図</a></span></div>
+      </div>
+      <div id="panel">${selH?panelHTML(selH):`<div class="card"><p class="hint">区画を選ぶと詳細が出ます。</p></div>`}</div>
+    </div>`;
+  $("fieldSel").onchange=e=>{ SEL.fieldId=e.target.value; SEL.houseId=null; render(); };
+  $("zin").onclick=()=>{ ZOOM=Math.min(2,ZOOM+0.2); render(); };
+  $("zout").onclick=()=>{ ZOOM=Math.max(0.6,ZOOM-0.2); render(); };
+  document.querySelectorAll(".plot").forEach(g=>g.addEventListener("click",()=>{ SEL.houseId=g.dataset.house; render(); }));
+  wirePlotButtons();
+}
+function wirePlotButtons(){ document.querySelectorAll("[data-plot]").forEach(b=>b.addEventListener("click",()=>{ alert("区画詳細（畝グリッド・生育入力・提案）はS2で入ります。いまは旧画面で記録できます：record.html"); })); }
+
+/* ══ 画面：ダッシュボード ══ */
+function renderDash(){
+  if(!DATA.fields.length){ $("body").innerHTML=emptyHTML(); return; }
+  const A=computeAlerts(); $("bellN").style.display=A.length?"flex":"none"; $("bellN").textContent=A.length;
+  const stocks=DATA.beds.reduce((s,b)=>s+(parseInt(col(b,"株数"))||0),0);
+  const kgs=DATA.beds.map(bedKg).filter(v=>v!=null);
+  const soon=DATA.beds.filter(b=>{const d=daysUntil(col(b,"収穫開始見込み"));return d!=null&&d>=-3&&d<=PERIOD;})
+    .sort((a,b)=>D(col(a,"収穫開始見込み"))-D(col(b,"収穫開始見込み")));
+  const lastRecs=DATA.records.slice().sort((a,b)=>col(b,"日時").localeCompare(col(a,"日時"))).slice(0,5);
+  $("body").innerHTML=`
+    ${DATA.__failed&&DATA.__failed.length?`<div class="msg err">読めなかったタブ：${esc(DATA.__failed.join("・"))}</div>`:""}
+    <div class="kpis">
+      <div class="kpi"><b>${DATA.fields.length}</b><span>圃場</span></div>
+      <div class="kpi"><b>${DATA.houses.length}</b><span>区画</span></div>
+      <div class="kpi"><b>${DATA.beds.length}</b><span>作付け畝</span></div>
+      <div class="kpi"><b>${stocks.toLocaleString()}</b><span>総株数</span></div>
+      <div class="kpi"><b>${kgs.length?Math.round(kgs.reduce((a,b)=>a+b,0)):"—"}<span style="font-size:12px"> kg</span></b><span>予想収穫合計</span><small>概算（実績で学習・S4）</small></div>
+    </div>
+    <div class="cols">
+      <div>
+        <div class="card"><h2>注意がいるところ <span class="sub">${A.length}件</span></h2>
+          ${A.length?A.slice(0,6).map(alertHTML).join(""):`<p class="hint">いまの記録から目立つ注意点はありません。</p>`}
+          ${A.length>6?`<p class="hint">ほか${A.length-6}件はベル（右上）から</p>`:""}</div>
+        <div class="card" style="margin-top:14px"><h2>圃場</h2>
+          ${DATA.fields.map(f=>{ const hs=housesOf(fid(f)); const worst=["害虫","遅延","注意"].find(s=>hs.some(h=>col(h,"状態")===s));
+            return `<table style="margin:2px 0"><tr class="click" data-field="${esc(fid(f))}">
+              <td style="border:0"><b>${esc(fname(f))}</b><br><span class="hint">${esc(col(f,"所在地")||"")}／区画${hs.length}・畝${hs.flatMap(h=>bedsOf(hid(h))).length}</span></td>
+              <td style="border:0;text-align:right"><span class="chip ${worst?STATUS_CHIP(worst):""}">${worst?worst+"あり":"順調"}</span></td></tr></table>`; }).join("")}</div>
+      </div>
+      <div>
+        <div class="card"><h2>収穫予定 <span class="sub">${PERIOD}日以内</span></h2>
+          ${soon.length?`<table><tr><th>品目</th><th>どこ</th><th>開始</th><th>概算</th></tr>${soon.slice(0,8).map(b=>{const h=houseOfBed(b);const kgv=bedKg(b);
+            return `<tr class="click" data-house="${esc(col(b,"区画ID"))}"><td>${esc(col(b,"品目"))}</td><td class="hint">${esc(h?col(h,"名称"):"")}</td><td>${esc(col(b,"収穫開始見込み").slice(5))}</td><td>${kgv!=null?Math.round(kgv)+"kg":"—"}</td></tr>`;}).join("")}</table>`
+            :`<p class="hint">${PERIOD}日以内の収穫予定はありません（期間は右上で変えられます）。</p>`}</div>
+        <div class="card" style="margin-top:14px"><h2>最近の記録</h2>
+          ${lastRecs.length?lastRecs.map(r=>{const b=DATA.beds.find(x=>bid(x)===col(r,"畝ID"));const h=b&&houseOfBed(b);
+            return `<div style="padding:6px 0;border-bottom:1px solid #f0f2f0;font-size:13px">${esc(col(r,"日時").slice(5,16))}　<b>${esc(b?col(b,"品目"):col(r,"畝ID"))}</b> 草丈${esc(col(r,"草丈")||"-")}cm <span class="hint">${esc(h?col(h,"名称"):"")}・${esc(col(r,"記録者")||"")}</span></div>`;}).join("")
+            :`<p class="hint">記録が入るとここに出ます。</p>`}
+          <p style="margin:12px 0 2px"><a class="btn sub" href="record.html">巡回記録をつける（旧画面・S2で統合）</a></p></div>
+      </div>
+    </div>`;
+  wireAlerts($("body"));
+  document.querySelectorAll("[data-field]").forEach(el=>el.addEventListener("click",()=>go("farm",{fieldId:el.dataset.field,houseId:null})));
+  document.querySelectorAll("tr[data-house]").forEach(el=>el.addEventListener("click",()=>{const h=DATA.houses.find(x=>hid(x)===el.dataset.house);go("farm",{fieldId:h?col(h,"圃場ID"):null,houseId:el.dataset.house});}));
+}
+
+/* ══ 席だけの画面・設定・空状態 ══ */
+const seatHTML=(t,items)=>`<div class="card"><h2>${t}</h2><p class="hint">この画面は<b>段E（数字の接続）で開通</b>します。予定している中身：</p><ul class="hint">${items.map(i=>`<li>${i}</li>`).join("")}</ul></div>`;
+function renderPlan(){ $("body").innerHTML=seatHTML("作付計画",["畝×品目×作型の計画表（畝・作付けタブが正本）","EcoCrop×平年値の作付け窓との突合（climate_fit）","来季修正の比較ビュー（計画 vs 実績）"]); }
+function renderForecast(){ $("body").innerHTML=seatHTML("収穫予測",["概算kg（品目マスター×株数）→ 実績kg/株で係数を自動補正（S4）","収穫実績の記録と品目別の的中率","気候変数（アメダス実況・積算温度）の追加（段E）"]); }
+function renderSettings(){
+  $("body").innerHTML=`<div class="card"><h2>設定・道具</h2>
+    <p><a class="btn" href="wizard.html">＋ かんたん登録（圃場・区画の追加）</a></p>
+    <p class="hint" style="margin-top:10px">・位置の確認・境界の精密化：<a href="setup.html">地図で編集（上級）</a>（ふだんは不要。Claudeに「◯◯の境界を直して」と頼めば代行します）<br>
+    ・巡回記録（旧画面・S2でこのアプリに統合）：<a href="record.html">record.html</a><br>
+    ・記録する人の切り替え＝右上の顔ボタン（いま：<b>${esc(USER)}</b>）。記録の「記録者」に自動で入ります<br>
+    ・スマホでは<b>ホーム画面に追加</b>して使ってください（iPhoneは7日使わないとブラウザ保存が消える仕様のため）</p></div>`;
+}
+const emptyHTML=()=>`<div class="card empty"><h2 style="justify-content:center">まだ圃場がありません</h2>
+  <p class="hint">「かんたん登録」でピンを1回打って質問に答えるだけ（約1分）で、圃場・区画・畝のマス目まで登録できます。<br>デモの完成形は <a href="?demo=1">?demo=1</a> で確認できます。</p>
+  <a class="btn" href="wizard.html">かんたん登録をはじめる</a></div>`;
+
+/* ══ ルーター ══ */
+function render(){
+  const A=computeAlerts(); $("bellN").style.display=A.length?"flex":"none"; $("bellN").textContent=A.length;
+  ({dash:renderDash,farm:renderFarm,plan:renderPlan,forecast:renderForecast,settings:renderSettings}[VIEW]||renderDash)();
+}
+go("dash");
+loadAll().catch(e=>{ $("body").innerHTML=`<div class="msg err">読み込みに失敗しました：${esc(e.message||e)}</div>`; });
+</script>
+</body>
+</html>
