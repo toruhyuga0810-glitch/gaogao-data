@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-06",
+ "updated": "2026-09-07",
  "source": "freee請求書API（delivery_slips・自動同期）",
  "records": [
   {
@@ -1807,6 +1807,62 @@
    "unit": "kg",
    "unitPrice": 1700,
    "amount": 22100
+  },
+  {
+   "date": "2026-09-09",
+   "no": "DEL-0000000035",
+   "customer": "スパイスロード",
+   "farm": "第1圃場・八郷・中村",
+   "farmRaw": "第1圃場",
+   "callRaw": "ガパオ",
+   "call": "ガパオ",
+   "jp": "ホーリーバジル",
+   "qty": 11,
+   "unit": "kg",
+   "unitPrice": 1700,
+   "amount": 18700
+  },
+  {
+   "date": "2026-09-09",
+   "no": "DEL-0000000035",
+   "customer": "スパイスロード",
+   "farm": "第1圃場・八郷・中村",
+   "farmRaw": "第1圃場",
+   "callRaw": "プリックデーンチンダー",
+   "call": "プリックデーンチンダー",
+   "jp": "唐辛子（赤・大）",
+   "qty": 10,
+   "unit": "kg",
+   "unitPrice": 1800,
+   "amount": 18000
+  },
+  {
+   "date": "2026-09-09",
+   "no": "DEL-0000000035",
+   "customer": "スパイスロード",
+   "farm": "第3圃場・土浦・ペン",
+   "farmRaw": "第3圃場",
+   "callRaw": "ガパオ",
+   "call": "ガパオ",
+   "jp": "ホーリーバジル",
+   "qty": 9,
+   "unit": "kg",
+   "unitPrice": 1800,
+   "amount": 16200
+  },
+  {
+   "date": "2026-09-09",
+   "no": "DEL-0000000035",
+   "customer": "スパイスロード",
+   "farm": "第3圃場・土浦・ペン",
+   "farmRaw": "第3圃場",
+   "callRaw": "プリックデーンチンダー",
+   "call": "プリックデーンチンダー",
+   "jp": "唐辛子（赤・大）",
+   "qty": 10,
+   "unit": "kg",
+   "unitPrice": 1700,
+   "amount": 17000
   }
  ],
  "adjustments": [
@@ -2295,6 +2351,22 @@
    "qty": 3,
    "unitPrice": 800,
    "amount": 2400
+  },
+  {
+   "date": "2026-09-09",
+   "no": "DEL-0000000035",
+   "label": "送料：140サイズ（20kg）",
+   "qty": 2,
+   "unitPrice": 840,
+   "amount": 1680
+  },
+  {
+   "date": "2026-09-09",
+   "no": "DEL-0000000035",
+   "label": "クール料金：140サイズ（20kg）",
+   "qty": 2,
+   "unitPrice": 800,
+   "amount": 1600
   }
  ]
 }
