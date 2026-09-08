@@ -378,11 +378,13 @@
       <div class="tier-head"><h2>発注</h2><span class="tsub">いま出荷できる品目に数量（kg）を入れて「カートに追加」</span></div>
       <div class="toolbar">
         <div class="searchbox"><input class="search" id="q1" placeholder="品目を検索（タイ語も可）"><button class="clr" id="clr1" aria-label="検索をクリア">×</button></div>
-        <select id="sortmode" class="sortsel">
-          <option value="shippable-first">発注可能を上に</option>
-          <option value="shippable-only">発注可能のみ</option>
-          <option value="default">シート順</option>
-          <option value="name">品目名順</option>
+        <select id="sortmode" class="sortsel" aria-label="並び順">
+          <option value="shippable-first">発注できるものを上に</option>
+          <option value="shippable-only">発注できるものだけ</option>
+          <option value="start">納品開始が近い順</option>
+          <option value="popular">注文の多い順</option>
+          <option value="name">日本語順</option>
+          <option value="th">タイ語順</option>
         </select>
       </div>
       <div class="order-sum" id="order-sum"></div>
@@ -599,9 +601,7 @@ function renderSched(){
   const sm=($('sortmode')||{}).value||'shippable-first';
   let list=SUPPLY.filter(it=>{ const hay=kana(it.jp+it.call+it.th); return !q||hay.includes(kana(q)); })
                  .map(it=>({it, st:status(it.start)}));
-  if(sm==='shippable-only')      list=list.filter(x=>x.st.cls==='b-ok');
-  else if(sm==='shippable-first') list.sort((a,b)=>((b.st.cls==='b-ok')?1:0)-((a.st.cls==='b-ok')?1:0));
-  else if(sm==='name')            list.sort((a,b)=>a.it.call.localeCompare(b.it.call,'ja'));
+  list=sortList(list, sm);
   list.forEach(({it,st})=>{
     const arr= mode==='weekly' ? it.monthly.map(v=> (typeof v==='number')? Math.round(v/CONFIG.WEEKS_PER_MONTH*10)/10 : v) : it.monthly;
     h+='<tr><td class="name">'+nameCell(it,'<div class="th">'+esc(it.th||'')+'</div>')+'</td>';
@@ -621,9 +621,7 @@ function renderOrder(){
   const sm=($('sortmode')||{}).value||'shippable-first';
   let list=SUPPLY.filter(it=>{ const hay=kana(it.jp+it.call+it.th); return !q||hay.includes(kana(q)); })
                  .map(it=>({it, st:status(it.start)}));
-  if(sm==='shippable-only')      list=list.filter(x=>x.st.cls==='b-ok');
-  else if(sm==='shippable-first') list.sort((a,b)=>((b.st.cls==='b-ok')?1:0)-((a.st.cls==='b-ok')?1:0));
-  else if(sm==='name')            list.sort((a,b)=>a.it.call.localeCompare(b.it.call,'ja'));
+  list=sortList(list, sm);
   const nOk=list.filter(x=>x.st.cls==='b-ok').length;
   let h='<thead><tr><th class="name">品目</th><th class="ocol-st">出荷</th><th class="ord ocol-q">発注(kg)</th><th class="ord ocol-b"></th></tr></thead><tbody>';
   list.forEach(({it,st})=>{
@@ -655,6 +653,25 @@ function renderOrder(){
                                      : ('いま発注できる品目はありません'+(soon?('。次は '+(soon.d.getMonth()+1)+'月'+soon.d.getDate()+'日から '+soon.it.call):''));
 }
 function renderAll(){ renderOrder(); renderSched(); }
+/* 並び順（2026-09-09 実務の言葉へ）。list=[{it,st}] を返す。発注の表と年間表で共通 */
+let POP={};   // 呼称 → これまでに注文（納品）された回数。納品実績から数える
+async function loadPop(){
+  try{
+    const r=await fetch('data/jisseki.json?v='+Date.now(),{cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json(); const seen={};
+    (d.records||[]).forEach(x=>{ if(!x.call) return; (seen[x.call]=seen[x.call]||new Set()).add(x.no); });
+    POP={}; Object.keys(seen).forEach(k=>POP[k]=seen[k].size);
+  }catch(e){ POP={}; console.warn('注文回数を読めませんでした（「注文の多い順」は登場順になります）:',e); }
+}
+function sortList(list, sm){
+  const okFirst=(a,b)=>((b.st.cls==='b-ok')?1:0)-((a.st.cls==='b-ok')?1:0);
+  if(sm==='shippable-only') return list.filter(x=>x.st.cls==='b-ok');
+  if(sm==='start'){ return list.slice().sort((a,b)=>{ const da=parseDate(a.it.start), db=parseDate(b.it.start); if(!da&&!db) return 0; if(!da) return 1; if(!db) return -1; return da-db; }); }
+  if(sm==='popular'){ return list.slice().sort((a,b)=>((POP[b.it.call]||0)-(POP[a.it.call]||0)) || okFirst(a,b)); }
+  if(sm==='name'){ return list.slice().sort((a,b)=>(a.it.jp||a.it.call).localeCompare(b.it.jp||b.it.call,'ja')); }
+  if(sm==='th'){ return list.slice().sort((a,b)=>(a.it.th||'').localeCompare(b.it.th||'','th')); }
+  return list.slice().sort(okFirst);   // 標準：発注できるものを上に、あとはシート順
+}
 // 当月の列を品目列のすぐ右に来るよう横スクロール（左に戻せば過去月も見られる）
 function scrollToCurrentMonth(){
   const scroll=$('sched').closest('.scroll');
@@ -898,7 +915,7 @@ async function load(){
   }
   st.classList.remove('hide'); st.textContent='読み込み中…'; $('sched').innerHTML='';
   try{
-    const [sup,pri]=await Promise.all([fetchSheet(CONFIG.SUPPLY_SHEET),fetchSheet(CONFIG.PRICE_SHEET),loadPhotos()]);
+    const [sup,pri]=await Promise.all([fetchSheet(CONFIG.SUPPLY_SHEET),fetchSheet(CONFIG.PRICE_SHEET),loadPhotos(),loadPop()]);
     SUPPLY=buildSupply(sup); PRICE=buildPrice(pri);
     st.classList.add('hide');
     $('fetched').textContent=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -935,7 +952,7 @@ bindSearch('q1','clr1',renderAll);
   const sel=$('sortmode');
   const saved=localStorage.getItem('gaogao_sortmode');
   if(saved && [...sel.options].some(o=>o.value===saved)) sel.value=saved;
-  sel.addEventListener('change',()=>{ localStorage.setItem('gaogao_sortmode',sel.value); renderOrder(); });
+  sel.addEventListener('change',()=>{ localStorage.setItem('gaogao_sortmode',sel.value); renderAll(); });
 })();
 bindSearch('q2','clr2',renderPrice);
 $('reload').onclick=load;
