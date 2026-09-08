@@ -180,6 +180,23 @@
     #order .qty{width:62px}
     #order th,#order td{padding:9px 6px}
   }
+  /* 下段：発注列が無くなったので「納品開始」の右固定（right:236px）は不要＝普通の最終列に戻す（本人指摘 2026-09-08） */
+  #sched .p-start,#sched th.p-start{position:static;right:auto;width:auto;min-width:96px;border-left:2px solid var(--line);box-shadow:none}
+  /* 上段：月列が無くて行が間延びするので、広い画面では品目名を1行（呼称・日本名・タイ語を横並び）に（本人指摘 同日） */
+  @media(min-width:561px){
+    #order .nmtxt{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+    #order .nmtxt .jp{font-size:14px}
+    #order .nmtxt .sub,#order .nmtxt .th{font-size:12px}
+    #order td{padding-top:8px;padding-bottom:8px}
+    #order .thumb{width:40px;height:40px}
+    /* 出荷＝バッジと開始日を横並び／発注＝入力と予想収穫量を横並び → 行の高さを1行ぶんに */
+    #order .ocol-st{white-space:nowrap}
+    #order .ocol-st .nextq{display:inline;margin-left:8px}
+    #order .ocol-q{white-space:nowrap}
+    #order .availq{display:inline-block;vertical-align:middle;margin:0 0 0 8px;text-align:left}
+    #order .availq .cap{display:block;font-size:9px}
+    #order .ocol-q{width:190px}
+  }
   .pv-band{background:rgba(180,120,20,.12);border:1px solid rgba(180,120,20,.35);color:#6b4a0c;border-radius:12px;
            padding:10px 14px;font-size:12px;line-height:1.7;margin:14px 0 4px}
   .pv-band a{color:#6b4a0c;font-weight:700}
@@ -522,6 +539,10 @@ function status(s0){
 }
 function cell(v){ if(v===null||v===undefined||v==='') return '<span class="empty">–</span>'; if(v==='◯') return '<span class="o">◯</span>'; return '<span class="val">'+v+'</span>'; }
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* 検索のならし（2026-09-08）：ひらがな／カタカナ・全角半角・中黒・長音・空白の違いを無視して照合する。
+   実害＝「パックペオ」（カタカナ）で検索するとシートの「パックぺオ」（ひらがなの ぺ）が出なかった。 */
+function kana(s){ return String(s||'').normalize('NFKC').toLowerCase()
+  .replace(/[\u3041-\u3096]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)).replace(/[・･\s\u30fc\-—–]/g,''); }
 // ボタンのラベル（スマホでは2行に折り返す＝.bl2をblock化）
 function addBtnHTML(added){
   return added ? '<span class="bl1">✓ 追加</span><span class="bl2">済み</span>'
@@ -576,7 +597,7 @@ function renderSched(){
   h+='<th class="p p-start">納品開始</th></tr></thead><tbody>';
   // 表示順・フィルター（検索で絞り込み→ステータス付与→並び替え）
   const sm=($('sortmode')||{}).value||'shippable-first';
-  let list=SUPPLY.filter(it=>{ const hay=(it.jp+it.call+it.th).toLowerCase(); return !q||hay.includes(q); })
+  let list=SUPPLY.filter(it=>{ const hay=kana(it.jp+it.call+it.th); return !q||hay.includes(kana(q)); })
                  .map(it=>({it, st:status(it.start)}));
   if(sm==='shippable-only')      list=list.filter(x=>x.st.cls==='b-ok');
   else if(sm==='shippable-first') list.sort((a,b)=>((b.st.cls==='b-ok')?1:0)-((a.st.cls==='b-ok')?1:0));
@@ -598,7 +619,7 @@ function renderSched(){
 function renderOrder(){
   const q=$('q1').value.trim().toLowerCase();
   const sm=($('sortmode')||{}).value||'shippable-first';
-  let list=SUPPLY.filter(it=>{ const hay=(it.jp+it.call+it.th).toLowerCase(); return !q||hay.includes(q); })
+  let list=SUPPLY.filter(it=>{ const hay=kana(it.jp+it.call+it.th); return !q||hay.includes(kana(q)); })
                  .map(it=>({it, st:status(it.start)}));
   if(sm==='shippable-only')      list=list.filter(x=>x.st.cls==='b-ok');
   else if(sm==='shippable-first') list.sort((a,b)=>((b.st.cls==='b-ok')?1:0)-((a.st.cls==='b-ok')?1:0));
@@ -651,8 +672,8 @@ function renderPrice(){
   FARMS.forEach(f=>{ h+='<th class="farmhead"><b>'+esc(f.title)+'</b>'+(f.sub?'<br><span class="sub">'+esc(f.sub)+'</span>':'')+'</th>'; });
   h+='</tr></thead><tbody>';
   PRICE.forEach(it=>{
-    const hay=(it.jp+it.call+(it.en||'')).toLowerCase();
-    if(q && !hay.includes(q)) return;
+    const hay=kana(it.jp+it.call+(it.en||''));
+    if(q && !hay.includes(kana(q))) return;
     h+='<tr><td class="name">'+nameCell(it,'')+'</td>';
     it.prices.forEach(p=>{
       if(p===null||p===undefined){ h+='<td class="empty">–</td>'; }
