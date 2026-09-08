@@ -1,109 +1,119 @@
 {
- "_note": "品目写真の対応表。生成＝scripts/build_item_photos.py（原本は photos/野菜写真/）",
+ "_note": "品目写真の対応表。生成＝scripts/build_item_photos.py（原本は photos/野菜写真/。ファイル名 <連番>_<呼称>_<通称>.png から自動生成・手で書かない）",
  "items": {
   "カナー": {
-   "s": "img/items/item01_s.jpg",
-   "l": "img/items/item01.jpg",
+   "s": "img/items/kana_s.jpg",
+   "l": "img/items/kana.jpg",
    "cap": "カイラン菜"
   },
   "パクチーファラン": {
-   "s": "img/items/item02_s.jpg",
-   "l": "img/items/item02.jpg",
+   "s": "img/items/pakchi-farang_s.jpg",
+   "l": "img/items/pakchi-farang.jpg",
    "cap": "ノコギリパクチー"
   },
   "サラネー": {
-   "s": "img/items/item03_s.jpg",
-   "l": "img/items/item03.jpg",
+   "s": "img/items/saranae_s.jpg",
+   "l": "img/items/saranae.jpg",
    "cap": "タイミント"
   },
   "ガパオ": {
-   "s": "img/items/item04_s.jpg",
-   "l": "img/items/item04.jpg",
+   "s": "img/items/gapao_s.jpg",
+   "l": "img/items/gapao.jpg",
    "cap": "ホーリーバジル"
   },
   "ホラパー": {
-   "s": "img/items/item05_s.jpg",
-   "l": "img/items/item05.jpg",
+   "s": "img/items/horapa_s.jpg",
+   "l": "img/items/horapa.jpg",
    "cap": "タイバジル"
   },
   "パックぺオ": {
-   "s": "img/items/item06_s.jpg",
-   "l": "img/items/item06.jpg",
+   "s": "img/items/pakpeo_s.jpg",
+   "l": "img/items/pakpeo.jpg",
    "cap": "ベトナムコリアンダー"
   },
   "バイチャプルー": {
-   "s": "img/items/item07_s.jpg",
-   "l": "img/items/item07.jpg",
+   "s": "img/items/bai-chaplu_s.jpg",
+   "l": "img/items/bai-chaplu.jpg",
    "cap": "ハイゴショウ"
   },
   "バイマクルット": {
-   "s": "img/items/item08_s.jpg",
-   "l": "img/items/item08.jpg",
+   "s": "img/items/bai-makrut_s.jpg",
+   "l": "img/items/bai-makrut.jpg",
    "cap": "こぶみかんの葉"
   },
   "タカイ": {
-   "s": "img/items/item09_s.jpg",
-   "l": "img/items/item09.jpg",
+   "s": "img/items/takhai_s.jpg",
+   "l": "img/items/takhai.jpg",
    "cap": "レモングラス"
   },
   "マラコ": {
-   "s": "img/items/item10_s.jpg",
-   "l": "img/items/item10.jpg",
+   "s": "img/items/malako_s.jpg",
+   "l": "img/items/malako.jpg",
    "cap": "青パパイヤ"
   },
   "マクアポ": {
-   "s": "img/items/item11_s.jpg",
-   "l": "img/items/item11.jpg",
+   "s": "img/items/makhuapo_s.jpg",
+   "l": "img/items/makhuapo.jpg",
    "cap": "タイ丸ナス"
   },
   "アンチャン": {
-   "s": "img/items/item12_s.jpg",
-   "l": "img/items/item12.jpg",
+   "s": "img/items/anchan_s.jpg",
+   "l": "img/items/anchan.jpg",
    "cap": "バタフライピー"
   },
-  "プリックキーヌーデーン": {
-   "s": "img/items/item13_s.jpg",
-   "l": "img/items/item13.jpg",
-   "cap": "タイ小唐辛子"
-  },
-  "プリックキーヌーキオ": {
-   "s": "img/items/item13_s.jpg",
-   "l": "img/items/item13.jpg",
-   "cap": "タイ小唐辛子"
-  },
-  "プリックチーファーデーン": {
-   "s": "img/items/item14_s.jpg",
-   "l": "img/items/item14.jpg",
-   "cap": "タイ大唐辛子"
-  },
-  "プリックチーファーキオ": {
-   "s": "img/items/item14_s.jpg",
-   "l": "img/items/item14.jpg",
-   "cap": "タイ大唐辛子"
-  },
   "トォーファックヤーオ": {
-   "s": "img/items/item15_s.jpg",
-   "l": "img/items/item15.jpg",
+   "s": "img/items/thua-fak-yao_s.jpg",
+   "l": "img/items/thua-fak-yao.jpg",
    "cap": "十六ささげ"
   },
   "パックブン": {
-   "s": "img/items/item19_s.jpg",
-   "l": "img/items/item19.jpg",
+   "s": "img/items/pakbung_s.jpg",
+   "l": "img/items/pakbung.jpg",
    "cap": "空芯菜"
   },
+  "プリックデーンチンダー": {
+   "s": "img/items/prik-daeng-chinda_s.jpg",
+   "l": "img/items/prik-daeng-chinda.jpg",
+   "cap": "唐辛子・赤・大"
+  },
+  "プリックキオチンダー": {
+   "s": "img/items/prik-khiao-chinda_s.jpg",
+   "l": "img/items/prik-khiao-chinda.jpg",
+   "cap": "唐辛子・緑・大"
+  },
+  "プリックチーファーデーン": {
+   "s": "img/items/prik-chifa-daeng_s.jpg",
+   "l": "img/items/prik-chifa-daeng.jpg",
+   "cap": "唐辛子・赤・特大"
+  },
+  "プリックチーファーキオ": {
+   "s": "img/items/prik-chifa-khiao_s.jpg",
+   "l": "img/items/prik-chifa-khiao.jpg",
+   "cap": "唐辛子・緑・特大"
+  },
+  "プリックキーヌーデーン": {
+   "s": "img/items/prik-khinu-daeng_s.jpg",
+   "l": "img/items/prik-khinu-daeng.jpg",
+   "cap": "唐辛子・赤・小"
+  },
+  "プリックキーヌーキオ": {
+   "s": "img/items/prik-khinu-khiao_s.jpg",
+   "l": "img/items/prik-khinu-khiao.jpg",
+   "cap": "唐辛子・緑・小"
+  },
   "パクチー・コリアンダー": {
-   "s": "img/items/item16_s.jpg",
-   "l": "img/items/item16.jpg",
+   "s": "img/items/pakchi_s.jpg",
+   "l": "img/items/pakchi.jpg",
    "cap": "コリアンダー"
   },
   "マクアプァン": {
-   "s": "img/items/item17_s.jpg",
-   "l": "img/items/item17.jpg",
+   "s": "img/items/makhuapuang_s.jpg",
+   "l": "img/items/makhuapuang.jpg",
    "cap": "スズメナス"
   },
   "チャオム": {
-   "s": "img/items/item18_s.jpg",
-   "l": "img/items/item18.jpg",
+   "s": "img/items/chaom_s.jpg",
+   "l": "img/items/chaom.jpg",
    "cap": "アカシアの新芽"
   }
  }
