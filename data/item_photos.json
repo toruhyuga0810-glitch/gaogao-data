@@ -1,0 +1,110 @@
+{
+ "_note": "品目写真の対応表。生成＝scripts/build_item_photos.py（原本は photos/野菜写真/）",
+ "items": {
+  "カナー": {
+   "s": "img/items/item01_s.jpg",
+   "l": "img/items/item01.jpg",
+   "cap": "カイラン菜"
+  },
+  "パクチーファラン": {
+   "s": "img/items/item02_s.jpg",
+   "l": "img/items/item02.jpg",
+   "cap": "ノコギリパクチー"
+  },
+  "サラネー": {
+   "s": "img/items/item03_s.jpg",
+   "l": "img/items/item03.jpg",
+   "cap": "タイミント"
+  },
+  "ガパオ": {
+   "s": "img/items/item04_s.jpg",
+   "l": "img/items/item04.jpg",
+   "cap": "ホーリーバジル"
+  },
+  "ホラパー": {
+   "s": "img/items/item05_s.jpg",
+   "l": "img/items/item05.jpg",
+   "cap": "タイバジル"
+  },
+  "パックぺオ": {
+   "s": "img/items/item06_s.jpg",
+   "l": "img/items/item06.jpg",
+   "cap": "ベトナムコリアンダー"
+  },
+  "バイチャプルー": {
+   "s": "img/items/item07_s.jpg",
+   "l": "img/items/item07.jpg",
+   "cap": "ハイゴショウ"
+  },
+  "バイマクルット": {
+   "s": "img/items/item08_s.jpg",
+   "l": "img/items/item08.jpg",
+   "cap": "こぶみかんの葉"
+  },
+  "タカイ": {
+   "s": "img/items/item09_s.jpg",
+   "l": "img/items/item09.jpg",
+   "cap": "レモングラス"
+  },
+  "マラコ": {
+   "s": "img/items/item10_s.jpg",
+   "l": "img/items/item10.jpg",
+   "cap": "青パパイヤ"
+  },
+  "マクアポ": {
+   "s": "img/items/item11_s.jpg",
+   "l": "img/items/item11.jpg",
+   "cap": "タイ丸ナス"
+  },
+  "アンチャン": {
+   "s": "img/items/item12_s.jpg",
+   "l": "img/items/item12.jpg",
+   "cap": "バタフライピー"
+  },
+  "プリックキーヌーデーン": {
+   "s": "img/items/item13_s.jpg",
+   "l": "img/items/item13.jpg",
+   "cap": "タイ小唐辛子"
+  },
+  "プリックキーヌーキオ": {
+   "s": "img/items/item13_s.jpg",
+   "l": "img/items/item13.jpg",
+   "cap": "タイ小唐辛子"
+  },
+  "プリックチーファーデーン": {
+   "s": "img/items/item14_s.jpg",
+   "l": "img/items/item14.jpg",
+   "cap": "タイ大唐辛子"
+  },
+  "プリックチーファーキオ": {
+   "s": "img/items/item14_s.jpg",
+   "l": "img/items/item14.jpg",
+   "cap": "タイ大唐辛子"
+  },
+  "トォーファックヤーオ": {
+   "s": "img/items/item15_s.jpg",
+   "l": "img/items/item15.jpg",
+   "cap": "十六ささげ"
+  },
+  "パックブン": {
+   "s": "img/items/item19_s.jpg",
+   "l": "img/items/item19.jpg",
+   "cap": "空芯菜"
+  },
+  "パクチー・コリアンダー": {
+   "s": "img/items/item16_s.jpg",
+   "l": "img/items/item16.jpg",
+   "cap": "コリアンダー"
+  },
+  "マクアプァン": {
+   "s": "img/items/item17_s.jpg",
+   "l": "img/items/item17.jpg",
+   "cap": "スズメナス"
+  },
+  "チャオム": {
+   "s": "img/items/item18_s.jpg",
+   "l": "img/items/item18.jpg",
+   "cap": "アカシアの新芽"
+  }
+ }
+}

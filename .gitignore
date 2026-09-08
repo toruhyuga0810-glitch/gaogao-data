@@ -11,3 +11,7 @@ tests-local/
 *.command
 output/
 gas_clasp/
+
+# 品目写真の原本（33MB・重い）。公開するのは img/items/ の軽量JPEGだけ（生成＝scripts/build_item_photos.py）
+photos/野菜写真/
+data/jisseki_backup_*.json
