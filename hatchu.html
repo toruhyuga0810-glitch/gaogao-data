@@ -439,9 +439,11 @@ const $=id=>document.getElementById(id);
 let cart={};
 try{ cart=JSON.parse(localStorage.getItem('gaogao_cart')||'{}'); }catch(e){ cart={}; }
 function saveCart(){ localStorage.setItem('gaogao_cart', JSON.stringify(cart)); }
+const QTY_MAX=9999;   // kg。これ以上は入力ミス扱い（2026-09-09 壊す係：1e999 が Infinity のまま保存され、読み戻すと null になっていた）
+function qtyNum(q){ if(typeof q==='string') q=q.normalize('NFKC').replace(/[,，\s]/g,''); q=parseFloat(q); return Number.isFinite(q)?q:NaN; }
 function setQty(call, jp, q){
-  q=parseFloat(q);
-  if(!q || q<=0){ delete cart[call]; }
+  q=qtyNum(q); if(q>QTY_MAX) q=QTY_MAX;
+  if(!(q>0)){ delete cart[call]; }
   else { cart[call]={call, jp, qty:q}; }
   saveCart(); updateFab();
 }
@@ -477,8 +479,13 @@ async function fetchSheet(sheet){
   return parseCSV(await res.text());
 }
 const cellv=(r,i)=> (r && r[i]!=null) ? String(r[i]).trim() : '';
-function num(v){ if(v==null||v==='') return null; const n=parseFloat(String(v).replace(/[,，\s]/g,'')); return Number.isFinite(n)?n:null; }  // NaNもInfinity("1e999"等)も安全にnull（orders.jsと同じガード・手動同期）
-function parseDate(s){ const m=String(s).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/); if(!m) return null; const d=new Date(+m[1],+m[2]-1,+m[3]); d.setHours(0,0,0,0); return d; }
+function num(v){ if(v==null||v===''||typeof v==='object'||typeof v==='function') return null; const n=parseFloat(String(v).normalize('NFKC').replace(/[,，\s]/g,'')); return Number.isFinite(n)?n:null; }  // NaNもInfinity("1e999"等)も安全にnull（orders.jsと同じガード・手動同期）
+function parseDate(s){ if(s==null||typeof s==='object'||typeof s==='function') return null;
+  const t=String(s).normalize('NFKC'); const m=t.match(/(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/); if(!m) return null;
+  const y=+m[1], mo=+m[2], da=+m[3]; if(mo<1||mo>12||da<1||da>31) return null;
+  const d=new Date(y,mo-1,da); d.setHours(0,0,0,0);
+  if(d.getFullYear()!==y||d.getMonth()!==mo-1||d.getDate()!==da) return null;   // 2/30 のような存在しない日付＝壊す係で検出（2026-09-09）
+  return d; }
 
 function buildSupply(rows){
   const h=rows.findIndex(r=>cellv(r,0)==='呼称');
@@ -531,7 +538,7 @@ function buildPrice(rows){
 
 function status(s0){
   if(!s0) return {cls:'b-off',txt:'未定'};
-  const s=parseDate(s0); if(!s) return {cls:'b-off',txt:s0};
+  const s=parseDate(s0); if(!s) return {cls:'b-off',txt:(typeof s0==='string'&&s0.trim())?s0.trim():'未定'};
   const diff=Math.round((s-today)/86400000);
   if(diff<=0) return {cls:'b-ok',txt:'出荷可能'};
   if(diff<=7) return {cls:'b-soon',txt:'来週出荷できます！'};
@@ -666,7 +673,7 @@ function sortList(list, sm){
   const okFirst=(a,b)=>((b.st.cls==='b-ok')?1:0)-((a.st.cls==='b-ok')?1:0);
   if(sm==='shippable-only') return list.filter(x=>x.st.cls==='b-ok');
   if(sm==='start'){ return list.slice().sort((a,b)=>{ const da=parseDate(a.it.start), db=parseDate(b.it.start); if(!da&&!db) return 0; if(!da) return 1; if(!db) return -1; return da-db; }); }
-  if(sm==='popular'){ return list.slice().sort((a,b)=>((POP[b.it.call]||0)-(POP[a.it.call]||0)) || okFirst(a,b)); }
+  if(sm==='popular'){ const P=POP||{}; return list.slice().sort((a,b)=>((P[b.it.call]||0)-(P[a.it.call]||0)) || okFirst(a,b)); }
   if(sm==='name'){ return list.slice().sort((a,b)=>(a.it.jp||a.it.call).localeCompare(b.it.jp||b.it.call,'ja')); }
   if(sm==='th'){ return list.slice().sort((a,b)=>(a.it.th||'').localeCompare(b.it.th||'','th')); }
   return list.slice().sort(okFirst);   // 標準：発注できるものを上に、あとはシート順
@@ -742,7 +749,7 @@ function renderCart(){
     syncTableInputs();
   }));
   body.querySelectorAll('.qy').forEach(inp=>inp.addEventListener('change',e=>{   // 確定時に0.5kg刻みへスナップ
-    const t=e.target; const q=Math.max(0,Math.round((parseFloat(t.value)||0)*2)/2);
+    const t=e.target; const q=Math.min(QTY_MAX,Math.max(0,Math.round((qtyNum(t.value)||0)*2)/2));
     if(q>0){ t.value=q; setQty(t.dataset.call,t.dataset.jp,q); }
     else { const cur=cart[t.dataset.call]; t.value=cur?(parseFloat(cur.qty)||''):''; }   // ゴミ・0は直前の値へ戻す（削除は×ボタンで）
     renderCart(); syncTableInputs();
@@ -808,7 +815,8 @@ function addFromRow(btn){
   const row=btn.closest('tr');
   const inp=row.querySelector('.qty');
   const call=btn.dataset.call, jp=btn.dataset.jp;
-  let q=Math.round((parseFloat(inp.value)||0)*2)/2;  // 0.5kg刻み（1袋=500g固定に整合。2.3→2.5）
+  let q=Math.round((qtyNum(inp.value)||0)*2)/2;  // 0.5kg刻み（1袋=500g固定に整合。2.3→2.5）
+  if(q>QTY_MAX) q=QTY_MAX;
   if(q<=0){
     if(cart[call]){ delete cart[call]; saveCart(); updateFab(); inp.value=''; inp.classList.remove('has');
       btn.classList.remove('added'); btn.innerHTML=addBtnHTML(false); toast(TRN(jp)+' をカートから削除しました'); }

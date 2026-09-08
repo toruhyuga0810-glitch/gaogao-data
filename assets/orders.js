@@ -31,7 +31,7 @@ async function fetchSheet(sheet){
   if(!res.ok) throw new Error('「'+sheet+'」の取得に失敗 ('+res.status+')');
   return parseCSV(await res.text());
 }
-function num(v){ if(v==null||v==='') return null; const n=parseFloat(String(v).replace(/[,，\s¥円]/g,'')); return Number.isFinite(n)?n:null; }  // NaNも巨大値/Infinity(例:"1e999")も安全にnull
+function num(v){ if(v==null||v===''||typeof v==='object'||typeof v==='function') return null; const n=parseFloat(String(v).normalize('NFKC').replace(/[,，\s¥円]/g,'')); return Number.isFinite(n)?n:null; }  // NaNも巨大値/Infinity(例:"1e999")も安全にnull
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function fmtDate(s){ const m=String(s).match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/); return m? `${m[1]}/${+m[2]}/${+m[3]}`:String(s==null?'':s); }  // 非文字列が来ても必ず文字列を返す
 function ym(s){ const m=String(s).match(/(\d{4})[\/\-](\d{1,2})/); return m? `${m[1]}-${('0'+m[2]).slice(-2)}`:''; }

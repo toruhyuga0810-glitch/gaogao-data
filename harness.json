@@ -1,0 +1,35 @@
+{
+ "_": "GAOGAO 共通ハーネス基盤の設定。実体は scripts/harness/gate.py が読む。既存のハーネス本体は触らず、出力形式の違いをここの pattern で吸収する。",
+ "label": "注文ポータル（純ロジック層）",
+ "baseline": "tests-local/baseline.json",
+ "suites": {
+  "orders": {
+   "cmd": [
+    "node",
+    "tests-local/adversarial_orders.js"
+   ],
+   "pattern": "合格 (\\d+) / 失敗 (\\d+)"
+  },
+  "hatchu": {
+   "cmd": [
+    "node",
+    "tests-local/adversarial_hatchu.js"
+   ],
+   "pattern": "合格 (\\d+) / 失敗 (\\d+)",
+   "timeout": 120
+  },
+  "monkey": {
+   "cmd": [
+    "node",
+    "tests-local/monkey_hatchu.js",
+    "20260909",
+    "300"
+   ],
+   "pattern": "合格 (\\d+) / 失敗 (\\d+)",
+   "timeout": 300,
+   "full_only": true,
+   "_": "視覚層のモンキー。ローカル配信 http://localhost:8964 が要る（無ければ失敗になるので full のときだけ）"
+  }
+ },
+ "note": "qa_*.js はブラウザ（puppeteer）が要るため、ここでは回さない。nightly側の視覚系で扱う"
+}
