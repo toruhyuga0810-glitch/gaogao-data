@@ -26,9 +26,9 @@
     "300"
    ],
    "pattern": "合格 (\\d+) / 失敗 (\\d+)",
-   "timeout": 300,
+   "timeout": 1200,
    "full_only": true,
-   "_": "視覚層のモンキー。ローカル配信 http://localhost:8964 が要る（無ければ失敗になるので full のときだけ）"
+   "_": "視覚層のモンキー（自前サーバ）。puppeteer-core は tests-local/node_modules に常設＝2026-09-11 までは不在で一度も走っていなかった"
   },
   "slip": {
    "cmd": [
@@ -37,7 +37,29 @@
    ],
    "pattern": "合格 (\\d+) / 失敗 (\\d+)",
    "_": "納品書作成・履歴の明細層（parseSlipLines＋GAS deliveryHistory_ の純関数）。2026-09-11 自己修繕で常設"
+  },
+  "ui_admin": {
+   "cmd": [
+    "bash",
+    "tests-local/run_ui.sh",
+    "qa_admin.js"
+   ],
+   "pattern": "合格 (\\d+) / 失敗 (\\d+)",
+   "timeout": 300,
+   "full_only": true,
+   "_": "管理エディタ28項目（puppeteer）。run_ui.sh が配信サーバを面倒みる。puppeteer-core は tests-local/node_modules に常設（2026-09-11）"
+  },
+  "ui_slip": {
+   "cmd": [
+    "bash",
+    "tests-local/run_ui.sh",
+    "qa_slip_ui.js"
+   ],
+   "pattern": "合格 (\\d+) / 失敗 (\\d+)",
+   "timeout": 300,
+   "full_only": true,
+   "_": "納品履歴の状態空間21項目（2026-09-11）"
   }
  },
- "note": "qa_*.js はブラウザ（puppeteer）が要るため、ここでは回さない。nightly側の視覚系で扱う"
+ "note": "ブラウザ層（qa_*.js／monkey）は full のときに回す（夜間の艦隊 full）。quick は純ロジック層のみ。puppeteer-core は tests-local/node_modules（gitignore済み）"
 }
