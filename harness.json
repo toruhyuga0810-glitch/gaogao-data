@@ -29,6 +29,14 @@
    "timeout": 300,
    "full_only": true,
    "_": "視覚層のモンキー。ローカル配信 http://localhost:8964 が要る（無ければ失敗になるので full のときだけ）"
+  },
+  "slip": {
+   "cmd": [
+    "node",
+    "tests-local/adversarial_slip.js"
+   ],
+   "pattern": "合格 (\\d+) / 失敗 (\\d+)",
+   "_": "納品書作成・履歴の明細層（parseSlipLines＋GAS deliveryHistory_ の純関数）。2026-09-11 自己修繕で常設"
   }
  },
  "note": "qa_*.js はブラウザ（puppeteer）が要るため、ここでは回さない。nightly側の視覚系で扱う"

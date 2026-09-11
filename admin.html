@@ -56,6 +56,8 @@
   .he-date-w{color:var(--sub);font-size:12px;display:inline-flex;align-items:center;gap:6px}
   .he-date-w input{padding:5px 8px;font-size:12.5px}
   /* 履歴カード内の明細表示 */
+  .he-warn{margin:8px 0 0;padding:8px 10px;border-radius:8px;background:#fbeeee;color:#9b3d34;font-size:12.5px;line-height:1.6}
+  .he-warn-soft{background:#f3f4f2;color:var(--sub)}
   .hl-block{margin-top:10px;padding:10px 12px;background:#fafbfa;border:1px solid var(--line);border-radius:10px}
   .hl-head{font-size:12px;font-weight:700;color:var(--green-d);margin:6px 0 3px}
   .hl-head:first-child{margin-top:0}
@@ -654,7 +656,13 @@ let MANUAL={ rows:[{}], freeRows:[], ship:{}, shipMode:'cool' };
 function renderManual(){ const b=document.getElementById('mn-body'); if(b) renderEditor(MANUAL, b, 'mn'); }
 // 共通エディタ：作成フォームと履歴のその場編集の両方で使う（S=状態, body=描画先, uid=ラジオ名の一意化）
 function renderEditor(S, body, uid){
-  if(!priceLoaded){ body.innerHTML='<div class="muted">価格表を読み込み中…</div>'; return; }
+  if(!priceLoaded){
+    body.innerHTML=priceLoadError
+      ? `<div class="he-warn">⚠️ 価格表を読み込めませんでした（${esc(priceLoadError)}）。品目を選ぶには価格表が必要です。 <button type="button" class="btn ghost sm ed-retry">↻ 価格表を再読込</button></div>`
+      : '<div class="muted">価格表を読み込み中…</div>';
+    const rb=body.querySelector('.ed-retry'); if(rb) rb.onclick=()=>{ rb.disabled=true; loadPrices(); };
+    return;
+  }
   if(!S.freeRows) S.freeRows=[];
   const rerender=()=>{ S._dirty=true; renderEditor(S, body, uid); };   // 編集された状態を記録（裏更新で消さないため）
   let sub=0;
@@ -865,20 +873,31 @@ async function loadHistory(force){
   const st=document.getElementById('hist-state'), list=document.getElementById('hist-list'); if(!st||!list) return;
   // 前回キャッシュを即表示（体感速度）→ 裏で最新に更新
   if(!HISTORY.length){ try{ const c=JSON.parse(localStorage.getItem('gg_hist_cache')||'[]'); if(c.length){ HISTORY=c; renderHistory(c); } }catch(e){} }
-  if(HISTORY.length){ st.classList.add('hide'); } else { st.classList.remove('hide'); st.textContent='読み込み中…'; }
+  if(HISTORY.length){ st.classList.add('hide'); } else { st.classList.remove('hide'); st.textContent='freeeから納品書の明細を取得しています…（初回や「↻ 再読込」は1分ほどかかることがあります）'; }
+  const rb=document.getElementById('hist-reload'); const rbl=rb?rb.textContent:''; if(rb){ rb.disabled=true; rb.textContent='取得中…'; }
   try{
-    const r=await postAction({action:'deliveryHistory', token:ADMIN_TOKEN_VAL});
+    const r=await postAction({action:'deliveryHistory', token:ADMIN_TOKEN_VAL, force:!!force});
     if(!r||r.ok!==true){
       if(!HISTORY.length){ st.classList.remove('hide'); st.textContent='取得失敗'+(r&&r.error?'：'+r.error:'（もう一度お試しください）'); }
       else toast('履歴の更新に失敗（前回の内容を表示中）');
       return;
     }
     loadHistory._t=Date.now();
-    try{ localStorage.setItem('gg_hist_cache', JSON.stringify(r.items||[])); }catch(e){}
+    let items=Array.isArray(r.items)?r.items:[];
+    if(r.partial){
+      // 一部の明細がfreeeから取れなかった（429等）：前回の明細があればそれで埋め、全体キャッシュは更新しない＝良い状態を壊さない（2026-09-11）
+      const prev=new Map((HISTORY||[]).map(x=>[String(x.id),x]));
+      items=items.map(it=>{ if(it.lines==null){ const p=prev.get(String(it.id)); if(p&&Array.isArray(p.lines)) return Object.assign({},it,{lines:p.lines,linesStale:true,linesError:undefined}); } return it; });
+      toast(`⚠️ 納品書${r.errors||''}件の明細をfreeeから取得できませんでした（前回分があれば表示。「↻ 再読込」で取り直し）`);
+    } else {
+      try{ localStorage.setItem('gg_hist_cache', JSON.stringify(items)); }catch(e){}
+    }
+    if(r.stale) toast('⚠️ freeeに接続できないため、前回取得した履歴を表示しています');
     // 編集中（変更あり）・入力中の時は差し替えない＝編集内容を消さない
     const editing=(HISTORY||[]).some(x=>x&&x._S&&x._S._dirty) || list.contains(document.activeElement);
-    if(!editing){ HISTORY=r.items||[]; renderHistory(HISTORY); }
+    if(!editing){ HISTORY=items; renderHistory(HISTORY); }
   }catch(e){ if(!HISTORY.length){ st.classList.remove('hide'); st.textContent='取得失敗：'+esc(e.message); } }
+  finally{ if(rb){ rb.disabled=false; rb.textContent=rbl; } }
 }
 function mailPanelInner(uid){
   return `<div class="mp-title">納品メール <span class="muted">（freeeのURL共有内容＋佐川番号）</span></div>
@@ -906,6 +925,7 @@ function renderHistory(items){
   st.classList.add('hide');
   list.innerHTML=items.map((it,i)=>{
     const sent=it.status==='sent';
+    const bad=(it.lines==null);   // 明細が取れていない（freee応答なし）＝空の品目で上書きさせない
     const urlVal=(it.url||'')+((it.expiry&&it.url)?('\n有効期限：'+it.expiry):'');
     return `<div class="card hist-item" data-fid="${esc(String(it.id))}" style="margin-bottom:10px">
       <div class="row" style="align-items:center;gap:10px;flex-wrap:wrap">
@@ -915,9 +935,11 @@ function renderHistory(items){
         <span class="he-date-w">納品日 <input type="date" class="he-date" data-i="${i}" value="${esc(String(it.date||'').replace(/\//g,'-'))}"></span>
         <div style="flex:1;min-width:20px"></div>
         ${it.report_url?`<a class="btn ghost sm" href="${esc(it.report_url)}" target="_blank" rel="noopener">freeeで開く</a>`:''}
-        <button type="button" class="btn ghost sm he-pick" data-i="${i}">検品表</button>
-        <button type="button" class="btn sm he-save" data-i="${i}">上書き保存</button>
+        <button type="button" class="btn ghost sm he-pick" data-i="${i}"${bad?' disabled':''}>検品表</button>
+        <button type="button" class="btn sm he-save" data-i="${i}"${bad?' disabled':''}>上書き保存</button>
       </div>
+      ${bad?`<div class="he-warn">⚠️ この納品書の明細をfreeeから取得できませんでした（${esc(it.linesError||'')}）。上の「↻ 再読込」で取り直せます。取り直すまで検品表・上書き保存はできません。</div>`
+           :(it.linesStale?`<div class="he-warn he-warn-soft">ℹ️ 明細は前回取得分を表示しています（今回はfreeeが応答しませんでした）。「↻ 再読込」で最新にできます。</div>`:'')}
       <div class="he-body" data-i="${i}" style="margin-top:10px"></div>
       <div class="hist-mail" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)">
         <div class="mp-inputs">
@@ -932,6 +954,7 @@ function renderHistory(items){
   }).join('');
   // 各カードに編集画面を最初から展開（作成フォームと同じ操作感）
   items.forEach((it,i)=>{
+    if(it.lines==null){ it._S=null; const be=list.querySelector(`.he-body[data-i="${i}"]`); if(be) be.innerHTML='<div class="muted">（明細なし＝取得失敗。「↻ 再読込」で取り直してください）</div>'; return; }
     const p=parseSlipLines(it.lines||[]);
     const S={ rows:p.rows.length?p.rows:[{}], freeRows:p.freeRows, ship:p.ship, shipMode:p.shipMode };
     it._S=S;
@@ -963,7 +986,10 @@ function renderHistory(items){
 }
 // 履歴カードの編集内容で、その納品書を上書き保存
 async function histSaveSlip(b){
-  const i=+b.dataset.i, it=HISTORY[i]; const S=it&&it._S; if(!S) return;
+  const i=+b.dataset.i, it=HISTORY[i];
+  if(it&&it.lines==null){ toast('明細が取得できていないため保存できません（「↻ 再読込」で取り直してください）'); return; }
+  if(!priceLoaded){ toast('価格表が読み込めていないため保存できません（価格表を再読込してください）'); return; }
+  const S=it&&it._S; if(!S) return;
   const items=S.rows.filter(r=>r.call&&r.farm&&r.price!=null&&r.price!==''&&r.qty);
   const freeLines=(S.freeRows||[]).filter(f=>String(f.desc||'').trim()).map(f=>({desc:f.desc, qty:f.qty, price:f.price, unit:f.unit||'', tax_rate:f.tax_rate}));
   if(!items.length&&!freeLines.length){ toast('品目がありません'); return; }
@@ -1009,11 +1035,15 @@ function histMail(b){
   panel.querySelector('.mp-preview').click();
 }
 // freeeの明細行 → 編集フォームの行に変換（構造化できない行は自由行として保持＝1行も消えない）
+// 2026-09-11 自己修繕：数量・単価が null／文字／NaN でも ¥NaN を出さない（有限数だけ採用・それ以外は空欄）／descriptionが文字列でなくても落ちない／linesが配列でなければ空扱い
 function parseSlipLines(lines){
   const out={rows:[], freeRows:[], ship:{}, shipMode:'cool'};
+  const fnum=v=>{ if(v==null||v==='') return undefined; const n=(typeof v==='number')?v:parseFloat(String(v).replace(/[,，\s]/g,'')); return Number.isFinite(n)?n:undefined; };
   let farm=null, inShip=false, sawCool=false, sawNormal=false;
-  (lines||[]).forEach(l=>{
-    const d=String(l.description||'').trim();
+  (Array.isArray(lines)?lines:[]).forEach(l=>{
+    if(!l||typeof l!=='object') return;
+    const d=(typeof l.description==='string'?l.description:(l.description==null?'':String(l.description))).trim();
+    const qty=fnum(l.quantity), price=fnum(l.unit_price), unit=(l.unit==null?'':String(l.unit));
     if(l.type==='text'){
       const m=d.match(/第(\d+)圃場/);
       if(m){ farm='第'+m[1]+'圃場'; inShip=false; }
@@ -1027,17 +1057,17 @@ function parseSlipLines(lines){
         if(/[（(]常温[)）]/.test(d)) sawNormal=true;
         if(kind!=='送料') sawCool=true;
         const known=SHIP_SIZES.find(s=>s.v===size);
-        if(known){ if(kind==='送料') out.ship[size]=Number(l.quantity)||1; return; }  // 既知サイズ＝配送バーで再現（クール料金も保存時に自動生成）
+        if(known){ if(kind==='送料') out.ship[size]=(qty!=null&&qty>=1&&qty<=999)?Math.floor(qty):1; return; }  // 既知サイズ＝配送バーで再現（クール料金も保存時に自動生成）。箱数は1〜999の整数（0.5箱・1兆箱のようなゴミは1へ＝壊す係 2026-09-11）
       }
-      out.freeRows.push({desc:d, qty:l.quantity, price:parseFloat(l.unit_price), unit:l.unit||'', tax_rate:l.tax_rate});  // 旧表記サイズ等は送料もクール料金も自由行で全行保持
+      out.freeRows.push({desc:d, qty:(qty==null?'':qty), price:(price==null?'':price), unit, tax_rate:l.tax_rate});  // 旧表記サイズ等は送料もクール料金も自由行で全行保持
       return;
     }
     const im=d.match(/^(.+?)[：:](.+)$/);
     const call=im?im[1].trim():null;
     if(call && PRICES.some(p=>p.call===call)){
-      out.rows.push({call, jp:im[2].trim(), farm:farm||undefined, qty:l.quantity, price:parseFloat(l.unit_price)});
+      out.rows.push({call, jp:im[2].trim(), farm:farm||undefined, qty, price});
     } else {
-      out.freeRows.push({desc:d, qty:l.quantity, price:parseFloat(l.unit_price), unit:l.unit||'', tax_rate:l.tax_rate});
+      out.freeRows.push({desc:d, qty:(qty==null?'':qty), price:(price==null?'':price), unit, tax_rate:l.tax_rate});
     }
   });
   if(sawNormal && !sawCool) out.shipMode='normal';
@@ -1182,7 +1212,7 @@ async function saveSupplyRow(btn){
 }
 /* ===== 圃場別価格の編集 ===== */
 const PRICE_SHEET='圃場別価格表';
-let PRICES=[], PFARMS=[], priceLoaded=false;
+let PRICES=[], PFARMS=[], priceLoaded=false, priceLoadError='';
 async function loadPrices(){
   const st=document.getElementById('price-state'), card=document.getElementById('price-card');
   st.classList.remove('hide'); st.textContent='読み込み中…'; card.classList.add('hide');
@@ -1203,7 +1233,7 @@ async function loadPrices(){
         farms.forEach(f=>{ it.prices['第'+f.num+'圃場']=String(r[f.ci]==null?'':r[f.ci]).trim(); });
         PRICES.push(it);
       }
-      renderPrices(); st.classList.add('hide'); card.classList.remove('hide'); priceLoaded=true;
+      renderPrices(); st.classList.add('hide'); card.classList.remove('hide'); priceLoaded=true; priceLoadError=''; afterPricesChanged();
       return;
     }
     // 旧レイアウト（ブロック型）
@@ -1225,8 +1255,14 @@ async function loadPrices(){
     });
     PFARMS=[...new Set(heads.map(h=>h.num))].sort((a,b)=>a-b).map(n=>'第'+n+'圃場');
     PRICES=order.map(c=>master.get(c));
-    renderPrices(); st.classList.add('hide'); card.classList.remove('hide'); priceLoaded=true;
-  }catch(e){ st.innerHTML='⚠️ 価格表を読み込めませんでした：'+esc(e.message); }
+    renderPrices(); st.classList.add('hide'); card.classList.remove('hide'); priceLoaded=true; priceLoadError=''; afterPricesChanged();
+  }catch(e){ priceLoadError=String((e&&e.message)||e); st.innerHTML='⚠️ 価格表を読み込めませんでした：'+esc(priceLoadError); afterPricesChanged(); }
+}
+// 価格表の読み込みが終わった（成功／失敗）ら、開いている「納品書作成・履歴」を描き直す。編集中（変更あり）の履歴は触らない（2026-09-11）
+function afterPricesChanged(){
+  const mv=document.getElementById('view-manual'); if(!mv||mv.classList.contains('hide')) return;
+  renderManual();
+  if(HISTORY.length && !HISTORY.some(x=>x&&x._S&&x._S._dirty)) renderHistory(HISTORY);
 }
 function renderPrices(){
   let h='<thead><tr><th class="nm">品目</th>';
@@ -1534,7 +1570,7 @@ document.querySelectorAll('.vtb').forEach(t=>t.addEventListener('click',()=>{
   document.getElementById('view-orders').classList.toggle('hide',v!=='orders');
   document.getElementById('view-manual').classList.toggle('hide',v!=='manual');
   document.getElementById('view-supply').classList.toggle('hide',v!=='supply');
-  if(v==='manual'){ if(priceLoaded) renderManual(); else loadPrices().then(renderManual).catch(()=>{}); loadHistory(); }
+  if(v==='manual'){ if(priceLoaded) renderManual(); else { renderManual(); loadPrices(); } loadHistory(); }   // 価格表が届いたら loadPrices→afterPricesChanged が作成フォームと履歴を描き直す（2026-09-11：失敗を握りつぶして「読み込み中…」のままにしない）
   if(v==='supply'){
     // タブを開くたびに最新を読み直す（保存していない編集がある間は上書きしない）
     const editing=document.querySelector('#sup-table .dirty, #price-table .dirty');
