@@ -28,7 +28,17 @@
    "pattern": "合格 (\\d+) / 失敗 (\\d+)",
    "timeout": 1200,
    "full_only": true,
-   "_": "視覚層のモンキー（自前サーバ）。puppeteer-core は tests-local/node_modules に常設＝2026-09-11 までは不在で一度も走っていなかった"
+   "_": "視覚層のモンキー（自前サーバ）。puppeteer-core は tests-local/node_modules に常設＝2026-09-11 までは不在で一度も走っていなかった。2026-09-13〜 読み出しAPIは tests-local/fixtures/ の固定データで応える（本番GASの echo 404 で合格0が続いたため＝無人検査は自己完結）。本番の生死は live_canary が見る"
+  },
+  "live_canary": {
+   "cmd": [
+    "node",
+    "tests-local/live_canary.js"
+   ],
+   "pattern": "合格 (\\d+) / 失敗 (\\d+)",
+   "timeout": 180,
+   "full_only": true,
+   "_": "本番（GitHub Pages＋GAS読み出し）を実Chromeで開き、お客さんが見る状態で商品表が出るかを見る（2026-09-13新設）。赤＝本物の障害＝最優先"
   },
   "slip": {
    "cmd": [
