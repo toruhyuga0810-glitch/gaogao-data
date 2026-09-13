@@ -57,7 +57,7 @@
    "pattern": "合格 (\\d+) / 失敗 (\\d+)",
    "timeout": 300,
    "full_only": true,
-   "_": "管理エディタ28項目（puppeteer）。run_ui.sh が配信サーバを面倒みる。puppeteer-core は tests-local/node_modules に常設（2026-09-11）"
+   "_": "管理エディタ30項目（puppeteer）。run_ui.sh が配信サーバを面倒みる。puppeteer-core は tests-local/node_modules に常設（2026-09-11）。2026-09-13〜 シート読み（注文・納品書リンク）は固定データ＝本番GASに依存しない（応答が遅い／404の夜に「クリア」未配線で26/28になった）。配線待ちの時間切れは前提項目として赤で出す"
   },
   "ui_slip": {
    "cmd": [
