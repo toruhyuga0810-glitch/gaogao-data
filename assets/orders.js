@@ -23,10 +23,15 @@ function parseCSV(text){
 function gvizURL(sheet){ return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheet)}&headers=1&t=${Date.now()}`; }
 async function fetchSheet(sheet){
   // シート非公開化（2026-09-02）：読みはGASの読み出しAPI（sheetData）が正。gvizは共有リンクが開いている場合のフォールバック
-  try{
-    const r=await fetch(`${CONFIG.ORDER_WEBAPP_URL}?action=sheet&name=${encodeURIComponent(sheet)}&t=${Date.now()}`,{cache:'no-store'});
-    if(r.ok){ const j=await r.json(); if(j&&j.ok&&Array.isArray(j.rows)) return j.rows; }
-  }catch(e){}
+  // 読みも書き(postAction)と同じく一過性の瞬断/googleusercontent echo 404 を3回まで再試行（2026-09-17）。
+  // 3回とも駄目なときだけ gviz へ落とす＝本物の障害（非公開のまま等）は従来どおりここを抜けてエラーになる（§5.5＝黙って握り潰さない）。
+  for(let i=0;i<3;i++){
+    try{
+      const r=await fetch(`${CONFIG.ORDER_WEBAPP_URL}?action=sheet&name=${encodeURIComponent(sheet)}&t=${Date.now()}`,{cache:'no-store'});
+      if(r.ok){ const j=await r.json(); if(j&&j.ok&&Array.isArray(j.rows)) return j.rows; }
+    }catch(e){}
+    if(i<2) await new Promise(r=>setTimeout(r,700));
+  }
   const res=await fetch(gvizURL(sheet),{cache:'no-store'});
   if(!res.ok) throw new Error('「'+sheet+'」の取得に失敗 ('+res.status+')');
   return parseCSV(await res.text());
