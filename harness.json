@@ -8,7 +8,9 @@
     "node",
     "tests-local/adversarial_orders.js"
    ],
-   "pattern": "合格 (\\d+) / 失敗 (\\d+)"
+   "pattern": "合格 (\\d+) / 失敗 (\\d+)",
+   "timeout": 120,
+   "_timeout": "実測0.2秒・外部依存なし（ローカル3ファイルを読むだけ）。既定900秒だと機械側の固まり（2026-09-18 夜＝Macが眠る／起きるを繰り返し node が起動直後に凍結）で15分を焼くため120秒へ。超えたら従来どおりタイムアウト＝赤"
   },
   "hatchu": {
    "cmd": [
@@ -46,6 +48,8 @@
     "tests-local/adversarial_slip.js"
    ],
    "pattern": "合格 (\\d+) / 失敗 (\\d+)",
+   "timeout": 120,
+   "_timeout": "実測0.2秒・外部依存なし。orders と同じ理由で既定900秒→120秒（2026-09-18）。超えたらタイムアウト＝赤",
    "_": "納品書作成・履歴の明細層（parseSlipLines＋GAS deliveryHistory_ の純関数）。2026-09-11 自己修繕で常設"
   },
   "ui_admin": {
