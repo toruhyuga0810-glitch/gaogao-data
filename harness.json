@@ -5,75 +5,120 @@
  "suites": {
   "orders": {
    "cmd": [
+    "/bin/sh",
+    "tests-local/run_isolated.sh",
     "node",
-    "tests-local/adversarial_orders.js"
+    "adversarial_orders.js"
    ],
    "pattern": "合格 (\\d+) / 失敗 (\\d+)",
    "timeout": 120,
-   "_timeout": "実測0.2秒・外部依存なし（ローカル3ファイルを読むだけ）。既定900秒だと機械側の固まり（2026-09-18 夜＝Macが眠る／起きるを繰り返し node が起動直後に凍結）で15分を焼くため120秒へ。超えたら従来どおりタイムアウト＝赤"
+   "_timeout": "実測0.2秒・外部依存なし（ローカル3ファイルを読むだけ）。既定900秒だと機械側の固まり（2026-09-18 夜＝Macが眠る／起きるを繰り返し node が起動直後に凍結）で15分を焼くため120秒へ。超えたら従来どおりタイムアウト＝赤",
+   "_cmd_before": [
+    "node",
+    "tests-local/adversarial_orders.js"
+   ]
   },
   "hatchu": {
    "cmd": [
+    "/bin/sh",
+    "tests-local/run_isolated.sh",
     "node",
-    "tests-local/adversarial_hatchu.js"
+    "adversarial_hatchu.js"
    ],
    "pattern": "合格 (\\d+) / 失敗 (\\d+)",
-   "timeout": 120
+   "timeout": 120,
+   "_cmd_before": [
+    "node",
+    "tests-local/adversarial_hatchu.js"
+   ]
   },
   "monkey": {
    "cmd": [
+    "/bin/sh",
+    "tests-local/run_isolated.sh",
     "node",
-    "tests-local/monkey_hatchu.js",
+    "monkey_hatchu.js",
     "20260909",
     "300"
    ],
    "pattern": "合格 (\\d+) / 失敗 (\\d+)",
    "timeout": 1200,
    "full_only": true,
-   "_": "視覚層のモンキー（自前サーバ）。puppeteer-core は tests-local/node_modules に常設＝2026-09-11 までは不在で一度も走っていなかった。2026-09-13〜 読み出しAPIは tests-local/fixtures/ の固定データで応える（本番GASの echo 404 で合格0が続いたため＝無人検査は自己完結）。本番の生死は live_canary が見る"
+   "_": "視覚層のモンキー（自前サーバ）。puppeteer-core は tests-local/node_modules に常設＝2026-09-11 までは不在で一度も走っていなかった。2026-09-13〜 読み出しAPIは tests-local/fixtures/ の固定データで応える（本番GASの echo 404 で合格0が続いたため＝無人検査は自己完結）。本番の生死は live_canary が見る",
+   "_cmd_before": [
+    "node",
+    "tests-local/monkey_hatchu.js",
+    "20260909",
+    "300"
+   ]
   },
   "live_canary": {
    "cmd": [
+    "/bin/sh",
+    "tests-local/run_isolated.sh",
     "node",
-    "tests-local/live_canary.js"
+    "live_canary.js"
    ],
    "pattern": "合格 (\\d+) / 失敗 (\\d+)",
    "timeout": 180,
    "full_only": true,
-   "_": "本番（GitHub Pages＋GAS読み出し）を実Chromeで開き、お客さんが見る状態で商品表が出るかを見る（2026-09-13新設）。赤＝本物の障害＝最優先"
+   "_": "本番（GitHub Pages＋GAS読み出し）を実Chromeで開き、お客さんが見る状態で商品表が出るかを見る（2026-09-13新設）。赤＝本物の障害＝最優先",
+   "_cmd_before": [
+    "node",
+    "tests-local/live_canary.js"
+   ]
   },
   "slip": {
    "cmd": [
+    "/bin/sh",
+    "tests-local/run_isolated.sh",
     "node",
-    "tests-local/adversarial_slip.js"
+    "adversarial_slip.js"
    ],
    "pattern": "合格 (\\d+) / 失敗 (\\d+)",
    "timeout": 120,
    "_timeout": "実測0.2秒・外部依存なし。orders と同じ理由で既定900秒→120秒（2026-09-18）。超えたらタイムアウト＝赤",
-   "_": "納品書作成・履歴の明細層（parseSlipLines＋GAS deliveryHistory_ の純関数）。2026-09-11 自己修繕で常設"
+   "_": "納品書作成・履歴の明細層（parseSlipLines＋GAS deliveryHistory_ の純関数）。2026-09-11 自己修繕で常設",
+   "_cmd_before": [
+    "node",
+    "tests-local/adversarial_slip.js"
+   ]
   },
   "ui_admin": {
    "cmd": [
-    "bash",
-    "tests-local/run_ui.sh",
+    "/bin/sh",
+    "tests-local/run_isolated.sh",
+    "ui",
     "qa_admin.js"
    ],
    "pattern": "合格 (\\d+) / 失敗 (\\d+)",
    "timeout": 300,
    "full_only": true,
-   "_": "管理エディタ30項目（puppeteer）。run_ui.sh が配信サーバを面倒みる。puppeteer-core は tests-local/node_modules に常設（2026-09-11）。2026-09-13〜 シート読み（注文・納品書リンク）は固定データ＝本番GASに依存しない（応答が遅い／404の夜に「クリア」未配線で26/28になった）。配線待ちの時間切れは前提項目として赤で出す"
+   "_": "管理エディタ30項目（puppeteer）。run_ui.sh が配信サーバを面倒みる。puppeteer-core は tests-local/node_modules に常設（2026-09-11）。2026-09-13〜 シート読み（注文・納品書リンク）は固定データ＝本番GASに依存しない（応答が遅い／404の夜に「クリア」未配線で26/28になった）。配線待ちの時間切れは前提項目として赤で出す",
+   "_cmd_before": [
+    "bash",
+    "tests-local/run_ui.sh",
+    "qa_admin.js"
+   ]
   },
   "ui_slip": {
    "cmd": [
-    "bash",
-    "tests-local/run_ui.sh",
+    "/bin/sh",
+    "tests-local/run_isolated.sh",
+    "ui",
     "qa_slip_ui.js"
    ],
    "pattern": "合格 (\\d+) / 失敗 (\\d+)",
    "timeout": 300,
    "full_only": true,
-   "_": "納品履歴の状態空間21項目（2026-09-11）"
+   "_": "納品履歴の状態空間21項目（2026-09-11）",
+   "_cmd_before": [
+    "bash",
+    "tests-local/run_ui.sh",
+    "qa_slip_ui.js"
+   ]
   }
  },
- "note": "ブラウザ層（qa_*.js／monkey）は full のときに回す（夜間の艦隊 full）。quick は純ロジック層のみ。puppeteer-core は tests-local/node_modules（gitignore済み）"
+ "note": "ブラウザ層（qa_*.js／monkey）は full のときに回す（夜間の艦隊 full）。quick は純ロジック層のみ。puppeteer-core は tests-local/node_modules（gitignore済み）",
+ "_cmd": "2026-09-19〜 全スイートの入口は tests-local/run_isolated.sh（検査に要るファイルを Apple 署名の cp で /tmp へ写し、原本と一致を確かめてから写しの中で node を走らせる）。理由＝署名の無い node がデスクトップ配下を直接読むと、未回答の macOS 許可ダイアログが残っている夜に人が答えるまで固まる（9/18・9/19 の7本一斉タイムアウトの真因）。検査対象・ケース数・基準値・制限時間は無変更。戻すときは各スイートの _cmd_before を cmd へ"
 }
