@@ -32,6 +32,14 @@ jobs:
           # ★2026-08-23 修正：-X POST を外す。Apps Scriptは302で返事を別URLへ逃がすため、
           #   -X POST のままだとリダイレクト先にもPOSTして405になり、本当の返事が見えなかった（8/22以前から）。
           #   --data だけならcurlは最初だけPOST、302後はGETで返事を取りに行く。
-          RESP=$(curl -sL "$APPS_SCRIPT_URL" -H "Content-Type: text/plain;charset=utf-8" --data @payload.json -w "\nHTTP %{http_code}")
-          echo "Apps Script: $RESP"
-          echo "$RESP" | grep -q '"ok":true' || { echo "⚠️ Apps Scriptが ok:true を返しませんでした"; exit 1; }
+          # ★2026-09-20 修正：Apps Script 側の一時的な不調で10回に1回失敗していた（直近40回中4回。Discordは200・2件取得済みなのに
+          #   Apps Script が Google のエラーHTMLや doGet の既定文を返す）。boardSync は同じ内容を何度送っても結果が同じ（上書き）なので、
+          #   20秒あけて3回まで送り直す。3回とも ok:true が無ければ従来どおり失敗として通知（黙って緑にしない）。
+          OK=0
+          for TRY in 1 2 3; do
+            RESP=$(curl -sL "$APPS_SCRIPT_URL" -H "Content-Type: text/plain;charset=utf-8" --data @payload.json -w "\nHTTP %{http_code}")
+            if echo "$RESP" | grep -q '"ok":true'; then echo "Apps Script (${TRY}回目): $RESP"; OK=1; break; fi
+            echo "Apps Script (${TRY}回目) ok:true なし: $(echo "$RESP" | head -c 160 | tr '\n' ' ') … $(echo "$RESP" | tail -1)"
+            [ "$TRY" -lt 3 ] && sleep 20
+          done
+          [ "$OK" = "1" ] || { echo "⚠️ Apps Scriptが3回とも ok:true を返しませんでした"; exit 1; }
