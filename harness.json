@@ -117,6 +117,23 @@
     "tests-local/run_ui.sh",
     "qa_slip_ui.js"
    ]
+  },
+  "ui_swr": {
+   "cmd": [
+    "/bin/sh",
+    "tests-local/run_isolated.sh",
+    "ui",
+    "qa_sheet_swr.js"
+   ],
+   "pattern": "合格 (\\d+) / 失敗 (\\d+)",
+   "timeout": 400,
+   "full_only": true,
+   "_": "シート読み出しの写し先行・最新で差し替え（stale-while-revalidate）の状態空間18項目（2026-09-22 HPの重さ対策）。GASは速い／遅い／落ちているの3態をモック（CORSヘッダ付き）",
+   "_cmd_before": [
+    "bash",
+    "tests-local/run_ui.sh",
+    "qa_sheet_swr.js"
+   ]
   }
  },
  "note": "ブラウザ層（qa_*.js／monkey）は full のときに回す（夜間の艦隊 full）。quick は純ロジック層のみ。puppeteer-core は tests-local/node_modules（gitignore済み）",

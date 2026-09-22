@@ -117,7 +117,7 @@
 <footer>GAOGAO × SRBC × クオリア ／ 納品書ベースの確定実績データ</footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="assets/orders.js?v=5"></script>
+<script src="assets/orders.js?v=6"></script>
 <script>
 // ===== 納品実績（納品書ベース・data/jisseki.json） =====
 let JIS=null, JMODE='date';
@@ -356,7 +356,7 @@ async function jstLoad(){
   if(JST_DEMO){ JST_ROWS=JST_DEMO_ROWS; }
   else{
     try{
-      const rows=await fetchSheet('店舗実績');
+      const rows=await fetchSheet('店舗実績'); ggStaleBar(rows);
       const head=(rows[0]||[]).map(c=>String(c).trim()); const col=n=>head.indexOf(n);
       JST_ROWS=rows.slice(1).filter(r=>String(r[col('注文番号')]||'').trim()).map(r=>({
         dl:String(r[col('納品日')]||''), store:String(r[col('店舗')]||'').trim()||String(r[col('会社')]||'').trim()||'(店舗なし)',
@@ -513,6 +513,6 @@ jstLoad();
 </script>
 <script src="assets/nav-liquid.js"></script>
 <script src="assets/demo-toggle.js?v=1"></script>
-<script src="assets/i18n.js?v=14"></script>
+<script src="assets/i18n.js?v=15"></script>
 </body>
 </html>
