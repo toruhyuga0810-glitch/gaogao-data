@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-24",
+ "updated": "2026-09-25",
  "source": "freee請求書API（delivery_slips・自動同期）",
  "records": [
   {
@@ -2269,20 +2269,6 @@
    "unit": "kg",
    "unitPrice": 1800,
    "amount": 18000
-  },
-  {
-   "date": "2026-09-26",
-   "no": "DEL-0000000040",
-   "customer": "スパイスロード",
-   "farm": "第3圃場・土浦・ペン",
-   "farmRaw": "第3圃場",
-   "callRaw": "サラネー",
-   "call": "サラネー",
-   "jp": "ミント（タイミント）",
-   "qty": 0.5,
-   "unit": "kg",
-   "unitPrice": 1400,
-   "amount": 700
   }
  ],
  "adjustments": [
@@ -2872,17 +2858,17 @@
    "date": "2026-09-26",
    "no": "DEL-0000000040",
    "label": "送料：140サイズ（20kg）",
-   "qty": 3,
+   "qty": 4,
    "unitPrice": 840,
-   "amount": 2520
+   "amount": 3360
   },
   {
    "date": "2026-09-26",
    "no": "DEL-0000000040",
    "label": "クール料金：140サイズ（20kg）",
-   "qty": 3,
+   "qty": 4,
    "unitPrice": 800,
-   "amount": 2400
+   "amount": 3200
   }
  ]
 }
